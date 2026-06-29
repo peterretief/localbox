@@ -24,14 +24,14 @@
         <form method="POST" action="/login">
 
             <label>Username</label>
-<input type="text" name="username" placeholder="peter" value="{{if .}}{{index . "Username"}}{{end}}" required autofocus>
+<input type="text" name="username" placeholder="peter" value="{{.Username}}" required autofocus>
             <label>Domain</label>
-<input type="text" name="domain" placeholder="opamp.co.za" value="{{if .}}{{index . "Domain"}}{{end}}" required>
+<input type="text" name="domain" placeholder="opamp.co.za" value="{{.Domain}}" required>
             <label>Password</label>
             <input type="password" name="password" required>
             <button type="submit">Sign in</button>
         </form>
-        {{if .}}<p class="error">{{index . "Error"}}</p>{{end}}
+        {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
     </div>
 </body>
 </html>

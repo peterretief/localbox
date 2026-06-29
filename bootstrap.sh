@@ -175,6 +175,7 @@ fi
 # ── 13. Add services to boot ─────────────────────────────────────────────────
 echo ">> Adding services to boot..."
 rc-update add mail-ingest default 2>/dev/null || true
+rc-update add contact-service default 2>/dev/null || true
 rc-update add cloudflared default 2>/dev/null || true
 
 # ── 14. Start services ───────────────────────────────────────────────────────
@@ -191,10 +192,14 @@ sed -i 's/# LBU_MEDIA=usb/LBU_MEDIA=mmcblk0p1/' /etc/lbu/lbu.conf 2>/dev/null ||
 lbu add /etc/apk/repositories
 lbu add /usr/local/bin
 lbu add /etc/init.d/mail-ingest
+lbu add /etc/init.d/contact-service
 lbu add /etc/init.d/cloudflared
+lbu add /etc/nginx/http.d/localbox-sites.conf
 lbu add /etc/localbox
 lbu add /etc/fstab
 lbu add /var/log/mail-ingest.log
+lbu add /var/log/contact-service.log
+lbu add /var/localbox/contact.log
 lbu commit -d
 
 echo ""
