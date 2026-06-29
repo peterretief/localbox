@@ -1,0 +1,8 @@
+# Binary
+mail-ingest
+
+# Sensitive
+settings.conf
+
+# Go
+*.test
