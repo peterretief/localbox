@@ -1,6 +1,7 @@
 # Binary
 mail-ingest
 contact-service
+/contact
 
 # Sensitive
 settings.conf

@@ -1,0 +1,49 @@
+#!/bin/sh
+set -eu
+
+adduser nginx mail 2>/dev/null || true
+
+mkdir -p /etc/nginx/http.d/disabled
+for config in /etc/nginx/http.d/default.conf /etc/nginx/http.d/default_server.conf; do
+    if [ -f "$config" ]; then
+        mv "$config" "/etc/nginx/http.d/disabled/$(basename "$config").disabled"
+    fi
+done
+for config in /etc/nginx/http.d/disabled/*.conf; do
+    if [ -f "$config" ]; then
+        mv "$config" "$config.disabled"
+    fi
+done
+
+cat > /etc/nginx/http.d/localbox-sites.conf << 'NGINX'
+map $host $localbox_domain {
+    default $host;
+    ~^www\.(?<bare>.+)$ $bare;
+}
+
+server {
+    listen 80 default_server;
+    server_name _;
+    root /mnt/data/localbox/domains/$localbox_domain/site;
+    index index.html;
+
+    location = /contact {
+        proxy_pass http://127.0.0.1:8081/contact;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html =404;
+    }
+}
+NGINX
+
+nginx -t
+rc-service nginx restart
+lbu add /etc/nginx/http.d/localbox-sites.conf
+lbu add /etc/group
+lbu commit -d

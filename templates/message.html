@@ -7,6 +7,8 @@
         body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
         .back { color: #00b4d8; margin-bottom: 20px; display: block; }
         .card { background: white; padding: 30px; border-radius: 6px; }
+        .actions { display: flex; gap: 10px; margin-bottom: 18px; }
+        .button { display: inline-block; background: #00b4d8; color: white; padding: 9px 13px; border-radius: 6px; text-decoration: none; }
         .headers { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
         .header { margin: 4px 0; color: #666; font-size: 0.9em; }
         .header span { color: #1a1a2e; font-weight: bold; }
@@ -20,7 +22,10 @@
     </style>
 </head>
 <body>
-    <a class="back" href="/">← Back to inbox</a>
+    <div class="actions">
+        <a class="back" href="{{.BackURL}}">← Back</a>
+        <a class="button" href="{{.ReplyURL}}">Reply</a>
+    </div>
     <div class="card">
         <div class="headers">
             <h2>{{.Subject}}</h2>
@@ -41,4 +46,3 @@
     </div>
 </body>
 </html>
-

@@ -8,6 +8,10 @@ import (
 )
 
 func listMessages(maildir string) ([]*Message, error) {
+	return listMessagesInFolder(maildir, "")
+}
+
+func listMessagesInFolder(maildir, folder string) ([]*Message, error) {
 	var messages []*Message
 	for _, dir := range []string{"new", "cur"} {
 		isNew := dir == "new"
@@ -26,6 +30,12 @@ func listMessages(maildir string) ([]*Message, error) {
 			if err != nil {
 				log.Printf("parse error: %v", err)
 				continue
+			}
+			msg.Folder = folder
+			if folder == "" {
+				msg.Link = "/message?id=" + msg.ID
+			} else {
+				msg.Link = "/message?folder=" + folder + "&id=" + msg.ID
 			}
 			messages = append(messages, msg)
 		}

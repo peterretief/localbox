@@ -53,7 +53,7 @@ func ingestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	maildirBase := filepath.Join(mailBase, domain, user, "Maildir")
+	maildirBase := maildirPath(domain, user)
 	for _, dir := range []string{"new", "cur", "tmp"} {
 		if err := os.MkdirAll(filepath.Join(maildirBase, dir), 0770); err != nil {
 			log.Printf("mkdir error: %v", err)

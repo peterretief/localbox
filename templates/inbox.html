@@ -4,42 +4,104 @@
     <meta charset="UTF-8">
     <title>LocalBox Mail</title>
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        h1 { color: #1a1a2e; }
-        .user { color: #999; font-size: 0.9em; }
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; margin: 0; background: #f5f5f5; color: #1a1a2e; }
+        a { text-decoration: none; color: inherit; }
+        .shell { display: grid; grid-template-columns: 180px minmax(0, 820px); gap: 28px; max-width: 1080px; margin: 40px auto; padding: 0 20px; }
+        .sidebar { padding-top: 82px; }
+        .nav-box { background: white; border: 1px solid #e4e4e4; border-radius: 8px; padding: 8px; margin-bottom: 12px; }
+        .nav-title { color: #777; font-size: 0.75em; font-weight: bold; letter-spacing: 0.04em; margin: 4px 4px 8px; text-transform: uppercase; }
+        .nav-link { display: block; padding: 10px 12px; border-radius: 6px; color: #555; margin-bottom: 6px; }
+        .nav-link:last-child { margin-bottom: 0; }
+        .nav-link.active { background: #1a1a2e; color: white; font-weight: bold; }
+        .main { min-width: 0; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 16px; }
+        h1 { margin: 0; color: #1a1a2e; font-size: 1.8em; }
+        .user { color: #777; font-size: 0.9em; }
         .logout { color: #e63946; font-size: 0.85em; text-decoration: none; }
+        .toolbar { display: flex; gap: 10px; margin-bottom: 16px; }
+        .search { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #d8d8d8; border-radius: 6px; font-size: 1em; }
+        .button { padding: 10px 14px; border: 0; border-radius: 6px; background: #00b4d8; color: white; font-size: 0.95em; cursor: pointer; }
+        .summary { color: #777; font-size: 0.9em; margin-bottom: 12px; }
         .message { background: white; padding: 15px 20px; margin: 8px 0; border-radius: 6px; cursor: pointer; border-left: 4px solid #ccc; }
         .message.new { border-left-color: #00b4d8; font-weight: bold; }
         .message:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .from { color: #333; }
-        .subject { color: #1a1a2e; }
-        .date { color: #999; font-size: 0.85em; float: right; }
-        a { text-decoration: none; color: inherit; }
-        .empty { color: #999; text-align: center; padding: 40px; }
+        .from { color: #333; padding-right: 160px; }
+        .subject { color: #1a1a2e; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .date { color: #777; font-size: 0.85em; float: right; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .empty { color: #777; text-align: center; padding: 40px; background: white; border-radius: 6px; }
+        .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; color: #777; font-size: 0.9em; }
+        .page-link { color: #00a0c0; font-weight: bold; }
+        .page-link.disabled { color: #bbb; pointer-events: none; }
+        @media (max-width: 760px) {
+            .shell { display: block; margin: 24px auto; }
+            .sidebar { display: grid; gap: 10px; padding-top: 0; margin-bottom: 18px; }
+            .nav-box { margin-bottom: 0; }
+            .nav-link { margin-bottom: 0; }
+            .header { align-items: flex-start; flex-direction: column; }
+            .toolbar { flex-direction: column; }
+            .from { padding-right: 0; }
+            .date { float: none; display: block; max-width: none; margin-bottom: 6px; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>📬 LocalBox Mail</h1>
-        <div>
-            <span class="user">{{.User}}@{{.Domain}}</span>
-            &nbsp;·&nbsp;
-            <a class="logout" href="/logout">Sign out</a>
-        </div>
-    </div>
-    {{if .Messages}}
-        {{range .Messages}}
-        <a href="/message?id={{.ID}}">
-            <div class="message {{if .IsNew}}new{{end}}">
-                <span class="date">{{.Date}}</span>
-                <div class="from">{{.From}}</div>
-                <div class="subject">{{.Subject}}</div>
+    <div class="shell">
+        <aside class="sidebar">
+            <div class="nav-box">
+                <div class="nav-title">Mail</div>
+                <a class="nav-link {{if and (not .ShowingNew) (not .ShowingSent)}}active{{end}}" href="{{.AllURL}}">Current</a>
+                <a class="nav-link {{if .ShowingNew}}active{{end}}" href="{{.NewURL}}">New</a>
+                <a class="nav-link" href="/compose">Compose</a>
+                <a class="nav-link {{if .ShowingSent}}active{{end}}" href="{{.SentURL}}">Sent</a>
             </div>
-        </a>
-        {{end}}
-    {{else}}
-        <div class="empty">No messages yet.</div>
-    {{end}}
+            <div class="nav-box">
+                <div class="nav-title">Admin</div>
+                <a class="nav-link" href="/page">Home page</a>
+                <a class="nav-link" href="/admin">Admin</a>
+                <a class="nav-link" href="/system">System</a>
+            </div>
+        </aside>
+
+        <main class="main">
+            <div class="header">
+                <h1>LocalBox Mail</h1>
+                <div>
+                    <span class="user">{{.User}}@{{.Domain}}</span>
+                    &nbsp;·&nbsp;
+                    <a class="logout" href="/password">Change password</a>
+                    &nbsp;·&nbsp;
+                    <a class="logout" href="/logout">Sign out</a>
+                </div>
+            </div>
+
+            <form class="toolbar" method="GET" action="/">
+                {{if .ShowingNew}}<input type="hidden" name="view" value="new">{{end}}
+                <input class="search" type="search" name="q" value="{{.Query}}" placeholder="Search mail">
+                <button class="button" type="submit">Search</button>
+            </form>
+
+            {{if .HasMessages}}
+                <div class="summary">Showing {{.Start}}-{{.End}} of {{.Total}}</div>
+                {{range .Messages}}
+                <a href="{{.Link}}">
+                    <div class="message {{if .IsNew}}new{{end}}">
+                        <span class="date">{{.Date}}</span>
+                        <div class="from">{{.From}}</div>
+                        <div class="subject">{{.Subject}}</div>
+                    </div>
+                </a>
+                {{end}}
+
+                <div class="pagination">
+                    {{if .HasPrev}}<a class="page-link" href="{{.PrevURL}}">Previous</a>{{else}}<span class="page-link disabled">Previous</span>{{end}}
+                    <span>Page {{.Page}} of {{.TotalPages}}</span>
+                    {{if .HasNext}}<a class="page-link" href="{{.NextURL}}">Next</a>{{else}}<span class="page-link disabled">Next</span>{{end}}
+                </div>
+            {{else}}
+                <div class="empty">No messages found.</div>
+            {{end}}
+        </main>
+    </div>
 </body>
 </html>

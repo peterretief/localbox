@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>LocalBox System</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; margin: 0; background: #f5f5f5; color: #1a1a2e; }
+        .shell { max-width: 1120px; margin: 36px auto; padding: 0 20px; }
+        .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 14px; }
+        h1 { margin: 0; font-size: 1.7em; }
+        h2 { margin: 0 0 14px 0; font-size: 1.2em; }
+        a { color: #00a0c0; text-decoration: none; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .panel { background: white; border-radius: 8px; padding: 22px; }
+        form { margin: 0; }
+        .row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+        input { padding: 9px 10px; border: 1px solid #d8d8d8; border-radius: 5px; font-size: 0.95em; min-width: 0; }
+        button { padding: 9px 12px; border: 0; border-radius: 5px; background: #00b4d8; color: white; cursor: pointer; }
+        button.danger { background: #e63946; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { text-align: left; padding: 9px 6px; border-bottom: 1px solid #eee; font-size: 0.92em; vertical-align: top; }
+        th { color: #777; font-weight: normal; }
+        .status { color: #2a9d4b; margin-bottom: 14px; }
+        .error { color: #e63946; margin-bottom: 14px; }
+        .muted { color: #777; font-size: 0.86em; }
+        @media (max-width: 860px) {
+            .grid { grid-template-columns: 1fr; }
+            .top { align-items: flex-start; flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <div class="top">
+            <div>
+                <h1>System Admin</h1>
+                <div class="muted">Domains and admin roles</div>
+            </div>
+            <div><a href="/">Inbox</a> · <a href="/admin">Domain admin</a> · <a href="/logout">Sign out</a></div>
+        </div>
+
+        {{if .Success}}<div class="status">{{.Success}}</div>{{end}}
+        {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+
+        <div class="grid">
+            <section class="panel">
+                <h2>Add Domain</h2>
+                <form method="POST" action="/system">
+                    <input type="hidden" name="action" value="add_domain">
+                    <div class="row">
+                        <input name="domain" placeholder="example.co.za" required>
+                        <button type="submit">Add domain</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel">
+                <h2>Create Domain Admin</h2>
+                <form method="POST" action="/system">
+                    <input type="hidden" name="action" value="create_domain_admin">
+                    <div class="row">
+                        <input name="username" placeholder="peter" required>
+                        <input name="domain" placeholder="opamp.co.za" required>
+                    </div>
+                    <div class="row">
+                        <input name="password" type="password" placeholder="temporary password" required minlength="8">
+                        <button type="submit">Create admin</button>
+                    </div>
+                    <p class="muted">Creates the mailbox if needed, then grants domain admin access.</p>
+                </form>
+                <form method="POST" action="/system" style="margin-top:14px;">
+                    <input type="hidden" name="action" value="add_domain_admin">
+                    <div class="row">
+                        <input name="username" placeholder="existing user" required>
+                        <input name="domain" placeholder="opamp.co.za" required>
+                        <button type="submit">Grant existing</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+
+        <section class="panel" style="margin-top:18px;">
+            <h2>Domains</h2>
+            <table>
+                <thead><tr><th>Domain</th><th>Mailboxes</th><th>Site path</th><th></th></tr></thead>
+                <tbody>
+                {{range .Domains}}
+                <tr>
+                    <td>{{.Name}}</td>
+                    <td>{{.UserCount}}</td>
+                    <td class="muted">{{.SitePath}}</td>
+                    <td>
+                        <form method="POST" action="/system">
+                            <input type="hidden" name="action" value="archive_domain">
+                            <input type="hidden" name="domain" value="{{.Name}}">
+                            <button class="danger" type="submit">Archive</button>
+                        </form>
+                    </td>
+                </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </section>
+
+        <div class="grid" style="margin-top:18px;">
+            <section class="panel">
+                <h2>Domain Admins</h2>
+                <table>
+                    <thead><tr><th>User</th><th>Domain</th><th></th></tr></thead>
+                    <tbody>
+                    {{range .DomainAdmins}}
+                    <tr>
+                        <td>{{.User}}</td>
+                        <td>{{.Domain}}</td>
+                        <td>
+                            <form method="POST" action="/system">
+                                <input type="hidden" name="action" value="remove_domain_admin">
+                                <input type="hidden" name="username" value="{{.User}}">
+                                <input type="hidden" name="domain" value="{{.Domain}}">
+                                <button class="danger" type="submit">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="panel">
+                <h2>Box Admins</h2>
+                <form method="POST" action="/system">
+                    <input type="hidden" name="action" value="add_box_admin">
+                    <div class="row">
+                        <input name="username" placeholder="peter" required>
+                        <input name="domain" placeholder="opamp.co.za" required>
+                        <button type="submit">Add box admin</button>
+                    </div>
+                </form>
+                <table>
+                    <thead><tr><th>User</th><th>Domain</th><th></th></tr></thead>
+                    <tbody>
+                    {{range .BoxAdmins}}
+                    <tr>
+                        <td>{{.User}}</td>
+                        <td>{{.Domain}}</td>
+                        <td>
+                            <form method="POST" action="/system">
+                                <input type="hidden" name="action" value="remove_box_admin">
+                                <input type="hidden" name="username" value="{{.User}}">
+                                <input type="hidden" name="domain" value="{{.Domain}}">
+                                <button class="danger" type="submit">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </div>
+</body>
+</html>

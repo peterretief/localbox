@@ -29,7 +29,7 @@ func attachmentHandler(w http.ResponseWriter, r *http.Request) {
 
 	filename = filepath.Base(filename)
 	messageID = filepath.Base(messageID)
-	path := filepath.Join(dataBase, s.Domain, s.User, "attachments", messageID, filename)
+	path := filepath.Join(messageAttachmentDir(s.Domain, s.User, messageID), filename)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		http.Error(w, "Attachment not found", http.StatusNotFound)
 		return
@@ -69,7 +69,7 @@ func saveAttachments(domain, user, messageID string, r io.Reader, contentType st
 		}
 		filename = filepath.Base(filename)
 
-		attDir := filepath.Join(dataBase, domain, user, "attachments", messageID)
+		attDir := messageAttachmentDir(domain, user, messageID)
 		if err := os.MkdirAll(attDir, 0770); err != nil {
 			return err
 		}

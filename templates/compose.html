@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Compose Mail</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; margin: 0; background: #f5f5f5; color: #1a1a2e; }
+        a { text-decoration: none; color: inherit; }
+        .shell { display: grid; grid-template-columns: 180px minmax(0, 820px); gap: 28px; max-width: 1080px; margin: 40px auto; padding: 0 20px; }
+        .sidebar { padding-top: 82px; }
+        .nav-box { background: white; border: 1px solid #e4e4e4; border-radius: 8px; padding: 8px; margin-bottom: 12px; }
+        .nav-title { color: #777; font-size: 0.75em; font-weight: bold; letter-spacing: 0.04em; margin: 4px 4px 8px; text-transform: uppercase; }
+        .nav-link { display: block; padding: 10px 12px; border-radius: 6px; color: #555; margin-bottom: 6px; }
+        .nav-link:last-child { margin-bottom: 0; }
+        .nav-link.active { background: #1a1a2e; color: white; font-weight: bold; }
+        .main { min-width: 0; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 16px; }
+        h1 { margin: 0; color: #1a1a2e; font-size: 1.8em; }
+        .user { color: #777; font-size: 0.9em; }
+        .logout { color: #e63946; font-size: 0.85em; text-decoration: none; }
+        .card { background: white; border-radius: 8px; padding: 24px; }
+        label { display: block; color: #555; font-size: 0.85em; margin: 16px 0 5px; }
+        input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #d8d8d8; border-radius: 6px; font: 1em sans-serif; }
+        input[type="file"] { padding: 9px; background: #fafafa; }
+        textarea { min-height: 280px; resize: vertical; line-height: 1.5; }
+        .actions { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+        .button { padding: 10px 14px; border: 0; border-radius: 6px; background: #00b4d8; color: white; font-size: 0.95em; cursor: pointer; }
+        .status { color: #2a9d4b; }
+        .error { color: #e63946; }
+        @media (max-width: 760px) {
+            .shell { display: block; margin: 24px auto; }
+            .sidebar { display: grid; gap: 10px; padding-top: 0; margin-bottom: 18px; }
+            .nav-box { margin-bottom: 0; }
+            .nav-link { margin-bottom: 0; }
+            .header { align-items: flex-start; flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <aside class="sidebar">
+            <div class="nav-box">
+                <div class="nav-title">Mail</div>
+                <a class="nav-link" href="/">Current</a>
+                <a class="nav-link active" href="/compose">Compose</a>
+                <a class="nav-link" href="/?view=sent">Sent</a>
+            </div>
+            <div class="nav-box">
+                <div class="nav-title">Admin</div>
+                <a class="nav-link" href="/page">Home page</a>
+                <a class="nav-link" href="/admin">Admin</a>
+                <a class="nav-link" href="/system">System</a>
+            </div>
+        </aside>
+
+        <main class="main">
+            <div class="header">
+                <h1>Compose Mail</h1>
+                <div>
+                    <span class="user">{{.User}}@{{.Domain}}</span>
+                    &nbsp;·&nbsp;
+                    <a class="logout" href="/logout">Sign out</a>
+                </div>
+            </div>
+
+            <form class="card" method="POST" action="/compose" enctype="multipart/form-data">
+                <label for="to">To</label>
+                <input id="to" type="email" name="to" value="{{.To}}" required>
+                <label for="subject">Subject</label>
+                <input id="subject" type="text" name="subject" value="{{.Subject}}">
+                <label for="body">Message</label>
+                <textarea id="body" name="body" required>{{.Body}}</textarea>
+                <label for="attachment">Attachment</label>
+                <input id="attachment" type="file" name="attachment">
+                <div class="actions">
+                    <button class="button" type="submit">Send</button>
+                    {{if .Success}}<span class="status">{{.Success}}</span>{{end}}
+                    {{if .Error}}<span class="error">{{.Error}}</span>{{end}}
+                </div>
+            </form>
+        </main>
+    </div>
+</body>
+</html>

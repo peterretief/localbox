@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"mime/quotedprintable"
 	"net/mail"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -128,6 +129,7 @@ func parseMessage(path string, isNew bool) (*Message, error) {
 		Subject: m.Header.Get("Subject"),
 		Date:    m.Header.Get("Date"),
 	}
+	msg.ReplyURL = replyURL(m.Header)
 
 	body, attachments, err := parseBody(
 		m.Header.Get("Content-Type"),
@@ -142,4 +144,35 @@ func parseMessage(path string, isNew bool) (*Message, error) {
 	}
 
 	return msg, nil
+}
+
+func replyURL(header mail.Header) string {
+	to := strings.TrimSpace(header.Get("Reply-To"))
+	if to == "" {
+		to = strings.TrimSpace(header.Get("From"))
+	}
+	return composeURL(to, header.Get("Subject"))
+}
+
+func composeURL(to, subject string) string {
+	if parsed, err := mail.ParseAddress(to); err == nil {
+		to = parsed.Address
+	}
+
+	subject = strings.TrimSpace(subject)
+	if subject != "" && !strings.HasPrefix(strings.ToLower(subject), "re:") {
+		subject = "Re: " + subject
+	}
+
+	values := url.Values{}
+	if to != "" {
+		values.Set("to", to)
+	}
+	if subject != "" {
+		values.Set("subject", subject)
+	}
+	if encoded := values.Encode(); encoded != "" {
+		return "/compose?" + encoded
+	}
+	return "/compose"
 }

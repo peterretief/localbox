@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>LocalBox Admin</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; margin: 0; background: #f5f5f5; color: #1a1a2e; }
+        .shell { max-width: 1040px; margin: 36px auto; padding: 0 20px; }
+        .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 14px; }
+        h1 { margin: 0; font-size: 1.7em; }
+        h2 { margin: 0 0 14px 0; font-size: 1.2em; }
+        a { color: #00a0c0; text-decoration: none; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .panel { background: white; border-radius: 8px; padding: 22px; }
+        .domain { color: #777; margin-top: 4px; }
+        form { margin: 0; }
+        .row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+        input { padding: 9px 10px; border: 1px solid #d8d8d8; border-radius: 5px; font-size: 0.95em; min-width: 0; }
+        button { padding: 9px 12px; border: 0; border-radius: 5px; background: #00b4d8; color: white; cursor: pointer; }
+        button.danger { background: #e63946; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { text-align: left; padding: 9px 6px; border-bottom: 1px solid #eee; font-size: 0.92em; vertical-align: top; }
+        th { color: #777; font-weight: normal; }
+        .status { color: #2a9d4b; margin-bottom: 14px; }
+        .error { color: #e63946; margin-bottom: 14px; }
+        .muted { color: #777; font-size: 0.86em; }
+        @media (max-width: 820px) {
+            .grid { grid-template-columns: 1fr; }
+            .top { align-items: flex-start; flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <div class="top">
+            <div>
+                <h1>Domain Admin</h1>
+                <div class="domain">{{.Domain.Name}}</div>
+            </div>
+            <div><a href="/">Inbox</a> · <a href="/page">Home page</a> · <a href="/system">System</a> · <a href="/logout">Sign out</a></div>
+        </div>
+
+        {{if .Success}}<div class="status">{{.Success}}</div>{{end}}
+        {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+
+        <div class="grid">
+            <section class="panel">
+                <h2>Website</h2>
+                <p class="muted">{{.Domain.SitePath}}</p>
+                <p><a href="/page">Edit homepage and images</a></p>
+            </section>
+
+            <section class="panel">
+                <h2>Add Mailbox</h2>
+                <form method="POST" action="/admin">
+                    <input type="hidden" name="action" value="add_mailbox">
+                    <div class="row">
+                        <input name="username" placeholder="info" required>
+                        <span>@{{.Domain.Name}}</span>
+                    </div>
+                    <div class="row">
+                        <input name="password" type="password" placeholder="temporary password" required minlength="8">
+                        <button type="submit">Add mailbox</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+
+        <section class="panel" style="margin-top:18px;">
+            <h2>Mailboxes</h2>
+            <table>
+                <thead><tr><th>Email address</th><th>Reset password</th><th></th></tr></thead>
+                <tbody>
+                {{range .Users}}
+                <tr>
+                    <td>{{.Username}}@{{.Domain}}</td>
+                    <td>
+                        <form method="POST" action="/admin" class="row">
+                            <input type="hidden" name="action" value="reset_password">
+                            <input type="hidden" name="username" value="{{.Username}}">
+                            <input name="password" type="password" placeholder="new password" required minlength="8">
+                            <button type="submit">Reset</button>
+                        </form>
+                    </td>
+                    <td>
+                        <form method="POST" action="/admin">
+                            <input type="hidden" name="action" value="archive_mailbox">
+                            <input type="hidden" name="username" value="{{.Username}}">
+                            <button class="danger" type="submit">Archive</button>
+                        </form>
+                    </td>
+                </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </section>
+    </div>
+</body>
+</html>

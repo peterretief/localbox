@@ -1,0 +1,20 @@
+# LocalBox provisioning template
+#
+# Copy this file, edit it, then run:
+#   localbox-provision-template /path/to/template.conf
+#
+# Domain lines:
+#   domain=<domain>
+#
+# Mailbox lines:
+#   mailbox=<email>:<password>
+#
+# Admin role lines:
+#   admin=<email>
+#   box_admin=<email>
+
+domain=example.com
+mailbox=info@example.com:ChangeMe123!
+mailbox=peter@example.com:ChangeMe123!
+admin=peter@example.com
+box_admin=peter@example.com
