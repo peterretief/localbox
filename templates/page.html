@@ -22,6 +22,7 @@
         .error { color: #e63946; }
         .images { margin-top: 28px; background: white; border-radius: 8px; padding: 22px; }
         .images h2 { margin: 0 0 14px 0; font-size: 1.2em; }
+        .help { color: #666; font-size: 0.92em; margin: -4px 0 16px; max-width: 780px; }
         .upload { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
         .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
         .image-card { border: 1px solid #e5e5e5; border-radius: 6px; padding: 10px; min-width: 0; }
@@ -70,7 +71,8 @@
         </form>
 
         <section class="images">
-            <h2>HTML Homepage</h2>
+            <h2>HTML Pages</h2>
+            <p class="help">Upload <strong>index.html</strong> to publish the homepage. Upload other safe page names, such as <strong>software.html</strong>, to make them available beside the homepage.</p>
             <form class="upload" method="POST" action="/page/html" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="upload_html">
                 <input type="file" name="html" accept="text/html,.html,.htm" required>
@@ -103,17 +105,21 @@
                     {{range .HTMLFiles}}
                     <tr>
                         <td class="file-name">{{.Name}}</td>
-                        <td>{{if .Active}}<span class="badge">Active</span>{{else if .Uploaded}}Uploaded HTML{{else}}Backup{{end}}</td>
+                        <td>{{if .Active}}<span class="badge">Active homepage</span>{{else if .Homepage}}Saved homepage{{else}}Site page{{end}}</td>
                         <td>{{.Modified}}</td>
                         <td>{{.DisplaySize}}</td>
                         <td>
                             <div class="file-actions">
-                                {{if not .Active}}
+                                {{if and (not .Active) .Homepage}}
                                 <form method="POST" action="/page/html">
                                     <input type="hidden" name="action" value="restore_html">
                                     <input type="hidden" name="name" value="{{.Name}}">
-                                    <button type="submit">Restore</button>
+                                    <button type="submit">Publish home</button>
                                 </form>
+                                {{else if not .Active}}
+                                <a href="/{{.Name}}" target="_blank" rel="noopener">Open</a>
+                                {{end}}
+                                {{if not .Active}}
                                 <form method="POST" action="/page/html">
                                     <input type="hidden" name="action" value="delete_html">
                                     <input type="hidden" name="name" value="{{.Name}}">

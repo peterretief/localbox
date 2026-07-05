@@ -52,9 +52,22 @@ cat scripts/provision-template.sh | ssh $PI_USER@$PI_HOST \
     'mkdir -p /usr/local/sbin && \
      cat > /usr/local/sbin/localbox-provision-template && \
      chmod +x /usr/local/sbin/localbox-provision-template'
+cat scripts/add-cloudflare-tunnel-route.sh | ssh $PI_USER@$PI_HOST \
+    'mkdir -p /usr/local/sbin && \
+     cat > /usr/local/sbin/localbox-add-tunnel-route && \
+     chmod +x /usr/local/sbin/localbox-add-tunnel-route'
 cat localbox-template.conf.example | ssh $PI_USER@$PI_HOST \
     'mkdir -p /etc/localbox/examples && \
      cat > /etc/localbox/examples/localbox-template.conf.example'
+cat domainscoza.conf.example | ssh $PI_USER@$PI_HOST \
+    'mkdir -p /etc/localbox/examples && \
+     cat > /etc/localbox/examples/domainscoza.conf.example'
+cat cloudflare.conf.example | ssh $PI_USER@$PI_HOST \
+    'mkdir -p /etc/localbox/examples && \
+     cat > /etc/localbox/examples/cloudflare.conf.example'
+cat cloudflare-tunnel.conf.example | ssh $PI_USER@$PI_HOST \
+    'mkdir -p /etc/localbox/examples && \
+     cat > /etc/localbox/examples/cloudflare-tunnel.conf.example'
 echo "   Optional admin tools deployed"
 
 # ── Deploy contact service ───────────────────────────────────────────────────
@@ -205,6 +218,24 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    location = /api/domain/check {
+        proxy_pass http://127.0.0.1:8081/api/domain/check;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /api/domain/search {
+        proxy_pass http://127.0.0.1:8081/api/domain/search;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location / {
         try_files $uri $uri/ /index.html =404;
     }
@@ -234,6 +265,7 @@ ssh $PI_USER@$PI_HOST \
      lbu add /usr/local/sbin/localbox-enable-tailscale-persistence && \
      lbu add /usr/local/sbin/localbox-create-backup && \
      lbu add /usr/local/sbin/localbox-provision-template && \
+     lbu add /usr/local/sbin/localbox-add-tunnel-route && \
      lbu add /etc/localbox/examples && \
 	 lbu add /etc/init.d/contact-service && \
 	 lbu add /etc/group && \
@@ -243,6 +275,9 @@ ssh $PI_USER@$PI_HOST \
      lbu add /etc/localbox/admins.conf && \
      lbu add /etc/localbox/box-admins.conf && \
      [ ! -f /etc/localbox/smtp.conf ] || lbu add /etc/localbox/smtp.conf && \
+     [ ! -f /etc/localbox/domainscoza.conf ] || lbu add /etc/localbox/domainscoza.conf && \
+     [ ! -f /etc/localbox/cloudflare.conf ] || lbu add /etc/localbox/cloudflare.conf && \
+     [ ! -f /etc/localbox/cloudflare-tunnel.conf ] || lbu add /etc/localbox/cloudflare-tunnel.conf && \
      lbu add /var/log/contact-service.log && \
      lbu add /var/localbox/contact.log && \
      lbu add /var/localbox/send.log && \

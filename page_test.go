@@ -28,6 +28,8 @@ func TestAllowedUploadedHTMLName(t *testing.T) {
 	allowed := []string{
 		"index.html",
 		"index-20260701T103012Z.html",
+		"software.html",
+		"about-us.html",
 	}
 	for _, name := range allowed {
 		if !allowedUploadedHTMLName(name) {
@@ -36,15 +38,60 @@ func TestAllowedUploadedHTMLName(t *testing.T) {
 	}
 
 	rejected := []string{
-		"home.html",
 		"index.htm",
 		"../index.html",
-		"index-20260701.html",
+		"Software Page.html",
+		"software.php",
 	}
 	for _, name := range rejected {
 		if allowedUploadedHTMLName(name) {
 			t.Fatalf("expected %q to be rejected", name)
 		}
+	}
+}
+
+func TestSaveUploadedSiteHTMLStoresAdditionalPageWithoutPublishingHome(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := "example.com"
+	site := domainSiteBase(domain)
+	if err := os.MkdirAll(site, 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte("active home"), 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	name, publishedHome, err := saveUploadedSiteHTML(domain, "software.html", []byte("software page"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "software.html" {
+		t.Fatalf("expected software.html, got %q", name)
+	}
+	if publishedHome {
+		t.Fatal("software.html should not publish the homepage")
+	}
+
+	active, err := os.ReadFile(filepath.Join(site, "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(active) != "active home" {
+		t.Fatalf("expected active homepage to stay unchanged, got %q", string(active))
+	}
+
+	page, err := os.ReadFile(filepath.Join(site, "software.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(page) != "software page" {
+		t.Fatalf("expected uploaded page content, got %q", string(page))
+	}
+	if !isUploadedHTML(domain, "software.html") {
+		t.Fatal("expected software.html to be recorded as uploaded")
 	}
 }
 
@@ -85,5 +132,50 @@ func TestRestoreLatestSiteHTMLBackupPrefersUploadedHTML(t *testing.T) {
 	}
 	if string(data) != "uploaded html" {
 		t.Fatalf("expected uploaded html active file, got %q", string(data))
+	}
+}
+
+func TestSaveUploadedHomeHTMLStoresVersionAndPublishesActiveCopy(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := "example.com"
+	site := domainSiteBase(domain)
+	if err := os.MkdirAll(site, 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte("old active"), 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	name, err := saveUploadedHomeHTML(domain, []byte("new uploaded html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name == "" || name == "index.html" {
+		t.Fatalf("expected timestamped upload name, got %q", name)
+	}
+
+	active, err := os.ReadFile(filepath.Join(site, "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(active) != "new uploaded html" {
+		t.Fatalf("expected active index to contain uploaded html, got %q", string(active))
+	}
+
+	stored, err := os.ReadFile(filepath.Join(site, name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(stored) != "new uploaded html" {
+		t.Fatalf("expected saved upload to contain uploaded html, got %q", string(stored))
+	}
+	if !isUploadedHTML(domain, name) {
+		t.Fatalf("expected %s to be marked as uploaded html", name)
+	}
+	if loadSiteMode(domain) != "html" {
+		t.Fatalf("expected html mode after upload")
 	}
 }

@@ -1,0 +1,5 @@
+# /etc/localbox/cloudflare-tunnel.conf
+#
+# Tunnel name or ID used by:
+#   localbox-add-tunnel-route example.com
+tunnel=your-tunnel-name-or-id

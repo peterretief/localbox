@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalBox Mail</title>
+    <style>
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #20242a;
+            background: #f7f8f5;
+            line-height: 1.55;
+        }
+        a { color: inherit; }
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: rgba(255,255,255,0.96);
+            border-bottom: 1px solid #dfe3dc;
+        }
+        .nav {
+            max-width: 1160px;
+            margin: 0 auto;
+            min-height: 64px;
+            padding: 0 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+        .mark {
+            width: 32px;
+            height: 32px;
+            border-radius: 7px;
+            background: #24352f;
+            color: #ffffff;
+            display: grid;
+            place-items: center;
+            font-weight: 800;
+        }
+        .links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            color: #43504a;
+            font-size: 14px;
+        }
+        .links a { text-decoration: none; }
+        .links a:hover { color: #1e6f5c; }
+        .hero {
+            min-height: 78vh;
+            display: grid;
+            align-items: end;
+            background:
+                linear-gradient(90deg, rgba(23,34,30,0.94), rgba(23,34,30,0.78) 44%, rgba(23,34,30,0.2)),
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='980' viewBox='0 0 1600 980'%3E%3Crect width='1600' height='980' fill='%23d7ddd4'/%3E%3Crect x='910' y='220' width='310' height='470' rx='16' fill='%232a3b35'/%3E%3Crect x='945' y='262' width='240' height='26' rx='6' fill='%2389a69a'/%3E%3Crect x='945' y='315' width='240' height='26' rx='6' fill='%235d756c'/%3E%3Crect x='945' y='368' width='240' height='26' rx='6' fill='%2389a69a'/%3E%3Ccircle cx='1165' cy='635' r='22' fill='%23d8a657'/%3E%3Crect x='600' y='545' width='450' height='150' rx='18' fill='%23ffffff' opacity='.92'/%3E%3Crect x='640' y='585' width='250' height='18' rx='5' fill='%235f7069'/%3E%3Crect x='640' y='625' width='350' height='18' rx='5' fill='%239aa7a0'/%3E%3Crect x='210' y='710' width='1180' height='46' fill='%23637167'/%3E%3Crect x='330' y='150' width='430' height='300' rx='22' fill='%23f6f4ee' opacity='.82'/%3E%3Crect x='370' y='205' width='270' height='22' rx='5' fill='%232a3b35'/%3E%3Crect x='370' y='260' width='320' height='16' rx='5' fill='%2377837d'/%3E%3Crect x='370' y='298' width='290' height='16' rx='5' fill='%2377837d'/%3E%3Crect x='370' y='350' width='150' height='42' rx='8' fill='%23c77b45'/%3E%3C/svg%3E") center / cover;
+            color: #ffffff;
+        }
+        .hero-inner {
+            width: 100%;
+            max-width: 1160px;
+            margin: 0 auto;
+            padding: 88px 22px 70px;
+        }
+        .hero h1 {
+            max-width: 760px;
+            margin: 0;
+            font-size: 58px;
+            line-height: 1.03;
+            letter-spacing: 0;
+        }
+        .hero p {
+            max-width: 650px;
+            margin: 22px 0 0;
+            font-size: 19px;
+            color: #e3e9e2;
+        }
+        .hero-note {
+            display: inline-block;
+            margin-top: 18px !important;
+            padding: 7px 10px;
+            border: 1px solid rgba(255,255,255,0.34);
+            border-radius: 7px;
+            color: #d7e2db !important;
+            font-size: 14px !important;
+            background: rgba(255,255,255,0.08);
+        }
+        .actions {
+            margin-top: 32px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 0 18px;
+            border-radius: 7px;
+            border: 1px solid transparent;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .button.primary { background: #d98c50; color: #191b18; }
+        .button.secondary { border-color: #f1f4ed; color: #ffffff; }
+        section {
+            padding: 72px 22px;
+        }
+        .wrap {
+            max-width: 1160px;
+            margin: 0 auto;
+        }
+        .section-head {
+            max-width: 760px;
+            margin-bottom: 28px;
+        }
+        h2 {
+            margin: 0 0 12px;
+            font-size: 34px;
+            line-height: 1.15;
+            letter-spacing: 0;
+            color: #22312c;
+        }
+        .section-head p {
+            margin: 0;
+            color: #5f6863;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 18px;
+        }
+        .offer {
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+            gap: 18px;
+            align-items: stretch;
+            margin-top: 18px;
+        }
+        .panel {
+            background: #ffffff;
+            border: 1px solid #dfe3dc;
+            border-radius: 8px;
+            padding: 22px;
+        }
+        .panel h3 {
+            margin: 0 0 8px;
+            color: #22312c;
+            font-size: 20px;
+        }
+        .panel p, .panel li {
+            color: #5d6660;
+            font-size: 15px;
+        }
+        .price-box {
+            background: #24352f;
+            color: #ffffff;
+            border-color: #24352f;
+        }
+        .price-box h3, .price-box p, .price-box li { color: #ffffff; }
+        .price {
+            margin: 12px 0;
+            font-size: 28px;
+            font-weight: 800;
+            color: #f1b06f;
+        }
+        .price-note {
+            color: #d7e2db !important;
+            font-size: 13px !important;
+        }
+        .product-line {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+        }
+        ul {
+            margin: 12px 0 0;
+            padding-left: 18px;
+        }
+        .band {
+            background: #eef1ea;
+        }
+        .flow {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .step {
+            padding: 20px;
+            background: #ffffff;
+            border: 1px solid #dfe3dc;
+            border-radius: 8px;
+        }
+        .step strong {
+            display: block;
+            color: #1e6f5c;
+            margin-bottom: 8px;
+        }
+        .forms {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            align-items: start;
+        }
+        form {
+            display: grid;
+            gap: 12px;
+        }
+        .wide { grid-column: 1 / -1; }
+        label {
+            display: grid;
+            gap: 5px;
+            color: #35413c;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        input, select, textarea {
+            width: 100%;
+            min-height: 42px;
+            padding: 10px 12px;
+            border: 1px solid #cbd1ca;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #20242a;
+            font: inherit;
+            font-size: 15px;
+        }
+        textarea {
+            min-height: 116px;
+            resize: vertical;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: 2px solid #96cbbb;
+            border-color: #1e6f5c;
+        }
+        button {
+            min-height: 44px;
+            border: 0;
+            border-radius: 7px;
+            background: #24352f;
+            color: #ffffff;
+            font-weight: 800;
+            cursor: pointer;
+            font-size: 15px;
+        }
+        button:hover { background: #1e6f5c; }
+        .fine {
+            color: #68716b;
+            font-size: 13px;
+            margin: 0;
+        }
+        .domain-check {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 150px auto;
+            gap: 10px;
+            align-items: end;
+        }
+        .result {
+            margin-top: 14px;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #dfe3dc;
+            background: #f7f8f5;
+            color: #35413c;
+            display: none;
+        }
+        .result.available { border-color: #87bca7; background: #eef8f2; }
+        .result.unavailable { border-color: #d9a49b; background: #fff3f1; }
+        .price-line { font-weight: 800; color: #22312c; margin-top: 6px; }
+        .result-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 14px;
+        }
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 11px 12px;
+            border: 1px solid #dfe3dc;
+            border-radius: 7px;
+            background: #ffffff;
+        }
+        .result-row strong { color: #22312c; }
+        .result-row span { color: #5d6660; }
+        footer {
+            padding: 28px 22px;
+            border-top: 1px solid #dfe3dc;
+            color: #68716b;
+            background: #ffffff;
+        }
+        .footer-inner {
+            max-width: 1160px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 860px) {
+            .hero { min-height: 70vh; }
+            .hero h1 { font-size: 40px; }
+            .grid, .flow, .forms, .domain-check, .offer, .product-line { grid-template-columns: 1fr; }
+            .links { display: none; }
+            section { padding: 52px 18px; }
+            .hero-inner { padding: 78px 18px 54px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="nav" aria-label="Main navigation">
+            <a class="brand" href="#top" aria-label="LocalBox Mail home">
+                <span class="mark">LB</span>
+                <span>LocalBox Mail</span>
+            </a>
+            <div class="links">
+                <a href="#starter">Starter</a>
+                <a href="#check">Domain check</a>
+                <a href="#how">How it works</a>
+                <a href="#later">Add later</a>
+                <a href="/software.html">Software</a>
+                <a href="/terms.html">Terms</a>
+                <a href="#contact">Contact</a>
+            </div>
+        </nav>
+    </header>
+
+    <main id="top">
+        <section class="hero">
+            <div class="hero-inner">
+                <h1>your domain name, website and email address on a raspberry pi</h1>
+                <p>From R200 setup, then R60/month or R600/year. LocalBox Starter gives you a domain, one email address, an editable website, and a contact form. The final price depends on the domain you choose and is confirmed before payment.</p>
+                <p class="hero-note">This site is served from a Raspberry Pi 3 running LocalBox.</p>
+                <div class="actions">
+                    <a class="button primary" href="#check">Check a domain</a>
+                    <a class="button secondary" href="#starter">Request starter setup</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="starter">
+            <div class="wrap">
+                <div class="section-head">
+                    <h2>LocalBox Starter</h2>
+                    <p>One clear bundle for artists, writers, families, clubs, projects, and small businesses. You get a domain, one email address, and a starter website hosted on LocalBox Raspberry Pi infrastructure.</p>
+                </div>
+                <div class="offer">
+                    <article class="panel">
+                        <h3>What you get</h3>
+                        <ul>
+                            <li>A domain registered for you, or an existing domain connected</li>
+                            <li>One email address on that domain, for example hello@yourname.co.za</li>
+                            <li>A starter website with a homepage and contact form</li>
+                            <li>A page editor so the website text can be changed later</li>
+                            <li>Hosting on a LocalBox Raspberry Pi server</li>
+                            <li>Site and mail data stored on mounted removable storage</li>
+                        </ul>
+                    </article>
+                    <article class="panel price-box">
+                        <h3>Starter bundle</h3>
+                        <div class="price">R200 setup + R60/month</div>
+                        <p>Or R600/year. Includes a starter domain option, one email address, Raspberry Pi hosting, a default editable website, and a contact form. More expensive domains or custom work change the final price, which is confirmed before payment.</p>
+                        <p class="price-note">International customers welcome. Payments are processed in ZAR and converted by your bank or payment provider.</p>
+                        <p class="price-note">Payment confirms your order. Domain registration and setup are completed after review, normally within 24 hours.</p>
+                        <p class="price-note">No domain is registered and no payment is taken from the contact form.</p>
+                    </article>
+                </div>
+                <div class="grid">
+                    <article class="panel">
+                        <h3>Raspberry Pi host</h3>
+                        <p>The difference is the host: LocalBox is built around small Raspberry Pi servers instead of a complex hosting panel.</p>
+                        <ul>
+                            <li>Start on a hosted LocalBox Pi</li>
+                            <li>Move to your own Pi later</li>
+                            <li>Low power use and easy 5 volt data UPS integration</li>
+                            <li>Simple, understandable hosting</li>
+                        </ul>
+                    </article>
+                    <article class="panel">
+                        <h3>Domain</h3>
+                        <p>Register a new domain or connect a domain you already own.</p>
+                        <ul>
+                            <li>Domains.co.za for South African domains</li>
+                            <li>Cloudflare DNS setup where useful</li>
+                            <li>Basic DNS handled for you</li>
+                        </ul>
+                    </article>
+                    <article class="panel">
+                        <h3>Email</h3>
+                        <p>Start with a personal, project, or business email address on your own domain.</p>
+                        <ul>
+                            <li>One mailbox included</li>
+                            <li>LocalBox web inbox</li>
+                            <li>Contact form messages delivered to the owner</li>
+                        </ul>
+                    </article>
+                    <article class="panel">
+                        <h3>Starter web page</h3>
+                        <p>A simple web page that gives people your basic information and a way to contact you.</p>
+                        <ul>
+                            <li>Starter homepage</li>
+                            <li>Contact form</li>
+                            <li>Easy updates later</li>
+                        </ul>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="check" class="band">
+            <div class="wrap">
+                <div class="section-head">
+                    <h2>Check a domain</h2>
+                    <p>Start by checking whether the domain you want is available. This shows the domain cost; the final starter bundle is confirmed before payment.</p>
+                </div>
+
+                <article class="panel" style="margin-bottom:18px;">
+                    <h3>Search global domains</h3>
+                    <form id="domain-search-form" class="domain-check">
+                        <label>Name
+                            <input id="domain-search-name" type="text" placeholder="example" autocomplete="off" required>
+                        </label>
+                        <button type="submit">Search .com .net .org .info</button>
+                    </form>
+                    <div id="domain-search-result" class="result" role="status"></div>
+                    <p class="fine" style="margin-top:12px;">Global domain search uses Cloudflare where configured. Prices shown here are domain costs, not the full starter bundle.</p>
+                </article>
+
+                <article class="panel" style="margin-bottom:18px;">
+                    <h3>Check South African domain costs</h3>
+                    <form id="domain-check-form" class="domain-check">
+                        <label>Domain name
+                            <input id="domain-check-name" type="text" placeholder="example" autocomplete="off" required>
+                        </label>
+                        <label>Extension
+                            <select id="domain-check-tld">
+                                <option value="co.za">.co.za</option>
+                                <option value="org.za">.org.za</option>
+                                <option value="net.za">.net.za</option>
+                                <option value="web.za">.web.za</option>
+                                <option value="com">.com</option>
+                                <option value="net">.net</option>
+                                <option value="org">.org</option>
+                                <option value="info">.info</option>
+                            </select>
+                        </label>
+                        <button type="submit">Check</button>
+                    </form>
+                    <div id="domain-check-result" class="result" role="status"></div>
+                    <p class="fine" style="margin-top:12px;">Prices shown here are domain costs. Registration only happens after the full starter price is confirmed and paid.</p>
+                </article>
+            </div>
+        </section>
+
+        <section id="how">
+            <div class="wrap">
+                <div class="section-head">
+                    <h2>How it works</h2>
+                    <p>We keep the first setup small and understandable. More options can be added later.</p>
+                </div>
+                <div class="flow">
+                    <div class="step">
+                        <strong>1. Choose a domain</strong>
+                        Check a new domain or tell us about the domain you already own.
+                    </div>
+                    <div class="step">
+                        <strong>2. Confirm setup</strong>
+                        We confirm the full price: domain, email address, starter website, and hosting.
+                    </div>
+                    <div class="step">
+                        <strong>3. We configure it</strong>
+                        Domain, DNS, email, starter page, and contact form are set up on a LocalBox Raspberry Pi host.
+                    </div>
+                    <div class="step">
+                        <strong>4. You get access</strong>
+                        You receive your email login and a way to edit or replace the starter website.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="requests" class="band">
+            <div class="wrap">
+                <div class="section-head">
+                    <h2>Request starter setup</h2>
+                    <p>Tell us the domain and email address you want. We will confirm the final bundle price before anything is registered or paid. Setup normally starts within one business day after payment confirmation.</p>
+                </div>
+
+                <div class="forms">
+                    <article class="panel">
+                        <h3>Starter setup request</h3>
+                        <form method="POST" action="/contact" data-request-form="Starter setup request">
+                            <input type="text" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+                            <input type="hidden" name="subject" value="Starter setup request">
+                            <label>Name
+                                <input type="text" name="name" autocomplete="name" required>
+                            </label>
+                            <label>Email
+                                <input type="email" name="email" autocomplete="email" required>
+                            </label>
+                            <label>Domain option
+                                <select name="domain_option" required>
+                                    <option value="">Choose an option</option>
+                                    <option>I want to register a new domain</option>
+                                    <option>I already have a domain and want to connect it</option>
+                                    <option>I am not sure yet</option>
+                                </select>
+                            </label>
+                            <label>Domain name
+                                <input type="text" name="requested_domain" placeholder="example.co.za">
+                            </label>
+                            <label>Email address wanted
+                                <input type="text" name="wanted_email" placeholder="info@example.co.za">
+                            </label>
+                            <label>Website option
+                                <select name="website_option">
+                                    <option>Use the default starter website</option>
+                                    <option>I want help customising the starter website</option>
+                                    <option>I already have HTML files to upload</option>
+                                </select>
+                            </label>
+                            <label>Budget or currency preference
+                                <input type="text" name="budget" placeholder="Example: R/month, R/year, or USD">
+                            </label>
+                            <label>Notes
+                                <textarea name="notes" placeholder="Name, project, phone number, and what the starter page should say."></textarea>
+                            </label>
+                            <input type="hidden" name="message" value="">
+                            <button type="submit">Send starter request</button>
+                            <p class="fine">No domain is registered from this form. We confirm the bundle, price, and payment route first.</p>
+                        </form>
+                    </article>
+
+                    <article class="panel">
+                        <h3>Customise the order</h3>
+                        <form method="POST" action="/contact" data-request-form="General LocalBox question">
+                            <input type="text" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+                            <input type="hidden" name="subject" value="LocalBox question">
+                            <label>Name
+                                <input type="text" name="name" autocomplete="name" required>
+                            </label>
+                            <label>Email
+                                <input type="email" name="email" autocomplete="email" required>
+                            </label>
+                            <label>What do you want to add?
+                                <select name="custom_option">
+                                    <option>Extra email addresses</option>
+                                    <option>More website pages</option>
+                                    <option>Move an existing website</option>
+                                    <option>Host my own Raspberry Pi</option>
+                                    <option>I am not sure yet</option>
+                                </select>
+                            </label>
+                            <label>Message
+                                <textarea name="notes" placeholder="Tell us what you want to customise or ask about an existing domain."></textarea>
+                            </label>
+                            <input type="hidden" name="message" value="">
+                            <button type="submit">Send custom request</button>
+                            <p class="fine">Use this after the starter bundle if you need extra email, pages, migration help, or Raspberry Pi hosting.</p>
+                        </form>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="later">
+            <div class="wrap">
+                <div class="section-head">
+                    <h2>Start hosted, then own the box</h2>
+                    <p>LocalBox can start as a low-cost hosted setup. Later you can buy a prepared Raspberry Pi, use your own Pi, or keep your Pi hosted on the LocalBox secure network.</p>
+                </div>
+                <div class="product-line" style="margin-bottom:18px;">
+                    <article class="panel">
+                        <h3>Hosted starter</h3>
+                        <p>Start with a domain, one email address, and an editable website hosted on a LocalBox Raspberry Pi.</p>
+                        <ul>
+                            <li>Lowest starting cost</li>
+                            <li>No hardware to buy first</li>
+                            <li>Upgrade path stays open</li>
+                        </ul>
+                    </article>
+                    <article class="panel">
+                        <h3>Prepared Raspberry Pi</h3>
+                        <p>Buy a Raspberry Pi prepared with LocalBox, joined to the VPN mesh, and ready for your domain, mail, and website.</p>
+                        <ul>
+                            <li>Pi, storage, power, and case options</li>
+                            <li>Low power Raspberry Pi 3 class setup</li>
+                            <li>Can fit into an existing 5 volt data UPS plan</li>
+                            <li>Mounted storage for site, mail, and backup data</li>
+                            <li>LocalBox installed and configured</li>
+                            <li>Useful for homes, studios, clubs, and small offices</li>
+                        </ul>
+                    </article>
+                    <article class="panel">
+                        <h3>Hosted owner Pi</h3>
+                        <p>Own the Raspberry Pi, but keep it hosted with LocalBox for power, network, updates, and remote support.</p>
+                        <ul>
+                            <li>Your hardware remains yours</li>
+                            <li>Secure VPN mesh access</li>
+                            <li>Rack/network hosting option</li>
+                        </ul>
+                    </article>
+                </div>
+                <div class="grid">
+                    <article class="panel">
+                        <h3>More email and pages</h3>
+                        <ul>
+                            <li>Extra email addresses</li>
+                            <li>More website pages</li>
+                            <li>Outlook or Thunderbird access over VPN</li>
+                            <li>Existing mailbox migration available as a paid service</li>
+                        </ul>
+                    </article>
+                    <article class="panel">
+                        <h3>Storage and backups</h3>
+                        <ul>
+                            <li>Mail and website data mounted on removable storage</li>
+                            <li>Periodic backup recommended for hardware failure recovery</li>
+                            <li>Syncthing file sharing can be added for approved devices</li>
+                        </ul>
+                    </article>
+                    <article class="panel">
+                        <h3>Setup and support</h3>
+                        <ul>
+                            <li>Help moving from the hosted starter</li>
+                            <li>Email migration quoted separately at an agreed rate</li>
+                            <li>Remote admin over the secure VPN mesh</li>
+                            <li>Backup, update, and recovery options</li>
+                        </ul>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact" class="band">
+            <div class="wrap">
+                <div class="section-head">
+                    <h2>Contact LocalBox Mail</h2>
+                    <p>Use this for general questions, support, or feedback.</p>
+                </div>
+                <article class="panel">
+                    <form method="POST" action="/contact">
+                        <input type="text" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+                        <div class="forms">
+                            <label>Name
+                                <input type="text" name="name" autocomplete="name" required>
+                            </label>
+                            <label>Email
+                                <input type="email" name="email" autocomplete="email" required>
+                            </label>
+                        </div>
+                        <label>Subject
+                            <input type="text" name="subject" placeholder="How can we help?">
+                        </label>
+                        <label>Message
+                            <textarea name="message" required></textarea>
+                        </label>
+                        <button type="submit">Send message</button>
+                    </form>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-inner">
+            <span>LocalBox Mail</span>
+            <span>Domain, email, and starter web page setup on Raspberry Pi LocalBox hosts. <a href="/software.html">Software details</a> · <a href="/terms.html">Terms</a></span>
+        </div>
+    </footer>
+
+    <script>
+        document.querySelectorAll("form[data-request-form]").forEach(function(form) {
+            form.addEventListener("submit", function() {
+                var lines = [form.getAttribute("data-request-form")];
+                form.querySelectorAll("input, select, textarea").forEach(function(field) {
+                    if (!field.name || field.name === "message" || field.name === "subject") {
+                        return;
+                    }
+                    var value = String(field.value || "").trim();
+                    if (value) {
+                        var label = field.name.replace(/_/g, " ");
+                        lines.push(label + ": " + value);
+                    }
+                });
+                var message = form.querySelector('input[name="message"]');
+                if (message) {
+                    message.value = lines.join("\n");
+                }
+            });
+        });
+
+        var domainForm = document.getElementById("domain-check-form");
+        var domainResult = document.getElementById("domain-check-result");
+        var domainSearchForm = document.getElementById("domain-search-form");
+        var domainSearchResult = document.getElementById("domain-search-result");
+        function showResult(target, kind, html) {
+            target.className = "result " + kind;
+            target.innerHTML = html;
+            target.style.display = "block";
+        }
+        function showDomainResult(kind, html) {
+            showResult(domainResult, kind, html);
+        }
+        function formatPrice(cents, currency) {
+            if (!cents) {
+                return "";
+            }
+            if (currency === "ZAR") {
+                return "R" + (Number(cents) / 100).toFixed(2);
+            }
+            return (currency || "USD") + " " + (Number(cents) / 100).toFixed(2);
+        }
+        function renderSearchResults(results) {
+            if (!results || !results.length) {
+                return "No results returned.";
+            }
+            var rows = results.map(function(item) {
+                var price = formatPrice(item.register_price, item.currency);
+                var status = item.available ? "Available" : (item.reason || item.message || "Not available");
+                var priceText = item.available && price ? " - domain cost " + price + "/year" : "";
+                return "<div class=\"result-row\"><strong>" + item.domain + "</strong><span>" + status + priceText + "</span></div>";
+            }).join("");
+            return "<div class=\"result-list\">" + rows + "</div><p class=\"fine\">Send a starter request below before anything is registered.</p>";
+        }
+        if (domainSearchForm) {
+            domainSearchForm.addEventListener("submit", function(event) {
+                event.preventDefault();
+                var name = document.getElementById("domain-search-name").value.trim().toLowerCase();
+                name = name.replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[\/?#]/)[0].replace(/\.+$/, "");
+                if (name.indexOf(".") !== -1) {
+                    name = name.replace(/\.(com|net|org|info)$/i, "");
+                }
+                if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(name)) {
+                    showResult(domainSearchResult, "unavailable", "Enter a valid name without spaces or special characters.");
+                    return;
+                }
+                showResult(domainSearchResult, "", "Searching global domains...");
+                fetch("/api/domain/search?name=" + encodeURIComponent(name), { headers: { "Accept": "application/json" } })
+                    .then(function(response) {
+                        return response.json().then(function(data) {
+                            if (!response.ok) {
+                                throw new Error(data.error || "Could not search domains.");
+                            }
+                            return data;
+                        });
+                    })
+                    .then(function(data) {
+                        showResult(domainSearchResult, "available", renderSearchResults(data.results));
+                    })
+                    .catch(function(error) {
+                        showResult(domainSearchResult, "unavailable", error.message + "<p class=\"fine\">You can still send a starter request below and we will check it manually.</p>");
+                    });
+            });
+        }
+        if (domainForm) {
+            domainForm.addEventListener("submit", function(event) {
+                event.preventDefault();
+                var name = document.getElementById("domain-check-name").value.trim().toLowerCase();
+                var tld = document.getElementById("domain-check-tld").value;
+                name = name.replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[\/?#]/)[0].replace(/\.+$/, "");
+                if (name.indexOf(".") !== -1) {
+                    name = name.replace(/\.(co\.za|org\.za|net\.za|web\.za|com|net|org|info)$/i, "");
+                }
+                if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(name)) {
+                    showDomainResult("unavailable", "Enter a valid domain name without spaces or special characters.");
+                    return;
+                }
+                var domain = name + "." + tld;
+                showDomainResult("", "Checking " + domain + "...");
+                fetch("/api/domain/check?domain=" + encodeURIComponent(domain), { headers: { "Accept": "application/json" } })
+                    .then(function(response) {
+                        return response.json().then(function(data) {
+                            if (!response.ok) {
+                                throw new Error(data.error || "Could not check this domain.");
+                            }
+                            return data;
+                        });
+                    })
+                    .then(function(data) {
+                        var registerPrice = formatPrice(data.register_price, data.currency);
+                        var renewPrice = formatPrice(data.renew_price, data.currency);
+                        var price = registerPrice ? "<div class=\"price-line\">Domain cost: " + registerPrice + (renewPrice ? " / Renewal: " + renewPrice + " per year" : "") + "</div>" : "<div class=\"price-line\">Domain cost to be confirmed.</div>";
+                        if (data.available) {
+                            showDomainResult("available", "<strong>" + data.domain + " is available.</strong>" + price + "<p class=\"fine\">Send a starter request below so we can confirm the full bundle price before registration.</p>");
+                        } else {
+                            showDomainResult("unavailable", "<strong>" + data.domain + " is not available.</strong><p class=\"fine\">" + (data.reason || data.message || "Try another name.") + "</p>");
+                        }
+                    })
+                    .catch(function(error) {
+                        showDomainResult("unavailable", error.message + "<p class=\"fine\">You can still send the domain request below and we will check it manually.</p>");
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

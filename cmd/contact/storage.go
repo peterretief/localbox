@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"net/mail"
 	"os"
 	"path/filepath"
 	"strings"
@@ -75,8 +76,12 @@ func contactEmail(domain, recipient, name, email, subject, message string, now t
 	}
 
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "From: %s <%s>\r\n", cleanName, cleanEmail)
+	fmt.Fprintf(&b, "From: LocalBox Contact <%s@%s>\r\n", recipient, domain)
 	fmt.Fprintf(&b, "To: %s@%s\r\n", recipient, domain)
+	if cleanEmail != "" {
+		replyTo := mail.Address{Name: cleanName, Address: cleanEmail}
+		fmt.Fprintf(&b, "Reply-To: %s\r\n", replyTo.String())
+	}
 	fmt.Fprintf(&b, "Subject: Contact form: %s\r\n", cleanSubject)
 	fmt.Fprintf(&b, "Date: %s\r\n", now.Format(time.RFC1123Z))
 	fmt.Fprintf(&b, "Message-ID: <%d.contact@localbox>\r\n", now.UnixNano())

@@ -4,11 +4,16 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 func contactHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form", http.StatusBadRequest)
 		return
 	}
 
@@ -17,6 +22,18 @@ func contactHandler(w http.ResponseWriter, r *http.Request) {
 	subject := r.FormValue("subject")
 	message := r.FormValue("message")
 	domain := requestDomain(r)
+
+	if contactHoneypotFilled(r) {
+		log.Printf("contact spam blocked by honeypot for %s from %s", domain, contactClientIP(r))
+		http.Redirect(w, r, "/thankyou.html", http.StatusSeeOther)
+		return
+	}
+	limitKey := domain + "|" + contactClientIP(r)
+	if !contactLimiter.allow(limitKey, time.Now()) {
+		log.Printf("contact spam blocked by rate limit for %s from %s", domain, contactClientIP(r))
+		http.Error(w, "Too many messages. Please try again later.", http.StatusTooManyRequests)
+		return
+	}
 
 	if err := validate(name, email, message); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

@@ -1,0 +1,23 @@
+# Copy to /etc/localbox/domainscoza.conf on the Pi.
+# Keep this file private; it contains reseller credentials.
+
+enabled=false
+api_url=https://api.domains.co.za/api
+username=your-domains-coza-username
+password=your-domains-coza-password
+# If Domains.co.za gives you an API key instead of a password, use:
+# api_key=your-domains-coza-api-key
+
+# Optional if 2FA is enabled for the API login.
+# code=123456
+
+# Local customer-facing prices. The Domains.co.za check endpoint returns
+# reseller balance info, not the final price you want to show customers.
+co_za_register_price=150.00
+co_za_renew_price=150.00
+org_za_register_price=150.00
+org_za_renew_price=150.00
+net_za_register_price=150.00
+net_za_renew_price=150.00
+web_za_register_price=150.00
+web_za_renew_price=150.00

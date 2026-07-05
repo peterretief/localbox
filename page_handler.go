@@ -123,11 +123,14 @@ func pageHTMLHandler(w http.ResponseWriter, r *http.Request) {
 			data.UploadError = "Could not read HTML file."
 			break
 		}
-		if err := saveUploadedHomeHTML(s.Domain, body); err != nil {
+		name, publishedHome, err := saveUploadedSiteHTML(s.Domain, header.Filename, body)
+		if err != nil {
 			data.UploadError = err.Error()
-		} else {
+		} else if publishedHome {
 			data.Mode = "html"
-			data.UploadSuccess = "HTML homepage uploaded."
+			data.UploadSuccess = "HTML homepage uploaded and published as " + name + "."
+		} else {
+			data.UploadSuccess = "Uploaded site page " + name + "."
 		}
 	case "restore_html":
 		name := r.FormValue("name")

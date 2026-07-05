@@ -3,7 +3,9 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 func withContactConfigFiles(t *testing.T) string {
@@ -75,5 +77,28 @@ func TestContactMailboxUserFallsBackToInfo(t *testing.T) {
 
 	if got := contactMailboxUser("example.com"); got != "info" {
 		t.Fatalf("expected info fallback, got %q", got)
+	}
+}
+
+func TestContactEmailUsesLocalFromAndVisitorReplyTo(t *testing.T) {
+	msg := string(contactEmail(
+		"example.com",
+		"peter",
+		"Jane User",
+		"jane@example.net",
+		"Website enquiry",
+		"Hello from the contact form",
+		time.Unix(100, 0).UTC(),
+	))
+
+	for _, want := range []string{
+		"From: LocalBox Contact <peter@example.com>\r\n",
+		"To: peter@example.com\r\n",
+		"Reply-To: \"Jane User\" <jane@example.net>\r\n",
+		"Subject: Contact form: Website enquiry\r\n",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("expected contact email to contain %q:\n%s", want, msg)
+		}
 	}
 }

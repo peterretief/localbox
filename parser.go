@@ -151,7 +151,7 @@ func replyURL(header mail.Header) string {
 	if to == "" {
 		to = strings.TrimSpace(header.Get("From"))
 	}
-	return composeURL(to, header.Get("Subject"))
+	return composeURL(to, "")
 }
 
 func composeURL(to, subject string) string {

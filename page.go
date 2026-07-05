@@ -26,7 +26,8 @@ var (
 	markdownLinkedImagePattern = regexp.MustCompile(`\[!\[([^\]]*)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)\]\(([^)]+)\)`)
 	markdownImagePattern       = regexp.MustCompile(`!\[([^\]]*)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)`)
 	markdownLinkPattern        = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
-	uploadedHTMLNamePattern    = regexp.MustCompile(`^index(?:-\d{8}T\d{6}Z)?\.html$`)
+	homeHTMLNamePattern        = regexp.MustCompile(`^index(?:-\d{8}T\d{6}Z)?\.html$`)
+	uploadedHTMLNamePattern    = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\.html$`)
 )
 
 type inlineToken struct {
@@ -54,6 +55,7 @@ type SiteHTMLFile struct {
 	Name        string
 	Active      bool
 	Uploaded    bool
+	Homepage    bool
 	Size        int64
 	DisplaySize string
 	Modified    string
@@ -73,11 +75,6 @@ func loadHomeMarkdown(domain string) (string, error) {
 func saveHomePage(domain, markdown string) error {
 	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
 		return err
-	}
-	if loadSiteMode(domain) == "html" {
-		if _, err := backupHomeHTML(domain); err != nil {
-			return err
-		}
 	}
 	if err := os.WriteFile(homeMarkdownPath(domain), []byte(markdown), 0664); err != nil {
 		return err
@@ -125,26 +122,56 @@ func saveSiteMode(domain, mode string) error {
 	return os.WriteFile(siteModePath(domain), []byte("mode="+mode+"\n"), 0664)
 }
 
-func saveUploadedHomeHTML(domain string, htmlData []byte) error {
+func saveUploadedHomeHTML(domain string, htmlData []byte) (string, error) {
 	if len(htmlData) == 0 {
-		return fmt.Errorf("empty HTML file")
+		return "", fmt.Errorf("empty HTML file")
 	}
 	if len(htmlData) > 1<<20 {
-		return fmt.Errorf("HTML file must be 1 MB or smaller")
+		return "", fmt.Errorf("HTML file must be 1 MB or smaller")
 	}
 	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
-		return err
+		return "", err
 	}
-	if _, err := backupHomeHTML(domain); err != nil {
-		return err
+	uploadPath := nextHomeHTMLBackupPath(domain)
+	uploadName := filepath.Base(uploadPath)
+	if err := writeFileAtomic(uploadPath, htmlData, 0664); err != nil {
+		return "", err
 	}
-	if err := os.WriteFile(homeHTMLPath(domain), htmlData, 0664); err != nil {
-		return err
+	if err := recordUploadedHTML(domain, uploadName); err != nil {
+		return "", err
 	}
-	if err := recordUploadedHTML(domain, "index.html"); err != nil {
-		return err
+	if err := publishHomeHTML(domain, htmlData); err != nil {
+		return "", err
 	}
-	return saveSiteMode(domain, "html")
+	return uploadName, nil
+}
+
+func saveUploadedSiteHTML(domain, originalName string, htmlData []byte) (string, bool, error) {
+	if len(htmlData) == 0 {
+		return "", false, fmt.Errorf("empty HTML file")
+	}
+	if len(htmlData) > 1<<20 {
+		return "", false, fmt.Errorf("HTML file must be 1 MB or smaller")
+	}
+
+	name := cleanUploadedHTMLName(originalName)
+	if name == "index.html" || name == "" {
+		uploadName, err := saveUploadedHomeHTML(domain, htmlData)
+		return uploadName, true, err
+	}
+	if !allowedUploadedHTMLName(name) || reservedSiteHTMLName(name) || isHomeHTMLName(name) {
+		return "", false, fmt.Errorf("invalid HTML file name")
+	}
+	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
+		return "", false, err
+	}
+	if err := writeFileAtomic(filepath.Join(domainSiteBase(domain), name), htmlData, 0664); err != nil {
+		return "", false, err
+	}
+	if err := recordUploadedHTML(domain, name); err != nil {
+		return "", false, err
+	}
+	return name, false, nil
 }
 
 func backupHomeHTML(domain string) (string, error) {
@@ -191,6 +218,9 @@ func listSiteHTMLFiles(domain string) ([]SiteHTMLFile, error) {
 		if entry.IsDir() || !allowedUploadedHTMLName(entry.Name()) {
 			continue
 		}
+		if entry.Name() != "index.html" && !isHomeHTMLName(entry.Name()) && !uploaded[entry.Name()] {
+			continue
+		}
 		info, err := entry.Info()
 		if err != nil {
 			continue
@@ -199,6 +229,7 @@ func listSiteHTMLFiles(domain string) ([]SiteHTMLFile, error) {
 			Name:        entry.Name(),
 			Active:      entry.Name() == "index.html",
 			Uploaded:    uploaded[entry.Name()],
+			Homepage:    isHomeHTMLName(entry.Name()),
 			Size:        info.Size(),
 			DisplaySize: displaySize(info.Size()),
 			Modified:    info.ModTime().Format("2006-01-02 15:04"),
@@ -216,7 +247,7 @@ func listSiteHTMLFiles(domain string) ([]SiteHTMLFile, error) {
 }
 
 func restoreSiteHTMLFile(domain, name string) error {
-	if !allowedUploadedHTMLName(name) {
+	if !isHomeHTMLName(name) {
 		return fmt.Errorf("invalid HTML file")
 	}
 	if name == "index.html" {
@@ -226,7 +257,7 @@ func restoreSiteHTMLFile(domain, name string) error {
 	if err != nil {
 		return err
 	}
-	return saveUploadedHomeHTML(domain, data)
+	return publishHomeHTML(domain, data)
 }
 
 func restoreLatestSiteHTMLBackup(domain string) (string, error) {
@@ -235,12 +266,12 @@ func restoreLatestSiteHTMLBackup(domain string) (string, error) {
 		return "", err
 	}
 	for _, file := range files {
-		if !file.Active && file.Uploaded {
+		if !file.Active && file.Homepage && file.Uploaded {
 			return file.Name, restoreSiteHTMLFile(domain, file.Name)
 		}
 	}
 	for _, file := range files {
-		if !file.Active {
+		if !file.Active && file.Homepage {
 			return file.Name, restoreSiteHTMLFile(domain, file.Name)
 		}
 	}
@@ -248,7 +279,7 @@ func restoreLatestSiteHTMLBackup(domain string) (string, error) {
 }
 
 func deleteSiteHTMLFile(domain, name string) error {
-	if !allowedUploadedHTMLName(name) || name == "index.html" {
+	if !allowedUploadedHTMLName(name) || name == "index.html" || reservedSiteHTMLName(name) {
 		return fmt.Errorf("invalid HTML file")
 	}
 	if err := os.Remove(filepath.Join(domainSiteBase(domain), name)); err != nil {
@@ -307,11 +338,72 @@ func saveUploadedHTMLNames(domain string, names map[string]bool) error {
 }
 
 func allowedUploadedHTMLName(name string) bool {
-	name = strings.TrimSpace(name)
-	if name != filepath.Base(name) {
+	raw := strings.TrimSpace(name)
+	if raw != filepath.Base(raw) {
 		return false
 	}
+	name = cleanUploadedHTMLName(raw)
 	return uploadedHTMLNamePattern.MatchString(name)
+}
+
+func cleanUploadedHTMLName(name string) string {
+	name = strings.ToLower(strings.TrimSpace(filepath.Base(name)))
+	name = strings.ReplaceAll(name, "_", "-")
+	return name
+}
+
+func isHomeHTMLName(name string) bool {
+	return homeHTMLNamePattern.MatchString(strings.TrimSpace(name))
+}
+
+func reservedSiteHTMLName(name string) bool {
+	switch cleanUploadedHTMLName(name) {
+	case "contact.html", "thankyou.html":
+		return true
+	default:
+		return false
+	}
+}
+
+func publishHomeHTML(domain string, htmlData []byte) error {
+	if err := writeFileAtomic(homeHTMLPath(domain), htmlData, 0664); err != nil {
+		return err
+	}
+	return saveSiteMode(domain, "html")
+}
+
+func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0775); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return err
+	}
+	cleanup = false
+	return nil
 }
 
 func renderHomeHTML(markdown string) []byte {

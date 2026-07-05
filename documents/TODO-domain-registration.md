@@ -63,6 +63,7 @@ For South Africa, `.co.za` will need a registrar/reseller API separate from Clou
 - If available, start registration.
 - Store registrar result and domain expiry date.
 - Handle registration failure without creating the LocalBox domain too early.
+- Use the post-payment automation plan in `documents/TODO-post-payment-automation.md` for registrar contacts, tunnel routing, Brevo setup, LocalBox provisioning, and welcome email steps.
 
 ## Milestone 6: LocalBox Provisioning
 
@@ -75,12 +76,14 @@ For South Africa, `.co.za` will need a registrar/reseller API separate from Clou
   - add domain to login dropdown
 - Reuse the template/provisioning code where possible.
 
-## Milestone 7: DNS Automation
+## Milestone 7: DNS And Tunnel Automation
 
 - Add DNS provider interface.
-- For Cloudflare-managed domains, create:
-  - `A` record for root domain
-  - `A` or `CNAME` for `www`
+- For Cloudflare-managed web domains, create Cloudflare Tunnel routes instead of Pi `A` records:
+  - root domain routed to the tunnel
+  - `www` routed to the tunnel
+  - equivalent DNS CNAME records created by `cloudflared tunnel route dns`
+- For mail, create records only when the mail path is known:
   - `MX` records
   - `TXT` SPF record
   - optional DKIM/DMARC later

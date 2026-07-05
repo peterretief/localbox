@@ -1,0 +1,10 @@
+# Copy to /etc/localbox/cloudflare.conf on the Pi.
+# Keep this file private; it contains Cloudflare credentials.
+
+enabled=false
+api_url=https://api.cloudflare.com/client/v4
+account_id=your-cloudflare-account-id
+api_token=your-cloudflare-api-token
+
+# The public domain checker routes .za domains to Domains.co.za and
+# other domains to Cloudflare Registrar.

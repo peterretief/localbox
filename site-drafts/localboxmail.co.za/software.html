@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalBox Software Details</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #20242a;
+            background: #f7f8f5;
+            line-height: 1.55;
+        }
+        header, footer {
+            background: #ffffff;
+            border-bottom: 1px solid #dfe3dc;
+        }
+        footer { border-top: 1px solid #dfe3dc; border-bottom: 0; }
+        .nav, main, .footer-inner {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 22px;
+        }
+        .nav {
+            min-height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+        }
+        .brand {
+            font-weight: 800;
+            color: #22312c;
+            text-decoration: none;
+        }
+        .nav a:not(.brand), footer a { color: #1e6f5c; }
+        main { padding-top: 56px; padding-bottom: 64px; }
+        h1 {
+            margin: 0 0 12px;
+            color: #22312c;
+            font-size: 42px;
+            line-height: 1.1;
+        }
+        h2 {
+            margin: 32px 0 10px;
+            color: #22312c;
+            font-size: 24px;
+        }
+        p { color: #5d6660; }
+        .panel {
+            margin-top: 22px;
+            padding: 22px;
+            background: #ffffff;
+            border: 1px solid #dfe3dc;
+            border-radius: 8px;
+        }
+        dl {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 10px 18px;
+            margin: 0;
+        }
+        dt { font-weight: 800; color: #35413c; }
+        dd { margin: 0; color: #5d6660; }
+        code {
+            padding: 2px 5px;
+            border-radius: 4px;
+            background: #eef1ea;
+            color: #22312c;
+        }
+        ul { color: #5d6660; }
+        .note {
+            margin-top: 18px;
+            padding: 14px;
+            border-left: 4px solid #d98c50;
+            background: #fff8f0;
+            color: #5d4b38;
+        }
+        footer { padding: 24px 0; color: #68716b; }
+        @media (max-width: 720px) {
+            h1 { font-size: 34px; }
+            dl { grid-template-columns: 1fr; }
+            dd { margin-bottom: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="nav" aria-label="Main navigation">
+            <a class="brand" href="/">LocalBox Mail</a>
+            <a href="/">Back to site</a>
+        </nav>
+    </header>
+
+    <main>
+        <h1>Software details</h1>
+        <p>LocalBox is built to run on Raspberry Pi hardware. This page lists the operating system, services, and integrations used by the LocalBox reference setup.</p>
+
+        <section class="panel">
+            <h2>Raspberry Pi platform</h2>
+            <dl>
+                <dt>Hardware</dt>
+                <dd>Raspberry Pi, including Raspberry Pi 3 class devices for the low-cost starter setup. The low power profile makes it practical to integrate with an existing 5 volt data UPS where available.</dd>
+                <dt>Operating system</dt>
+                <dd>Alpine Linux, 32-bit ARM build for Raspberry Pi. The exact Alpine release is recorded per prepared device from <code>/etc/alpine-release</code>.</dd>
+                <dt>Architecture target</dt>
+                <dd>LocalBox Go services are compiled for <code>linux/arm</code> with <code>GOARM=7</code>.</dd>
+                <dt>Persistence</dt>
+                <dd>Alpine local backup state is persisted with <code>lbu</code>.</dd>
+                <dt>Data storage</dt>
+                <dd>LocalBox site, mail, and domain data should be mounted on separate removable storage, such as an SD card or other prepared media, so service data does not fill the operating system filesystem.</dd>
+            </dl>
+        </section>
+
+        <section class="panel">
+            <h2>LocalBox services</h2>
+            <dl>
+                <dt>Application language</dt>
+                <dd>Compiled Go services.</dd>
+                <dt>Mail and site app</dt>
+                <dd>LocalBox Mail provides inbox, compose, page editing, HTML upload, image upload, domain administration, and system tools.</dd>
+                <dt>Contact service</dt>
+                <dd>Compiled Go service handling website contact forms, local delivery, outbound relay where configured, spam checks, and domain availability endpoints.</dd>
+                <dt>Web server</dt>
+                <dd>Nginx serves the public website and proxies LocalBox service endpoints.</dd>
+                <dt>Optional mail clients</dt>
+                <dd>Dovecot and Postfix can be enabled for IMAP/SMTP access over the VPN mesh.</dd>
+                <dt>Email migration</dt>
+                <dd>Existing mailbox migration can be offered as a separate paid service where the source mailbox allows IMAP access.</dd>
+            </dl>
+        </section>
+
+        <section class="panel">
+            <h2>External integrations</h2>
+            <ul>
+                <li>Cloudflare Tunnel for public website routing when the Raspberry Pi has no public IP address.</li>
+                <li>Cloudflare DNS and Registrar APIs for supported global domains where configured.</li>
+                <li>Domains.co.za API for South African domain checks and registrar operations where configured.</li>
+                <li>Brevo SMTP relay for outbound email where configured.</li>
+                <li>Headscale/Tailscale VPN mesh for private administration and optional mail-client access.</li>
+                <li>Syncthing can be added for private file sharing between approved devices.</li>
+            </ul>
+        </section>
+
+        <section class="panel">
+            <h2>Prepared device record</h2>
+            <p>Each prepared Raspberry Pi should keep a simple setup record with the device model, serial number, Alpine release, LocalBox build date, VPN node name, and customer/domain assignment.</p>
+            <p>Periodic backups should be configured for hardware failure recovery. The backup schedule and retention period depend on the selected service level.</p>
+            <div class="note">LocalBox is not Raspberry Pi OS. It is a LocalBox software setup running on Raspberry Pi hardware with Alpine Linux.</div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-inner">
+            <span>LocalBox Mail software details for Raspberry Pi based LocalBox hosts.</span>
+        </div>
+    </footer>
+</body>
+</html>
