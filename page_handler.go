@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"strconv"
 )
 
 func pageHandler(w http.ResponseWriter, r *http.Request) {
@@ -19,10 +20,12 @@ func pageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := newPageEditorData(s.Domain, content)
+	data.Section = "markdown"
 
 	if r.Method == http.MethodPost {
 		content = r.FormValue("content")
 		data = newPageEditorData(s.Domain, content)
+		data.Section = "markdown"
 		if err := saveHomePage(s.Domain, content); err != nil {
 			data.Error = "Could not save page."
 		} else {
@@ -49,6 +52,7 @@ func pageImagesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := newPageEditorData(s.Domain, content)
+	data.Section = "markdown"
 
 	if r.Method != http.MethodPost {
 		http.Redirect(w, r, "/page", http.StatusFound)
@@ -83,6 +87,7 @@ func pageImagesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data.Images, _ = listSiteImages(s.Domain)
+	data.Section = "markdown"
 	tmpl := template.Must(template.ParseFiles("templates/page.html"))
 	tmpl.Execute(w, data)
 }
@@ -99,9 +104,11 @@ func pageHTMLHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := newPageEditorData(s.Domain, content)
+	data.Section = "html"
 
 	if r.Method != http.MethodPost {
-		http.Redirect(w, r, "/page", http.StatusFound)
+		tmpl := template.Must(template.ParseFiles("templates/page.html"))
+		tmpl.Execute(w, data)
 		return
 	}
 
@@ -147,6 +154,68 @@ func pageHTMLHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			data.UploadSuccess = "Deleted " + name + "."
 		}
+	case "save_menu":
+		data.Section = "markdown"
+		files, err := listSiteHTMLFiles(s.Domain)
+		if err != nil {
+			data.UploadError = "Could not read HTML pages."
+			break
+		}
+		selected := map[string]bool{}
+		for _, name := range r.Form["menu"] {
+			selected[name] = true
+		}
+		var items []SiteMenuItem
+		for _, file := range siteMenuPages(files) {
+			if !selected[file.Name] {
+				continue
+			}
+			items = append(items, SiteMenuItem{
+				Name:  file.Name,
+				Label: r.FormValue("label_" + file.Name),
+			})
+		}
+		if err := saveSiteMenuItems(s.Domain, items); err != nil {
+			data.UploadError = "Could not save menu."
+		} else {
+			if loadSiteMode(s.Domain) == "markdown" {
+				if err := saveHomePage(s.Domain, content); err != nil {
+					data.UploadError = "Menu saved, but the homepage could not be republished."
+					break
+				}
+				data.Mode = "markdown"
+			}
+			data.UploadSuccess = "Menu saved."
+		}
+	case "create_shopping":
+		if err := saveShoppingCartPage(s.Domain); err != nil {
+			data.UploadError = "Could not create shopping page."
+		} else {
+			if loadSiteMode(s.Domain) == "markdown" {
+				if err := saveHomePage(s.Domain, content); err != nil {
+					data.UploadError = "Shopping page created, but the homepage could not be republished."
+					break
+				}
+				data.Mode = "markdown"
+			}
+			data.UploadSuccess = "Shopping page created as shopping.html and added to the menu."
+		}
+	case "save_catalog":
+		catalog := catalogProductsFromForm(r)
+		if err := saveSiteCatalog(s.Domain, catalog); err != nil {
+			data.UploadError = "Could not save shopping items."
+		} else if err := saveShoppingCartPage(s.Domain); err != nil {
+			data.UploadError = "Shopping items saved, but shopping.html could not be regenerated."
+		} else {
+			if loadSiteMode(s.Domain) == "markdown" {
+				if err := saveHomePage(s.Domain, content); err != nil {
+					data.UploadError = "Shopping items saved, but the homepage could not be republished."
+					break
+				}
+				data.Mode = "markdown"
+			}
+			data.UploadSuccess = "Shopping items saved for " + s.Domain + "."
+		}
 	case "use_html":
 		name, err := restoreLatestSiteHTMLBackup(s.Domain)
 		if err != nil {
@@ -167,6 +236,11 @@ func pageHTMLHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data.HTMLFiles, _ = listSiteHTMLFiles(s.Domain)
+	data.MenuPages = siteMenuPages(data.HTMLFiles)
+	data.CatalogRows = catalogEditorRows(s.Domain)
+	if data.Section == "" {
+		data.Section = "html"
+	}
 	tmpl := template.Must(template.ParseFiles("templates/page.html"))
 	tmpl.Execute(w, data)
 }
@@ -175,11 +249,40 @@ func newPageEditorData(domain, content string) PageEditorData {
 	images, _ := listSiteImages(domain)
 	htmlFiles, _ := listSiteHTMLFiles(domain)
 	return PageEditorData{
-		Content:   content,
-		Preview:   template.HTML(renderMarkdown(content)),
-		Images:    images,
-		HTMLFiles: htmlFiles,
-		Domain:    domain,
-		Mode:      loadSiteMode(domain),
+		Content:     content,
+		Preview:     template.HTML(renderMarkdown(content)),
+		Images:      images,
+		HTMLFiles:   htmlFiles,
+		MenuPages:   siteMenuPages(htmlFiles),
+		CatalogRows: catalogEditorRows(domain),
+		Domain:      domain,
+		Mode:        loadSiteMode(domain),
+		Section:     "markdown",
 	}
+}
+
+func catalogProductsFromForm(r *http.Request) []cartProduct {
+	count, _ := strconv.Atoi(r.FormValue("catalog_count"))
+	if count <= 0 || count > 100 {
+		count = 0
+	}
+	var products []cartProduct
+	for i := 0; i < count; i++ {
+		prefix := "catalog_" + strconv.Itoa(i) + "_"
+		product := cartProduct{
+			ID:          r.FormValue(prefix + "id"),
+			Name:        r.FormValue(prefix + "name"),
+			Description: r.FormValue(prefix + "description"),
+			Price:       r.FormValue(prefix + "price"),
+			Category:    r.FormValue(prefix + "category"),
+			Image:       r.FormValue(prefix + "image"),
+			Featured:    r.FormValue(prefix+"featured") == "1",
+		}
+		product = cleanCatalogProduct(product)
+		if product.Name == "" {
+			continue
+		}
+		products = append(products, product)
+	}
+	return products
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"html/template"
 	"net/http"
+	"path/filepath"
 )
 
 func systemHandler(w http.ResponseWriter, r *http.Request) {
@@ -55,4 +56,28 @@ func systemHandler(w http.ResponseWriter, r *http.Request) {
 
 	tmpl := template.Must(template.ParseFiles("templates/system.html"))
 	tmpl.Execute(w, data)
+}
+
+func systemCertificateHandler(w http.ResponseWriter, r *http.Request) {
+	if s := requireBoxAdmin(w, r); s == nil {
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	domain := normalizeDomain(r.URL.Query().Get("domain"))
+	if !safeDomain(domain) {
+		http.Error(w, "Invalid domain", http.StatusBadRequest)
+		return
+	}
+	path := registrationCertificatePath(domain)
+	if !registrationCertificateExists(domain) {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Disposition", `attachment; filename="`+domain+`-localbox-certificate.txt"`)
+	http.ServeFile(w, r, filepath.Clean(path))
 }

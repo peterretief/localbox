@@ -1,0 +1,16 @@
+# Copy to /etc/localbox/paystack.conf on the Pi.
+# Keep this file private; it contains Paystack credentials.
+
+enabled=false
+mode=test
+api_url=https://api.paystack.co
+currency=ZAR
+domain_markup_percent=35
+# Fallback used only when the registrar does not return a usable price.
+starter_price=150.00
+
+public_key=pk_test_your-public-key
+secret_key=sk_test_your-secret-key
+
+callback_url=https://localboxmail.co.za/payment/paystack/return
+webhook_url=https://localboxmail.co.za/payment/paystack/webhook

@@ -21,3 +21,9 @@ net_za_register_price=150.00
 net_za_renew_price=150.00
 web_za_register_price=150.00
 web_za_renew_price=150.00
+
+# Domain create requests can use these nameservers by default.
+# If Cloudflare hosts DNS for every ordered domain on this account, set these
+# to the Cloudflare nameservers assigned to the account/zone.
+ns1=sam.ns.cloudflare.com
+ns2=marissa.ns.cloudflare.com

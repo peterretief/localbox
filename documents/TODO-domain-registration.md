@@ -9,8 +9,9 @@ Search domain
 -> create order
 -> take payment
 -> verify payment webhook
--> register domain
--> provision LocalBox domain, mail, DNS, and site
+-> registrar registration step, manual or provider API
+-> provision LocalBox domain, first mailbox, DNS, and site
+-> issue downloadable setup certificate
 ```
 
 For South Africa, `.co.za` will need a registrar/reseller API separate from Cloudflare. Cloudflare can still be useful for supported TLDs and DNS automation.
@@ -31,7 +32,7 @@ For South Africa, `.co.za` will need a registrar/reseller API separate from Clou
 
 ## Milestone 2: Domain Search
 
-- Add domain search on the Add Domain page.
+- Add domain search on the public request flow and the admin order page.
 - Support `.com`, `.net`, and `.org` through Cloudflare availability API.
 - Add provider interface placeholder for `.co.za`.
 - Show availability, registration price, renewal price, and unsupported domains clearly.
@@ -60,7 +61,8 @@ For South Africa, `.co.za` will need a registrar/reseller API separate from Clou
 
 - After payment, re-check domain availability.
 - If unavailable, mark order `refund_needed`.
-- If available, start registration.
+- If available, move the order to `ready_for_registration`.
+- Keep registrar registration decoupled from the public form and payment redirect. Registration may be manual first, then automated through a provider API later.
 - Store registrar result and domain expiry date.
 - Handle registration failure without creating the LocalBox domain too early.
 - Use the post-payment automation plan in `documents/TODO-post-payment-automation.md` for registrar contacts, tunnel routing, Brevo setup, LocalBox provisioning, and welcome email steps.
@@ -69,11 +71,12 @@ For South Africa, `.co.za` will need a registrar/reseller API separate from Clou
 
 - Once registration succeeds, automatically:
   - create LocalBox domain
-  - create owner mailbox
+  - create first owner mailbox
   - add domain admin role
   - create default website
   - create contact form target
   - add domain to login dropdown
+  - write a downloadable LocalBox setup certificate showing the domain and first email address
 - Reuse the template/provisioning code where possible.
 
 ## Milestone 7: DNS And Tunnel Automation

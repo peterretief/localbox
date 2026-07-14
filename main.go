@@ -7,6 +7,7 @@ import (
 )
 
 func main() {
+	applyRuntimeConfig()
 	log.Printf("localbox-mail starting on %s", listenAddr)
 	if err := os.MkdirAll("/etc/localbox", 0755); err != nil {
 		log.Fatalf("could not create config dir: %v", err)

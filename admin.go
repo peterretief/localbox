@@ -11,17 +11,20 @@ import (
 )
 
 type AdminDomain struct {
-	Name      string
-	UserCount int
-	SitePath  string
-	MailPath  string
+	Name                 string
+	UserCount            int
+	SitePath             string
+	MailPath             string
+	CertificatePath      string
+	CertificateAvailable bool
 }
 
 type AdminView struct {
-	Domain  AdminDomain
-	Users   []User
-	Error   string
-	Success string
+	Domain          AdminDomain
+	Users           []User
+	RegisteredUsers []publicUserProfile
+	Error           string
+	Success         string
 }
 
 func loadDomains() ([]string, error) {
@@ -93,14 +96,19 @@ func adminView(domain string) AdminView {
 			domainUsers = append(domainUsers, user)
 		}
 	}
+	_ = ensureRegistrationCertificateForUsers(domain, domainUsers, time.Now())
+	registeredUsers, _ := listPublicUsers(domain)
 
 	return AdminView{
-		Users: domainUsers,
+		Users:           domainUsers,
+		RegisteredUsers: registeredUsers,
 		Domain: AdminDomain{
-			Name:      domain,
-			UserCount: len(domainUsers),
-			SitePath:  domainSiteBase(domain),
-			MailPath:  domainMailBase(domain),
+			Name:                 domain,
+			UserCount:            len(domainUsers),
+			SitePath:             domainSiteBase(domain),
+			MailPath:             domainMailBase(domain),
+			CertificatePath:      registrationCertificatePath(domain),
+			CertificateAvailable: registrationCertificateExists(domain),
 		},
 	}
 }
@@ -150,7 +158,7 @@ func ensureDefaultSite(domain string) error {
 		}
 	}
 
-	for _, name := range []string{"contact.html", "thankyou.html"} {
+	for _, name := range []string{"contact.html", "thankyou.html", "shopping.html"} {
 		if err := copySiteTemplateIfMissing(domain, name); err != nil {
 			return err
 		}
@@ -248,6 +256,9 @@ func addMailbox(username, domain, password string) error {
 		Hash:     hash,
 	})
 	if err := saveUsers(users); err != nil {
+		return err
+	}
+	if err := ensureRegistrationCertificateForUsers(domain, users, time.Now()); err != nil {
 		return err
 	}
 	return ensureMailboxDirs(domain, username)

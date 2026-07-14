@@ -35,6 +35,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 		fresh := adminView(s.Domain)
 		data.Domain = fresh.Domain
 		data.Users = fresh.Users
+		data.RegisteredUsers = fresh.RegisteredUsers
 	} else if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return

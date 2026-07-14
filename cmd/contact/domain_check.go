@@ -33,9 +33,10 @@ func domainCheckHandler(w http.ResponseWriter, r *http.Request) {
 		result, err = checkCloudflareDomain(r, domain)
 	}
 	if err != nil {
-		writeDomainCheckError(w, http.StatusBadGateway, "could not check domain availability")
+		writeDomainCheckError(w, http.StatusBadGateway, "could not check domain availability: "+err.Error())
 		return
 	}
+	result = decorateResultWithPaymentPrice(r, result)
 
 	if err := json.NewEncoder(w).Encode(result); err != nil {
 		log.Printf("domain check response encode failed: %v", err)
@@ -94,6 +95,14 @@ func checkCloudflareDomain(r *http.Request, domain string) (DomainCheckResult, e
 func writeDomainCheckError(w http.ResponseWriter, status int, message string) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(domainCheckErrorResponse{Error: message})
+}
+
+func decorateResultWithPaymentPrice(r *http.Request, result DomainCheckResult) DomainCheckResult {
+	cfg, err := loadPaystackConfig(paystackConfigFile)
+	if err != nil || !cfg.Enabled || cfg.validate() != nil {
+		return result
+	}
+	return decorateDomainPaymentPrice(r.Context(), result, cfg)
 }
 
 func normalizePublicDomain(value string) (string, error) {

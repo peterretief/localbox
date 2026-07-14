@@ -4,6 +4,7 @@ type Message struct {
 	ID          string
 	Folder      string
 	Link        string
+	MoveFolders []MailFolder
 	From        string
 	To          string
 	Subject     string

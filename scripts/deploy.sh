@@ -6,10 +6,22 @@ PROJECT_DIR=$(dirname "$SCRIPT_DIR")
 cd "$PROJECT_DIR"
 
 # ── Load settings ────────────────────────────────────────────────────────────
+ENV_PI_HOST=${PI_HOST:-}
+ENV_PI_USER=${PI_USER:-}
+ENV_GOCACHE=${GOCACHE:-}
 if [ -f "./settings.conf" ]; then
     . ./settings.conf
 fi
-PI_HOST=${PI_HOST:-192.168.0.5}
+if [ -n "$ENV_PI_HOST" ]; then
+    PI_HOST=$ENV_PI_HOST
+fi
+if [ -n "$ENV_PI_USER" ]; then
+    PI_USER=$ENV_PI_USER
+fi
+if [ -n "$ENV_GOCACHE" ]; then
+    GOCACHE=$ENV_GOCACHE
+fi
+PI_HOST=${PI_HOST:-192.168.0.6}
 PI_USER=${PI_USER:-root}
 GOCACHE=${GOCACHE:-/tmp/localbox-go-build}
 export GOCACHE
@@ -56,18 +68,34 @@ cat scripts/add-cloudflare-tunnel-route.sh | ssh $PI_USER@$PI_HOST \
     'mkdir -p /usr/local/sbin && \
      cat > /usr/local/sbin/localbox-add-tunnel-route && \
      chmod +x /usr/local/sbin/localbox-add-tunnel-route'
+cat scripts/add-cloudflare-email-routes.sh | ssh $PI_USER@$PI_HOST \
+    'mkdir -p /usr/local/sbin && \
+     cat > /usr/local/sbin/localbox-add-email-routes && \
+     chmod +x /usr/local/sbin/localbox-add-email-routes'
+cat scripts/localbox-firstboot.sh | ssh $PI_USER@$PI_HOST \
+    'mkdir -p /usr/local/sbin && \
+     cat > /usr/local/sbin/localbox-firstboot && \
+     chmod +x /usr/local/sbin/localbox-firstboot'
 cat localbox-template.conf.example | ssh $PI_USER@$PI_HOST \
     'mkdir -p /etc/localbox/examples && \
      cat > /etc/localbox/examples/localbox-template.conf.example'
 cat domainscoza.conf.example | ssh $PI_USER@$PI_HOST \
     'mkdir -p /etc/localbox/examples && \
      cat > /etc/localbox/examples/domainscoza.conf.example'
+ssh $PI_USER@$PI_HOST \
+    'if [ -f /etc/localbox/domainscoza.conf ]; then \
+         grep -q "^ns1=" /etc/localbox/domainscoza.conf || printf "\nns1=sam.ns.cloudflare.com\n" >> /etc/localbox/domainscoza.conf; \
+         grep -q "^ns2=" /etc/localbox/domainscoza.conf || printf "ns2=marissa.ns.cloudflare.com\n" >> /etc/localbox/domainscoza.conf; \
+     fi'
 cat cloudflare.conf.example | ssh $PI_USER@$PI_HOST \
     'mkdir -p /etc/localbox/examples && \
      cat > /etc/localbox/examples/cloudflare.conf.example'
 cat cloudflare-tunnel.conf.example | ssh $PI_USER@$PI_HOST \
     'mkdir -p /etc/localbox/examples && \
      cat > /etc/localbox/examples/cloudflare-tunnel.conf.example'
+cat paystack.conf.example | ssh $PI_USER@$PI_HOST \
+    'mkdir -p /etc/localbox/examples && \
+     cat > /etc/localbox/examples/paystack.conf.example'
 echo "   Optional admin tools deployed"
 
 # ── Deploy contact service ───────────────────────────────────────────────────
@@ -123,6 +151,7 @@ for domain_dir in /mnt/data/localbox/domains/*; do
     mkdir -p "$site_dir/assets/images"
     [ -f "$site_dir/contact.html" ] || cp /etc/localbox/templates/contact.html "$site_dir/contact.html"
     [ -f "$site_dir/thankyou.html" ] || cp /etc/localbox/templates/thankyou.html "$site_dir/thankyou.html"
+    [ -f "$site_dir/shopping.html" ] || cp /etc/localbox/templates/shopping.html "$site_dir/shopping.html"
     if [ ! -f "$site_dir/index.html" ]; then
         cat > "$site_dir/index.html" << 'HTML'
 <!DOCTYPE html>
@@ -218,6 +247,240 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    location = /waitlist {
+        proxy_pass http://127.0.0.1:8081/waitlist;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /register {
+        proxy_pass http://127.0.0.1:8080/register;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /login {
+        proxy_pass http://127.0.0.1:8080/login;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /public/logout {
+        proxy_pass http://127.0.0.1:8080/public/logout;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /admin {
+        proxy_pass http://127.0.0.1:8080/admin;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /attachment {
+        proxy_pass http://127.0.0.1:8080/attachment;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /certificate {
+        proxy_pass http://127.0.0.1:8080/certificate;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /compose {
+        proxy_pass http://127.0.0.1:8080/compose;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /logout {
+        proxy_pass http://127.0.0.1:8080/logout;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /message {
+        proxy_pass http://127.0.0.1:8080/message;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /message/action {
+        proxy_pass http://127.0.0.1:8080/message/action;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /orders {
+        proxy_pass http://127.0.0.1:8080/orders;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /page {
+        proxy_pass http://127.0.0.1:8080/page;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /page/html {
+        proxy_pass http://127.0.0.1:8080/page/html;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /page/images {
+        proxy_pass http://127.0.0.1:8080/page/images;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /password {
+        proxy_pass http://127.0.0.1:8080/password;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /system {
+        proxy_pass http://127.0.0.1:8080/system;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /system/certificate {
+        proxy_pass http://127.0.0.1:8080/system/certificate;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /ingest {
+        proxy_pass http://127.0.0.1:8080/ingest;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /payment/start {
+        proxy_pass http://127.0.0.1:8080/payment/start;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /payment/paystack/return {
+        proxy_pass http://127.0.0.1:8080/payment/paystack/return;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /payment/paystack/webhook {
+        proxy_pass http://127.0.0.1:8080/payment/paystack/webhook;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /order {
+        proxy_pass http://127.0.0.1:8081/order;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /order/login {
+        proxy_pass http://127.0.0.1:8081/order/login;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /order/progress {
+        proxy_pass http://127.0.0.1:8081/order/progress;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /order/logout {
+        proxy_pass http://127.0.0.1:8081/order/logout;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location = /api/domain/check {
         proxy_pass http://127.0.0.1:8081/api/domain/check;
         proxy_set_header Host $host;
@@ -229,6 +492,24 @@ server {
 
     location = /api/domain/search {
         proxy_pass http://127.0.0.1:8081/api/domain/search;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = / {
+        proxy_pass http://127.0.0.1:8080/index.html;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location ~ ^/[A-Za-z0-9][A-Za-z0-9-]*\.html$ {
+        proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -266,10 +547,14 @@ ssh $PI_USER@$PI_HOST \
      lbu add /usr/local/sbin/localbox-create-backup && \
      lbu add /usr/local/sbin/localbox-provision-template && \
      lbu add /usr/local/sbin/localbox-add-tunnel-route && \
+     lbu add /usr/local/sbin/localbox-add-email-routes && \
+     lbu add /usr/local/sbin/localbox-firstboot && \
      lbu add /etc/localbox/examples && \
 	 lbu add /etc/init.d/contact-service && \
 	 lbu add /etc/group && \
-	 lbu add /etc/nginx/http.d/localbox-sites.conf && \
+     [ ! -f /etc/network/interfaces ] || lbu add /etc/network/interfaces && \
+     [ ! -e /etc/runlevels/default/networking ] || lbu add /etc/runlevels/default/networking && \
+	 lbu add /etc/nginx/http.d && \
 	 lbu add /etc/localbox/templates && \
 	 lbu add /etc/localbox/domains.conf && \
      lbu add /etc/localbox/admins.conf && \
@@ -278,6 +563,8 @@ ssh $PI_USER@$PI_HOST \
      [ ! -f /etc/localbox/domainscoza.conf ] || lbu add /etc/localbox/domainscoza.conf && \
      [ ! -f /etc/localbox/cloudflare.conf ] || lbu add /etc/localbox/cloudflare.conf && \
      [ ! -f /etc/localbox/cloudflare-tunnel.conf ] || lbu add /etc/localbox/cloudflare-tunnel.conf && \
+     [ ! -f /etc/localbox/paystack.conf ] || lbu add /etc/localbox/paystack.conf && \
+     [ ! -f /var/log/mail-ingest.log ] || lbu add /var/log/mail-ingest.log && \
      lbu add /var/log/contact-service.log && \
      lbu add /var/localbox/contact.log && \
      lbu add /var/localbox/send.log && \

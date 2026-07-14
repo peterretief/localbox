@@ -38,7 +38,7 @@
                 <h1>Domain Admin</h1>
                 <div class="domain">{{.Domain.Name}}</div>
             </div>
-            <div><a href="/">Inbox</a> · <a href="/page">Home page</a> · <a href="/system">System</a> · <a href="/logout">Sign out</a></div>
+            <div><a href="/">Inbox</a> · <a href="/page">Home page</a> · <a href="/orders">Orders</a> · <a href="/system">System</a> · <a href="/logout">Sign out</a></div>
         </div>
 
         {{if .Success}}<div class="status">{{.Success}}</div>{{end}}
@@ -49,6 +49,11 @@
                 <h2>Website</h2>
                 <p class="muted">{{.Domain.SitePath}}</p>
                 <p><a href="/page">Edit homepage and images</a></p>
+                {{if .Domain.CertificateAvailable}}
+                <p><a href="/certificate">Open domain certificate</a></p>
+                {{else}}
+                <p class="muted">Certificate not issued yet.</p>
+                {{end}}
             </section>
 
             <section class="panel">
@@ -91,6 +96,28 @@
                         </form>
                     </td>
                 </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </section>
+
+        <section class="panel" style="margin-top:18px;">
+            <h2>Registered users</h2>
+            <p class="muted">People who created website accounts for shopping, domain orders, or payments.</p>
+            <table>
+                <thead><tr><th>Username</th><th>Name</th><th>Email</th><th>Phone</th><th>Currency</th><th>Registered</th></tr></thead>
+                <tbody>
+                {{range .RegisteredUsers}}
+                <tr>
+                    <td>{{.Username}}</td>
+                    <td>{{.FullName}}</td>
+                    <td>{{.Email}}</td>
+                    <td>{{.Phone}}</td>
+                    <td>{{.Currency}}</td>
+                    <td>{{.CreatedAt}}</td>
+                </tr>
+                {{else}}
+                <tr><td colspan="6" class="muted">No registered users yet.</td></tr>
                 {{end}}
                 </tbody>
             </table>

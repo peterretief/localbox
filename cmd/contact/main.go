@@ -7,6 +7,7 @@ import (
 )
 
 func main() {
+	applyRuntimeConfig()
 	if len(os.Args) >= 2 && os.Args[1] == "test-smtp" {
 		domain := "example.com"
 		if len(os.Args) >= 3 {

@@ -7,8 +7,12 @@
         body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
         .back { color: #00b4d8; margin-bottom: 20px; display: block; }
         .card { background: white; padding: 30px; border-radius: 6px; }
-        .actions { display: flex; gap: 10px; margin-bottom: 18px; }
-        .button { display: inline-block; background: #00b4d8; color: white; padding: 9px 13px; border-radius: 6px; text-decoration: none; }
+        .actions { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+        .actions form { margin: 0; }
+        .button { display: inline-block; border: 0; background: #00b4d8; color: white; padding: 9px 13px; border-radius: 6px; text-decoration: none; font-size: 0.95em; cursor: pointer; }
+        .button.secondary { background: #1a1a2e; }
+        .button.danger { background: #e63946; }
+        .select { padding: 9px 10px; border: 1px solid #d8d8d8; border-radius: 6px; background: white; font-size: 0.95em; }
         .headers { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
         .header { margin: 4px 0; color: #666; font-size: 0.9em; }
         .header span { color: #1a1a2e; font-weight: bold; }
@@ -25,6 +29,33 @@
     <div class="actions">
         <a class="back" href="{{.BackURL}}">← Back</a>
         <a class="button" href="{{.ReplyURL}}">Reply</a>
+        {{if ne .Folder "Archive"}}
+        <form method="POST" action="/message/action">
+            <input type="hidden" name="action" value="archive">
+            <input type="hidden" name="id" value="{{.ID}}">
+            <input type="hidden" name="folder" value="{{.Folder}}">
+            <button class="button secondary" type="submit">Archive</button>
+        </form>
+        {{end}}
+        {{if .MoveFolders}}
+        <form method="POST" action="/message/action">
+            <input type="hidden" name="action" value="move">
+            <input type="hidden" name="id" value="{{.ID}}">
+            <input type="hidden" name="folder" value="{{.Folder}}">
+            <select class="select" name="target_folder" required>
+                {{range .MoveFolders}}
+                <option value="{{.Name}}">{{.Name}}</option>
+                {{end}}
+            </select>
+            <button class="button secondary" type="submit">Move</button>
+        </form>
+        {{end}}
+        <form method="POST" action="/message/action">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="id" value="{{.ID}}">
+            <input type="hidden" name="folder" value="{{.Folder}}">
+            <button class="button danger" type="submit">{{if eq .Folder "Trash"}}Delete permanently{{else}}Delete{{end}}</button>
+        </form>
     </div>
     <div class="card">
         <div class="headers">

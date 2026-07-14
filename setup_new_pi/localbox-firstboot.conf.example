@@ -1,0 +1,24 @@
+# Copy to localbox-firstboot.conf and edit before writing the boot card.
+
+hostname=localbox-a
+
+# Optional root access setup.
+# Password login for root is disabled by default over SSH; use an SSH key.
+# ssh_authorized_key=ssh-ed25519 AAAA... peter@devmachine
+# root_password=temporary-console-password
+
+# Optional Headscale/Tailscale join.
+headscale_login_server=https://headscale.example.com
+tailscale_authkey=tskey-auth-example
+
+# Local domain and first mailbox provisioned on first boot.
+domain=example.com
+mailbox=info@example.com:ChangeMe123!
+admin=info@example.com
+box_admin=info@example.com
+
+# Pi-side tunnel and ingest secret.
+cloudflare_tunnel_token=your-cloudflare-tunnel-token
+ingest_secret=change-this-secret
+
+mesh_box_name=pi-a

@@ -1,10 +1,15 @@
-# Copy to /etc/localbox/cloudflare.conf on the Pi.
+# Copy to ./cloudflare.conf on the dev machine, or to
+# /etc/localbox/cloudflare.conf on the Pi only when Pi-side API automation is needed.
 # Keep this file private; it contains Cloudflare credentials.
 
 enabled=false
 api_url=https://api.cloudflare.com/client/v4
 account_id=your-cloudflare-account-id
 api_token=your-cloudflare-api-token
+
+# Fixed Cloudflare Tunnel target for this Raspberry Pi. Every domain hosted on
+# this Pi can point root and www CNAME records at the same target.
+tunnel_target=3cd2a620-951b-4299-bdb6-25de4e74b6bd.cfargotunnel.com
 
 # The public domain checker routes .za domains to Domains.co.za and
 # other domains to Cloudflare Registrar.

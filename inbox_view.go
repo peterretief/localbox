@@ -10,33 +10,40 @@ import (
 const inboxPageSize = 20
 
 type InboxView struct {
-	Messages    []*Message
-	User        string
-	Domain      string
-	Query       string
-	View        string
-	Total       int
-	Page        int
-	TotalPages  int
-	Start       int
-	End         int
-	AllURL      string
-	NewURL      string
-	SentURL     string
-	SearchURL   string
-	PrevURL     string
-	NextURL     string
-	HasPrev     bool
-	HasNext     bool
-	ShowingNew  bool
-	ShowingSent bool
-	HasMessages bool
+	Messages      []*Message
+	User          string
+	Domain        string
+	Query         string
+	View          string
+	Folder        string
+	Total         int
+	Page          int
+	TotalPages    int
+	Start         int
+	End           int
+	AllURL        string
+	NewURL        string
+	SentURL       string
+	Folders       []MailFolder
+	SearchURL     string
+	PrevURL       string
+	NextURL       string
+	HasPrev       bool
+	HasNext       bool
+	ShowingNew    bool
+	ShowingSent   bool
+	ShowingFolder bool
+	HasMessages   bool
+	Access        AccessView
 }
 
-func newInboxView(messages []*Message, user, domain string, r *http.Request) InboxView {
+func newInboxView(messages []*Message, s *Session, r *http.Request) InboxView {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	view := r.URL.Query().Get("view")
-	if view != "new" && view != "sent" {
+	folder, _ := cleanMailFolderName(r.URL.Query().Get("folder"))
+	if folder != "" {
+		view = "folder"
+	} else if view != "new" && view != "sent" {
 		view = "all"
 	}
 
@@ -56,31 +63,35 @@ func newInboxView(messages []*Message, user, domain string, r *http.Request) Inb
 	}
 
 	data := InboxView{
-		Messages:    pageMessages,
-		User:        user,
-		Domain:      domain,
-		Query:       query,
-		View:        view,
-		Total:       total,
-		Page:        page,
-		TotalPages:  totalPages,
-		Start:       start + 1,
-		End:         end,
-		AllURL:      inboxURL(query, "all", 1),
-		NewURL:      inboxURL(query, "new", 1),
-		SentURL:     inboxURL(query, "sent", 1),
-		SearchURL:   inboxURL("", view, 1),
-		HasPrev:     page > 1,
-		HasNext:     page < totalPages,
-		ShowingNew:  view == "new",
-		ShowingSent: view == "sent",
-		HasMessages: total > 0,
+		Messages:      pageMessages,
+		User:          s.User,
+		Domain:        s.Domain,
+		Query:         query,
+		View:          view,
+		Folder:        folder,
+		Total:         total,
+		Page:          page,
+		TotalPages:    totalPages,
+		Start:         start + 1,
+		End:           end,
+		AllURL:        inboxURL(query, "all", 1),
+		NewURL:        inboxURL(query, "new", 1),
+		SentURL:       inboxURL(query, "sent", 1),
+		Folders:       listMailFolders(s.Domain, s.User, folder),
+		SearchURL:     inboxSearchURL(view, folder),
+		HasPrev:       page > 1,
+		HasNext:       page < totalPages,
+		ShowingNew:    view == "new",
+		ShowingSent:   view == "sent",
+		ShowingFolder: view == "folder",
+		HasMessages:   total > 0,
+		Access:        accessView(s),
 	}
 	if data.HasPrev {
-		data.PrevURL = inboxURL(query, view, page-1)
+		data.PrevURL = inboxFolderAwareURL(query, view, folder, page-1)
 	}
 	if data.HasNext {
-		data.NextURL = inboxURL(query, view, page+1)
+		data.NextURL = inboxFolderAwareURL(query, view, folder, page+1)
 	}
 
 	return data
@@ -131,11 +142,25 @@ func pageCount(total, pageSize int) int {
 }
 
 func inboxURL(query, view string, page int) string {
+	return inboxFolderAwareURL(query, view, "", page)
+}
+
+func inboxFolderURL(folder string, page int) string {
+	return inboxFolderAwareURL("", "folder", folder, page)
+}
+
+func inboxSearchURL(view, folder string) string {
+	return inboxFolderAwareURL("", view, folder, 1)
+}
+
+func inboxFolderAwareURL(query, view, folder string, page int) string {
 	values := url.Values{}
 	if strings.TrimSpace(query) != "" {
 		values.Set("q", strings.TrimSpace(query))
 	}
-	if view == "new" || view == "sent" {
+	if folder != "" {
+		values.Set("folder", folder)
+	} else if view == "new" || view == "sent" {
 		values.Set("view", view)
 	}
 	if page > 1 {

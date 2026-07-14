@@ -1,0 +1,27 @@
+# Copy to domain.conf and edit before running setup.
+
+domain=example.com
+
+mailbox=info@example.com:ChangeMe123!
+mailbox=peter@example.com:ChangeMe123!
+
+admin=peter@example.com
+box_admin=peter@example.com
+
+# Cloudflare Email Routing Worker setup.
+# Use a unique Worker name per Pi because each Worker has its own ingest URL.
+# The existing/current Pi may use alpine; a new Pi can use alpine-n, alpine-b, etc.
+email_worker=alpine-n
+
+# Each Pi should have a stable ingest host, for example:
+#   a.diode.co.za, b.diode.co.za, c.diode.co.za ... n.diode.co.za
+# The setup script creates a proxied Cloudflare CNAME for this host.
+ingest_host=n.diode.co.za
+ingest_tunnel_id=your-cloudflare-tunnel-uuid
+# Alternatively:
+# ingest_cname_target=your-cloudflare-tunnel-uuid.cfargotunnel.com
+
+email_ingest_secret=change-this-secret
+
+email_route=info@example.com
+email_route=peter@example.com

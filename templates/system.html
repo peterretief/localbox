@@ -37,7 +37,7 @@
                 <h1>System Admin</h1>
                 <div class="muted">Domains and admin roles</div>
             </div>
-            <div><a href="/">Inbox</a> · <a href="/admin">Domain admin</a> · <a href="/logout">Sign out</a></div>
+            <div><a href="/">Inbox</a> · <a href="/orders">Orders</a> · <a href="/admin">Domain admin</a> · <a href="/logout">Sign out</a></div>
         </div>
 
         {{if .Success}}<div class="status">{{.Success}}</div>{{end}}
@@ -45,18 +45,19 @@
 
         <div class="grid">
             <section class="panel">
-                <h2>Add Domain</h2>
+                <h2>Add LocalBox Domain</h2>
                 <form method="POST" action="/system">
                     <input type="hidden" name="action" value="add_domain">
                     <div class="row">
                         <input name="domain" placeholder="example.co.za" required>
                         <button type="submit">Add domain</button>
                     </div>
+                    <p class="muted">Adds local hosting folders only. Registrar domain registration is handled outside this action.</p>
                 </form>
             </section>
 
             <section class="panel">
-                <h2>Create Domain Admin</h2>
+                <h2>Complete Registered Domain</h2>
                 <form method="POST" action="/system">
                     <input type="hidden" name="action" value="create_domain_admin">
                     <div class="row">
@@ -65,9 +66,9 @@
                     </div>
                     <div class="row">
                         <input name="password" type="password" placeholder="temporary password" required minlength="8">
-                        <button type="submit">Create admin</button>
+                        <button type="submit">Create first email</button>
                     </div>
-                    <p class="muted">Creates the mailbox if needed, then grants domain admin access.</p>
+                    <p class="muted">Use after registrar confirmation. Creates the first mailbox, grants domain admin access, and writes a downloadable setup certificate.</p>
                 </form>
                 <form method="POST" action="/system" style="margin-top:14px;">
                     <input type="hidden" name="action" value="add_domain_admin">
@@ -83,13 +84,20 @@
         <section class="panel" style="margin-top:18px;">
             <h2>Domains</h2>
             <table>
-                <thead><tr><th>Domain</th><th>Mailboxes</th><th>Site path</th><th></th></tr></thead>
+                <thead><tr><th>Domain</th><th>Mailboxes</th><th>Site path</th><th>Certificate</th><th></th></tr></thead>
                 <tbody>
                 {{range .Domains}}
                 <tr>
                     <td>{{.Name}}</td>
                     <td>{{.UserCount}}</td>
                     <td class="muted">{{.SitePath}}</td>
+                    <td>
+                        {{if .CertificateAvailable}}
+                        <a href="/system/certificate?domain={{.Name}}">Download</a>
+                        {{else}}
+                        <span class="muted">Not issued</span>
+                        {{end}}
+                    </td>
                     <td>
                         <form method="POST" action="/system">
                             <input type="hidden" name="action" value="archive_domain">

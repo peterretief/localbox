@@ -18,3 +18,19 @@ mailbox=info@example.com:ChangeMe123!
 mailbox=peter@example.com:ChangeMe123!
 admin=peter@example.com
 box_admin=peter@example.com
+
+# Optional Cloudflare Email Routing automation.
+# Choose email_worker when Cloudflare Email Routing should send to a Worker.
+# Choose email_forward_to when Cloudflare should forward to an external inbox.
+# For a new Pi, create/update the Worker from the dev machine with:
+#   WORKER_DEPLOY_METHOD=wrangler ./scripts/setup-cloudflare-email-worker.sh /path/to/this-domain.conf
+# The Pi-side provisioning script only creates the local domain/mailboxes.
+# Use a unique Worker name per Pi because each Worker has its own ingest URL.
+# email_worker=alpine-n
+# ingest_host=n.diode.co.za
+# ingest_tunnel_id=your-cloudflare-tunnel-uuid
+# email_ingest_url=https://n.diode.co.za/ingest
+# email_ingest_secret=change-this-secret
+# email_forward_to=owner@example.net
+# email_route=info@example.com
+# email_route=peter@example.com

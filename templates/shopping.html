@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #20242a; background: #f7f8f5; line-height: 1.55; }
+        header, footer { background: #ffffff; border-bottom: 1px solid #dfe3dc; }
+        footer { border-top: 1px solid #dfe3dc; border-bottom: 0; color: #68716b; }
+        .nav, main, .footer-inner { max-width: 1100px; margin: 0 auto; padding: 0 22px; }
+        .nav { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+        .brand { font-weight: 800; color: #22312c; text-decoration: none; }
+        .links { display: flex; flex-wrap: wrap; gap: 16px; font-size: 14px; color: #43504a; }
+        .links a, footer a { color: #1e6f5c; text-decoration: none; }
+        main { padding-top: 42px; padding-bottom: 64px; }
+        .hero, .checkout, .empty-cart { background: #ffffff; border: 1px solid #dfe3dc; border-radius: 8px; padding: 24px; }
+        .hero { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.7fr); gap: 18px; align-items: start; }
+        h1, h2 { margin: 0; color: #22312c; line-height: 1.15; letter-spacing: 0; }
+        h1 { font-size: 42px; }
+        h2 { font-size: 26px; }
+        p { color: #5d6660; }
+        .eyebrow { margin: 0 0 8px; color: #1e6f5c; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+        .cart-summary { border-left: 4px solid #d98c50; padding-left: 16px; }
+        .summary-count { margin: 8px 0 12px; font-size: 28px; font-weight: 800; color: #22312c; }
+        .summary-total { margin: 0 0 12px; font-weight: 800; color: #1e6f5c; }
+        .cart-summary li { margin: 8px 0; }
+        .cart-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .cart-line span { min-width: 0; }
+        .cart-tools { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .cart-qty { width: 68px; min-height: 30px; padding: 5px 8px; }
+        .cart-remove { min-height: 30px; padding: 5px 9px; background: #eef1ea; color: #344039; font-size: 12px; }
+        .cart-remove:hover { background: #dfe3dc; }
+        .empty-cart { margin-top: 22px; border-style: dashed; }
+        .catalog { margin-top: 30px; }
+        .product-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+        .empty-catalog { grid-column: 1 / -1; background: #ffffff; border: 1px dashed #cbd3ca; border-radius: 8px; padding: 18px; color: #65706a; }
+        .checkout { margin-top: 30px; }
+        .checkout-form { margin-top: 16px; display: grid; gap: 16px; }
+        .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        label { display: grid; gap: 6px; font-weight: 800; color: #344039; }
+        input, textarea { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid #cbd3ca; border-radius: 6px; font: inherit; background: #ffffff; }
+        textarea { min-height: 104px; resize: vertical; }
+        button { min-height: 44px; border: 0; border-radius: 7px; padding: 11px 16px; background: #d98c50; color: #191b18; font: inherit; font-weight: 800; cursor: pointer; }
+        button:disabled { cursor: not-allowed; opacity: .55; }
+        .honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+        .checkout-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .checkout-actions p { margin: 0; color: #65706a; }
+        footer { padding: 24px 0; }
+        @media (max-width: 820px) {
+            .hero, .field-grid { grid-template-columns: 1fr; }
+            .product-grid { grid-template-columns: 1fr; }
+            h1 { font-size: 34px; }
+        }
+    </style>
+</head>
+<body data-preferred-currency="ZAR">
+    <header>
+        <nav class="nav" aria-label="Main navigation">
+            <a class="brand" href="/">LocalBox</a>
+            <div class="links">
+                <a href="/">Home</a>
+                <a href="#catalog">Catalog</a>
+                <a href="#checkout">Checkout</a>
+                <a href="/public/logout">Logout</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div>
+                <p class="eyebrow">Shopping cart</p>
+                <h1>Choose items for this domain.</h1>
+                <p>This shared cart starts empty. Add domain-specific products before publishing it for customers.</p>
+            </div>
+            <aside class="cart-summary" aria-live="polite">
+                <div class="eyebrow">Cart</div>
+                <div class="summary-count"><span data-cart-count>0</span> selected</div>
+                <div class="summary-total" data-cart-total>Total: R0.00</div>
+                <ul data-cart-list><li>No items selected yet.</li></ul>
+            </aside>
+        </section>
+
+        <section id="catalog" class="catalog">
+            <p class="eyebrow">Catalog</p>
+            <h2>Items</h2>
+            <div class="product-grid" data-product-grid>
+                <div class="empty-catalog">No items have been added for this domain yet.</div>
+            </div>
+        </section>
+
+        <section id="checkout" class="checkout">
+            <p class="eyebrow">Checkout</p>
+            <h2>Continue with registration</h2>
+            <form method="POST" action="/order" class="checkout-form">
+                <input type="text" name="website" autocomplete="off" tabindex="-1" class="honeypot" aria-hidden="true">
+                <input type="hidden" name="wanted_email" data-wanted-email>
+                <div data-selected-cart-fields></div>
+                <div class="field-grid">
+                    <label>Full name<input name="full_name" autocomplete="name" required></label>
+                    <label>Email address<input name="email" type="email" autocomplete="email" required></label>
+                    <label>Phone number<input name="phone" type="tel" autocomplete="tel"></label>
+                    <label>Domain<input name="domain" data-domain-input placeholder="example.co.za" required></label>
+                </div>
+                <label>Physical address<textarea name="physical_address" autocomplete="street-address" required></textarea></label>
+                <label>Extra notes<textarea name="notes" data-extra-notes placeholder="Anything else we should know?"></textarea></label>
+                <div class="checkout-actions">
+                    <button type="submit" data-checkout-button disabled>Save registration details and continue to payment</button>
+                    <p data-checkout-help>Add at least one catalog item before checkout.</p>
+                </div>
+            </form>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-inner">
+            <span>Shared shopping cart template. <a href="/">Back to site</a></span>
+        </div>
+    </footer>
+
+    <script>
+        (function(){
+            const items = Array.from(document.querySelectorAll("[data-cart-item]"));
+            const count = document.querySelector("[data-cart-count]");
+            const total = document.querySelector("[data-cart-total]");
+            const list = document.querySelector("[data-cart-list]");
+            const selectedFields = document.querySelector("[data-selected-cart-fields]");
+            const wantedEmail = document.querySelector("[data-wanted-email]");
+            const extra = document.querySelector("[data-extra-notes]");
+            const help = document.querySelector("[data-checkout-help]");
+            const button = document.querySelector("[data-checkout-button]");
+            const form = document.querySelector(".checkout-form");
+            const domainInput = document.querySelector("[data-domain-input]");
+            const quantities = {};
+            const preferredCurrency = cleanCurrency(document.body.dataset.preferredCurrency || "ZAR");
+            const params = new URLSearchParams(window.location.search);
+            const urlDomain = cleanDomain(params.get("domain"));
+            if(urlDomain){
+                try {
+                    localStorage.setItem("localbox_cart_domain", urlDomain);
+                } catch (error) {}
+            }
+            const storedDomain = cleanDomain(readStoredDomain());
+            let cartDomain = urlDomain || storedDomain;
+            if(cartDomain && domainInput && !domainInput.value){
+                domainInput.value = cartDomain;
+            }
+            function cleanDomain(domain){
+                domain = String(domain || "").trim().toLowerCase();
+                domain = domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[\/?#]/)[0].replace(/\.+$/, "");
+                return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9][a-z0-9-]{0,61})+$/.test(domain) ? domain : "";
+            }
+            function cleanCurrency(currency){
+                currency = String(currency || "").trim().toUpperCase();
+                return /^(ZAR|USD|EUR|GBP)$/.test(currency) ? currency : "ZAR";
+            }
+            function readStoredDomain(){
+                try {
+                    return localStorage.getItem("localbox_cart_domain") || "";
+                } catch (error) {
+                    return "";
+                }
+            }
+            function cartStorageKey(kind){
+                const domain = cleanDomain(cartDomain || (domainInput && domainInput.value) || readStoredDomain());
+                return domain ? "localbox_cart_" + kind + ":" + domain : "";
+            }
+            function readCartState(kind){
+                const key = cartStorageKey(kind);
+                if(!key){
+                    return null;
+                }
+                try {
+                    const raw = localStorage.getItem(key);
+                    return raw ? JSON.parse(raw) : null;
+                } catch (error) {
+                    return null;
+                }
+            }
+            function writeCartState(kind, value){
+                const key = cartStorageKey(kind);
+                if(!key){
+                    return;
+                }
+                try {
+                    localStorage.setItem(key, JSON.stringify(value));
+                } catch (error) {}
+            }
+            function restoreCartState(){
+                const selected = readCartState("items");
+                const savedQuantities = readCartState("quantities");
+                if(Array.isArray(selected)){
+                    selected.forEach(id => {
+                        const checkbox = items.find(item => item.value === id);
+                        if(checkbox){
+                            checkbox.checked = true;
+                        }
+                    });
+                }
+                if(savedQuantities && typeof savedQuantities === "object"){
+                    Object.keys(savedQuantities).forEach(id => {
+                        const qty = parseInt(savedQuantities[id], 10);
+                        if(Number.isFinite(qty) && qty > 0){
+                            quantities[id] = String(qty);
+                        }
+                    });
+                }
+            }
+            function selectedItems(){
+                const selected = items.filter(item => item.checked).map(item => ({
+                    id:item.value,
+                    name:item.dataset.name,
+                    price:item.dataset.price,
+                    display:item.dataset.priceDisplay || item.dataset.price,
+                    amount:item.dataset.priceAmount,
+                    currency:item.dataset.priceCurrency,
+                    estimated:item.dataset.priceEstimated
+                }));
+                if(cartDomain){
+                    const isCoZa = /\.co\.za$/i.test(cartDomain);
+                    selected.unshift(isCoZa ? {
+                        id:"domain:" + cartDomain,
+                        name:"New .co.za domain registration: " + cartDomain,
+                        price:"Estimated R150.00",
+                        display:"Estimated R150.00",
+                        amount:"150",
+                        currency:"ZAR",
+                        estimated:"1",
+                        description:"Includes a certificate of ownership and Cloudflare DNS setup pointing to this domain."
+                    } : {
+                        id:"domain:" + cartDomain,
+                        name:"New domain registration: " + cartDomain,
+                        price:"To be confirmed",
+                        display:"To be confirmed",
+                        amount:"0",
+                        currency:preferredCurrency,
+                        estimated:"0",
+                        description:"Includes domain setup and DNS configuration."
+                    });
+                }
+                return selected;
+            }
+            function itemQuantity(id){
+                const qty = parseInt(quantities[id] || "1", 10);
+                return Number.isFinite(qty) && qty > 0 ? qty : 1;
+            }
+            function formatMoney(currency, amount){
+                const symbols = {ZAR:"R", USD:"$", EUR:"€", GBP:"£"};
+                return (symbols[currency] || (currency + " ")) + amount.toFixed(2);
+            }
+            function displayPrice(price){
+                const text = String(price || "").trim();
+                if(!text){
+                    return String(price || "");
+                }
+                return text;
+            }
+            function totalLabel(selected){
+                const totals = {};
+                let unpriced = 0;
+                let estimated = false;
+                selected.forEach(item => {
+                    const parsedAmount = parseFloat(item.amount || "0");
+                    if(!Number.isFinite(parsedAmount) || parsedAmount <= 0){
+                        unpriced++;
+                        return;
+                    }
+                    const currency = cleanCurrency(item.currency || preferredCurrency);
+                    estimated = estimated || item.estimated === "1" || currency !== preferredCurrency;
+                    totals[currency] = (totals[currency] || 0) + parsedAmount * itemQuantity(item.id);
+                });
+                const parts = Object.keys(totals).sort().map(currency => formatMoney(currency, totals[currency]));
+                if(unpriced){
+                    parts.push("items to confirm");
+                }
+                return (estimated ? "Estimated total: " : "Total: ") + (parts.length ? parts.join(" + ") : formatMoney(preferredCurrency, 0));
+            }
+            function updateCart(){
+                const selected = selectedItems();
+                count.textContent = selected.reduce((sum, item) => sum + itemQuantity(item.id), 0);
+                total.textContent = totalLabel(selected);
+                list.innerHTML = "";
+                selectedFields.innerHTML = "";
+                if(selected.length === 0){
+                    const li = document.createElement("li");
+                    li.textContent = "No items selected yet.";
+                    list.appendChild(li);
+                } else {
+                    selected.forEach(item => {
+                        const li = document.createElement("li");
+                        const row = document.createElement("div");
+                        row.className = "cart-line";
+                        const label = document.createElement("span");
+                        label.textContent = item.name + (item.display ? " - " + displayPrice(item.display) : "");
+                        if(item.description){
+                            const desc = document.createElement("small");
+                            desc.textContent = item.description;
+                            desc.style.display = "block";
+                            desc.style.fontWeight = "400";
+                            desc.style.color = "#65706a";
+                            desc.style.marginTop = "4px";
+                            label.appendChild(desc);
+                        }
+                        const tools = document.createElement("div");
+                        tools.className = "cart-tools";
+                        const qty = document.createElement("input");
+                        qty.type = "number";
+                        qty.min = "1";
+                        qty.step = "1";
+                        qty.className = "cart-qty";
+                        qty.value = itemQuantity(item.id);
+                        qty.dataset.cartQty = item.id;
+                        qty.setAttribute("aria-label", "Quantity for " + item.name);
+                        const remove = document.createElement("button");
+                        remove.type = "button";
+                        remove.className = "cart-remove";
+                        remove.dataset.removeCartItem = item.id;
+                        remove.textContent = "Remove";
+                        tools.appendChild(qty);
+                        tools.appendChild(remove);
+                        row.appendChild(label);
+                        row.appendChild(tools);
+                        li.appendChild(row);
+                        list.appendChild(li);
+                        const field = document.createElement("input");
+                        field.type = "hidden";
+                        field.name = "cart_items";
+                        field.value = item.id;
+                        selectedFields.appendChild(field);
+                        const quantityField = document.createElement("input");
+                        quantityField.type = "hidden";
+                        quantityField.name = "cart_quantities";
+                        quantityField.value = item.id + "=" + itemQuantity(item.id);
+                        selectedFields.appendChild(quantityField);
+                    });
+                }
+                if(wantedEmail){
+                    wantedEmail.value = cartDomain ? "info@" + cartDomain : "";
+                }
+                help.textContent = cartDomain ? "Registrant details are saved before secure Paystack payment." : "Choose a domain before continuing.";
+                button.disabled = selected.length === 0;
+                writeCartState("items", selected.filter(item => item.id.indexOf("domain:") !== 0).map(item => item.id));
+                writeCartState("quantities", quantities);
+            }
+            items.forEach(item => item.addEventListener("change", updateCart));
+            list.addEventListener("input", function(event){
+                const input = event.target.closest("[data-cart-qty]");
+                if(!input){
+                    return;
+                }
+                quantities[input.dataset.cartQty] = String(Math.max(1, parseInt(input.value || "1", 10) || 1));
+                updateCart();
+            });
+            list.addEventListener("click", function(event){
+                const remove = event.target.closest("[data-remove-cart-item]");
+                if(!remove){
+                    return;
+                }
+                const id = remove.dataset.removeCartItem || "";
+                if(id.indexOf("domain:") === 0){
+                    delete quantities[id];
+                    cartDomain = "";
+                    if(domainInput){
+                        domainInput.value = "";
+                    }
+                    try {
+                        localStorage.removeItem("localbox_cart_domain");
+                    } catch (error) {}
+                    try {
+                        localStorage.removeItem(cartStorageKey("items"));
+                        localStorage.removeItem(cartStorageKey("quantities"));
+                    } catch (error) {}
+                } else {
+                    const checkbox = items.find(item => item.value === id);
+                    if(checkbox){
+                        checkbox.checked = false;
+                    }
+                    delete quantities[id];
+                }
+                updateCart();
+            });
+            extra.addEventListener("input", updateCart);
+            form.addEventListener("submit", function(event){
+                updateCart();
+                const domain = cleanDomain(cartDomain || (domainInput && domainInput.value) || "");
+                if(!domain){
+                    event.preventDefault();
+                    help.textContent = "Choose a domain before continuing.";
+                    return;
+                }
+            });
+            restoreCartState();
+            updateCart();
+        })();
+    </script>
+</body>
+</html>

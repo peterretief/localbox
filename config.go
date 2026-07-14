@@ -1,18 +1,36 @@
 package main
 
-import "regexp"
+import (
+	"os"
+	"path/filepath"
+	"regexp"
+)
 
 const (
-	listenAddr    = ":8080"
-	secret        = "220961"
-	usersFile     = "/etc/localbox/users.conf"
-	domainsFile   = "/etc/localbox/domains.conf"
-	adminsFile    = "/etc/localbox/admins.conf"
-	boxAdminsFile = "/etc/localbox/box-admins.conf"
-	cookieName    = "localbox_session"
+	listenAddr = ":8080"
+	secret     = "220961"
+	cookieName = "localbox_session"
 )
 
 var (
-	localBoxBase = "/mnt/data/localbox"
-	safeLabel    = regexp.MustCompile(`^[a-z0-9._-]+$`)
+	usersFile             = "/etc/localbox/users.conf"
+	domainsFile           = "/etc/localbox/domains.conf"
+	adminsFile            = "/etc/localbox/admins.conf"
+	boxAdminsFile         = "/etc/localbox/box-admins.conf"
+	localBoxBase          = "/mnt/data/localbox"
+	orderDBFile           = "/mnt/data/localbox/localbox.db"
+	paystackConfigFile    = "/etc/localbox/paystack.conf"
+	domainsCoZaConfigFile = "/etc/localbox/domainscoza.conf"
+	cloudflareConfigFile  = "/etc/localbox/cloudflare.conf"
+	safeLabel             = regexp.MustCompile(`^[a-z0-9._-]+$`)
 )
+
+func applyRuntimeConfig() {
+	if base := os.Getenv("LOCALBOX_BASE"); base != "" {
+		localBoxBase = base
+		orderDBFile = filepath.Join(base, "localbox.db")
+	}
+	if dbFile := os.Getenv("LOCALBOX_ORDER_DB"); dbFile != "" {
+		orderDBFile = dbFile
+	}
+}

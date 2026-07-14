@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>LocalBox Orders</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; margin: 0; background: #f5f5f5; color: #1a1a2e; }
+        .shell { max-width: 1240px; margin: 36px auto; padding: 0 20px; }
+        .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 14px; }
+        h1 { margin: 0; font-size: 1.7em; }
+        h2 { margin: 0 0 14px 0; font-size: 1.2em; }
+        h3 { margin: 0 0 10px 0; font-size: 1em; }
+        a { color: #00a0c0; text-decoration: none; }
+        .layout { display: grid; grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.4fr); gap: 18px; align-items: start; }
+        .panel { background: white; border-radius: 8px; padding: 22px; }
+        .row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+        input, textarea { padding: 9px 10px; border: 1px solid #d8d8d8; border-radius: 5px; font-size: 0.95em; min-width: 0; }
+        textarea { width: 100%; min-height: 92px; resize: vertical; }
+        button { padding: 9px 12px; border: 0; border-radius: 5px; background: #00b4d8; color: white; cursor: pointer; }
+        button.danger { background: #e63946; }
+        button.secondary { background: #1a1a2e; }
+        label.check { display: inline-flex; align-items: center; gap: 6px; color: #555; font-size: 0.9em; }
+        label.check input { padding: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid #eee; font-size: 0.9em; vertical-align: top; }
+        th { color: #777; font-weight: normal; }
+        .status { color: #2a9d4b; margin-bottom: 14px; }
+        .error { color: #e63946; margin-bottom: 14px; }
+        .muted { color: #777; font-size: 0.86em; }
+        .badge { display: inline-block; background: #e8f7fb; color: #007c96; border-radius: 999px; padding: 3px 8px; font-size: 0.78em; font-weight: bold; }
+        .badge.archived { background: #f4e4e7; color: #a3202e; }
+        .details { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .field { padding: 12px; background: #f8f8f8; border-radius: 6px; overflow-wrap: anywhere; }
+        .field strong { display: block; margin-bottom: 5px; color: #555; font-size: 0.82em; }
+        .actions { display: grid; gap: 12px; }
+        .order-link { display: block; padding: 10px; border-radius: 6px; }
+        .order-link:hover { background: #f5f5f5; }
+        .queue { margin-bottom: 18px; border-left: 4px solid #00b4d8; }
+        .queue table { margin-top: 8px; }
+        .dns-target { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
+        @media (max-width: 900px) {
+            .layout, .details { grid-template-columns: 1fr; }
+            .top { align-items: flex-start; flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <div class="top">
+            <div>
+                <h1>Orders</h1>
+                <div class="muted">Starter requests, payment links, and registration readiness</div>
+            </div>
+            <div><a href="/">Inbox</a> · <a href="/system">System</a> · <a href="/logout">Sign out</a></div>
+        </div>
+
+        {{if .Success}}<div class="status">{{.Success}}</div>{{end}}
+        {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+
+        <div class="layout">
+            <section class="panel">
+                <div class="queue">
+                    <h2>DNS Settings Needed</h2>
+                    {{if .DNSPending}}
+                    <table>
+                        <thead><tr><th>Domain</th><th>Registrar</th><th>Website</th></tr></thead>
+                        <tbody>
+                        {{range .DNSPending}}
+                        <tr>
+                            <td><a href="/orders?id={{.ID}}{{$.FilterSuffix}}">{{.Domain}}</a><br><span class="muted">{{.FullName}}</span></td>
+                            <td>{{if .RegistrarReference}}{{.RegistrarReference}}{{else}}<span class="muted">Missing reference</span>{{end}}</td>
+                            <td>{{if .WebsiteURL}}<span class="dns-target">{{.WebsiteURL}}</span>{{else}}<span class="muted">Will use https://{{.Domain}}/</span>{{end}}</td>
+                        </tr>
+                        {{end}}
+                        </tbody>
+                    </table>
+                    {{else}}
+                    <p class="muted">No registered domains are waiting for DNS propagation.</p>
+                    {{end}}
+                </div>
+
+                <h2>Submitted Orders</h2>
+                <form method="GET" action="/orders" class="row">
+                    <input name="q" value="{{.Query}}" placeholder="Search orders" style="flex:1; min-width:180px;">
+                    <label class="check"><input type="checkbox" name="show_processed" value="1" {{if .ShowProcessed}}checked{{end}}> Show processed</label>
+                    <label class="check"><input type="checkbox" name="show_archived" value="1" {{if .ShowArchived}}checked{{end}}> Show archived</label>
+                    <button type="submit">Filter</button>
+                </form>
+                {{if .Orders}}
+                <table>
+                    <thead><tr><th>Order</th><th>Status</th><th>Domain</th></tr></thead>
+                    <tbody>
+                    {{range .Orders}}
+                    <tr>
+                        <td><a class="order-link" href="/orders?id={{.ID}}{{$.FilterSuffix}}">{{.FullName}}<br><span class="muted">{{.CreatedAt}}</span></a></td>
+                        <td><span class="badge">{{.Status}}</span>{{if .ArchivedAt}}<br><span class="badge archived">archived</span>{{end}}</td>
+                        <td>{{.Domain}}<br><span class="muted">{{.WantedEmail}}</span></td>
+                    </tr>
+                    {{end}}
+                    </tbody>
+                </table>
+                {{else}}
+                <p class="muted">No orders yet.</p>
+                {{end}}
+            </section>
+
+            <section class="panel">
+                {{if .Current}}
+                <h2>{{.Current.Domain}}</h2>
+                <p><span class="badge">{{.Current.Status}}</span> {{if .Current.ArchivedAt}}<span class="badge archived">archived</span>{{end}} <span class="muted">{{.Current.ID}}</span></p>
+
+                <div class="details">
+                    <div class="field"><strong>Full name</strong>{{.Current.FullName}}</div>
+                    <div class="field"><strong>Email</strong><a href="mailto:{{.Current.Email}}">{{.Current.Email}}</a></div>
+                    <div class="field"><strong>Phone</strong>{{.Current.Phone}}</div>
+                    <div class="field"><strong>First email address</strong>{{.Current.WantedEmail}}</div>
+                    <div class="field"><strong>Physical address</strong>{{.Current.PhysicalAddress}}</div>
+                    <div class="field"><strong>Notes</strong>{{if .Current.Notes}}{{.Current.Notes}}{{else}}<span class="muted">None</span>{{end}}</div>
+                    <div class="field"><strong>Quoted amount</strong>{{if .Current.QuotedAmountCents}}{{formatRand .Current.QuotedAmountCents}}{{else}}<span class="muted">Not quoted</span>{{end}}</div>
+                    <div class="field"><strong>Payment link</strong>{{if .Current.PaymentURL}}<a href="{{.Current.PaymentURL}}">{{.Current.PaymentURL}}</a>{{else}}<span class="muted">Not set</span>{{end}}</div>
+                    <div class="field"><strong>Payment reference</strong>{{if .Current.PaymentReference}}{{.Current.PaymentReference}}{{else}}<span class="muted">Not paid</span>{{end}}</div>
+                    <div class="field"><strong>Registrar reference</strong>{{if .Current.RegistrarReference}}{{.Current.RegistrarReference}}{{else}}<span class="muted">Not registered</span>{{end}}</div>
+                    <div class="field"><strong>Email voucher</strong>{{if .Current.EmailVoucherCode}}{{.Current.EmailVoucherCode}}{{else}}<span class="muted">Not issued</span>{{end}}</div>
+                    <div class="field"><strong>Website URL</strong>{{if .Current.WebsiteURL}}<a href="{{.Current.WebsiteURL}}">{{.Current.WebsiteURL}}</a>{{else}}<span class="muted">Not published</span>{{end}}</div>
+                    <div class="field"><strong>Certificate email</strong>{{if .Current.CertificateSentAt}}{{.Current.CertificateSentAt}}{{else}}<span class="muted">Not sent</span>{{end}}</div>
+                    <div class="field"><strong>Website email</strong>{{if .Current.SiteLiveSentAt}}{{.Current.SiteLiveSentAt}}{{else}}<span class="muted">Not sent</span>{{end}}</div>
+                    <div class="field"><strong>Archived</strong>{{if .Current.ArchivedAt}}{{.Current.ArchivedAt}}{{else}}<span class="muted">No</span>{{end}}</div>
+                </div>
+
+                <div class="actions" style="margin-top:18px;">
+                    <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">
+                        <h3>Quote and Payment Link</h3>
+                        <input type="hidden" name="action" value="save_quote">
+                        <input type="hidden" name="order_id" value="{{.Current.ID}}">
+                        <input type="hidden" name="q" value="{{.Query}}">
+                        {{if .ShowProcessed}}<input type="hidden" name="show_processed" value="1">{{end}}
+                        {{if .ShowArchived}}<input type="hidden" name="show_archived" value="1">{{end}}
+                        <div class="row">
+                            <input name="quoted_amount" placeholder="R200.00" value="{{formatRand .Current.QuotedAmountCents}}" required>
+                            <input name="payment_url" placeholder="https://payment-provider/..." value="{{.Current.PaymentURL}}" required style="flex:1; min-width:260px;">
+                            <button type="submit">Save quote</button>
+                        </div>
+                        <p class="muted">Paste the payment URL generated by your payment provider. Automatic gateway generation comes later.</p>
+                    </form>
+
+                    <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">
+                        <h3>Payment</h3>
+                        <input type="hidden" name="action" value="mark_paid">
+                        <input type="hidden" name="order_id" value="{{.Current.ID}}">
+                        <input type="hidden" name="q" value="{{.Query}}">
+                        {{if .ShowProcessed}}<input type="hidden" name="show_processed" value="1">{{end}}
+                        {{if .ShowArchived}}<input type="hidden" name="show_archived" value="1">{{end}}
+                        <div class="row">
+                            <input name="payment_reference" placeholder="payment reference" value="{{.Current.PaymentReference}}" required>
+                            <button type="submit">Mark paid</button>
+                        </div>
+                    </form>
+
+                    <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">
+                        <h3>Register Domain</h3>
+                        <input type="hidden" name="action" value="provision_domain">
+                        <input type="hidden" name="order_id" value="{{.Current.ID}}">
+                        <input type="hidden" name="q" value="{{.Query}}">
+                        {{if .ShowProcessed}}<input type="hidden" name="show_processed" value="1">{{end}}
+                        {{if .ShowArchived}}<input type="hidden" name="show_archived" value="1">{{end}}
+                        <div class="row">
+                            <button class="secondary" type="submit" {{if and (ne .Current.Status "paid") (ne .Current.Status "provisioning_failed")}}disabled{{end}}>{{if eq .Current.Status "provisioning_failed"}}Retry domain registration{{else}}Register domain{{end}}</button>
+                        </div>
+                        <p class="muted">Runs Domains.co.za registration, creates the Cloudflare zone, updates nameservers, and adds tunnel DNS records. Available after payment is verified.</p>
+                    </form>
+
+                    <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">
+                        <h3>Registration</h3>
+                        <input type="hidden" name="action" value="ready_for_registration">
+                        <input type="hidden" name="order_id" value="{{.Current.ID}}">
+                        <input type="hidden" name="q" value="{{.Query}}">
+                        {{if .ShowProcessed}}<input type="hidden" name="show_processed" value="1">{{end}}
+                        {{if .ShowArchived}}<input type="hidden" name="show_archived" value="1">{{end}}
+                        <div class="row">
+                            <input name="registrar_reference" placeholder="registrar reference, optional" value="{{.Current.RegistrarReference}}">
+                            <button type="submit">Ready for registration</button>
+                        </div>
+                    </form>
+
+                    <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">
+                        <h3>Complete Registration</h3>
+                        <input type="hidden" name="action" value="complete_registration">
+                        <input type="hidden" name="order_id" value="{{.Current.ID}}">
+                        <input type="hidden" name="q" value="{{.Query}}">
+                        {{if .ShowProcessed}}<input type="hidden" name="show_processed" value="1">{{end}}
+                        {{if .ShowArchived}}<input type="hidden" name="show_archived" value="1">{{end}}
+                        <div class="row">
+                            <input name="registrar_reference" placeholder="registrar reference" value="{{.Current.RegistrarReference}}" required>
+                            <button type="submit">Send certificate</button>
+                        </div>
+                        <p class="muted">Creates the starter website files and sends the certificate with email voucher. Send the live link only after DNS propagation.</p>
+                    </form>
+
+                    <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">
+                        <h3>Domain Propagated</h3>
+                        <input type="hidden" name="action" value="domain_propagated">
+                        <input type="hidden" name="order_id" value="{{.Current.ID}}">
+                        <input type="hidden" name="q" value="{{.Query}}">
+                        {{if .ShowProcessed}}<input type="hidden" name="show_processed" value="1">{{end}}
+                        {{if .ShowArchived}}<input type="hidden" name="show_archived" value="1">{{end}}
+                        <div class="row">
+                            <button type="submit">Send website link</button>
+                        </div>
+                        <p class="muted">Use after the new domain resolves to LocalBox and the starter website is reachable.</p>
+                    </form>
+
+                    <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">
+                        <h3>Archive</h3>
+                        <input type="hidden" name="order_id" value="{{.Current.ID}}">
+                        <input type="hidden" name="q" value="{{.Query}}">
+                        {{if .ShowProcessed}}<input type="hidden" name="show_processed" value="1">{{end}}
+                        {{if .ShowArchived}}<input type="hidden" name="show_archived" value="1">{{end}}
+                        {{if .Current.ArchivedAt}}
+                        <input type="hidden" name="action" value="restore_order">
+                        <button class="secondary" type="submit">Restore order</button>
+                        {{else}}
+                        <input type="hidden" name="action" value="archive_order">
+                        <button class="danger" type="submit">Archive order</button>
+                        <p class="muted">Use for test orders or records you no longer want in the active list. The order is hidden, not deleted from the database.</p>
+                        {{end}}
+                    </form>
+                </div>
+
+                <section style="margin-top:18px;">
+                    <h2>Events</h2>
+                    <table>
+                        <thead><tr><th>Time</th><th>Event</th><th>Message</th></tr></thead>
+                        <tbody>
+                        {{range .Current.Events}}
+                        <tr><td class="muted">{{.CreatedAt}}</td><td>{{.EventType}}</td><td>{{.Message}}</td></tr>
+                        {{end}}
+                        </tbody>
+                    </table>
+                </section>
+                {{else}}
+                <h2>No order selected</h2>
+                <p class="muted">Choose an order from the list.</p>
+                {{end}}
+            </section>
+        </div>
+    </div>
+</body>
+</html>

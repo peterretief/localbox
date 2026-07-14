@@ -1,8 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 )
 
 type SystemView struct {
@@ -24,11 +29,14 @@ func systemView() SystemView {
 
 	var domains []AdminDomain
 	for _, domain := range domainNames {
+		_ = ensureRegistrationCertificateForUsers(domain, users, time.Now())
 		domains = append(domains, AdminDomain{
-			Name:      domain,
-			UserCount: userCounts[domain],
-			SitePath:  domainSiteBase(domain),
-			MailPath:  domainMailBase(domain),
+			Name:                 domain,
+			UserCount:            userCounts[domain],
+			SitePath:             domainSiteBase(domain),
+			MailPath:             domainMailBase(domain),
+			CertificatePath:      registrationCertificatePath(domain),
+			CertificateAvailable: registrationCertificateExists(domain),
 		})
 	}
 
@@ -95,7 +103,10 @@ func createDomainAdmin(username, domain, password string) error {
 			return err
 		}
 	}
-	return addDomainAdmin(username, domain)
+	if err := addDomainAdmin(username, domain); err != nil {
+		return err
+	}
+	return saveRegistrationCertificate(domain, username, time.Now())
 }
 
 func removeDomainAdmin(username, domain string) error {
@@ -170,4 +181,84 @@ func splitRoleKey(key string) RoleIdentity {
 		return RoleIdentity{}
 	}
 	return RoleIdentity{User: parts[0], Domain: parts[1]}
+}
+
+func registrationCertificatePath(domain string) string {
+	return filepath.Join(domainBase(domain), "certificates", "registration-certificate.txt")
+}
+
+func registrationCertificateExists(domain string) bool {
+	_, err := os.Stat(registrationCertificatePath(domain))
+	return err == nil
+}
+
+func ensureRegistrationCertificateForUsers(domain string, users []User, now time.Time) error {
+	domain = normalizeDomain(domain)
+	if !safeDomain(domain) || registrationCertificateExists(domain) {
+		return nil
+	}
+	var usernames []string
+	for _, user := range users {
+		if user.Domain == domain {
+			usernames = append(usernames, user.Username)
+		}
+	}
+	if len(usernames) == 0 {
+		return nil
+	}
+	sort.Strings(usernames)
+	return saveRegistrationCertificate(domain, usernames[0], now)
+}
+
+func saveRegistrationCertificate(domain, username string, now time.Time) error {
+	domain = normalizeDomain(domain)
+	username = normalizeMailboxUser(username)
+	if !safeDomain(domain) || !safeMailboxUser(username) {
+		return fmt.Errorf("invalid certificate details")
+	}
+	path := registrationCertificatePath(domain)
+	if err := os.MkdirAll(filepath.Dir(path), 0770); err != nil {
+		return err
+	}
+	return os.WriteFile(path, registrationCertificate(domain, username, now), 0640)
+}
+
+func registrationCertificate(domain, username string, now time.Time) []byte {
+	lines := []string{
+		"LOCALBOX DOMAIN SETUP CERTIFICATE",
+		"",
+		"Domain: " + normalizeDomain(domain),
+		"First email address: " + normalizeMailboxUser(username) + "@" + normalizeDomain(domain),
+		"Issued: " + now.UTC().Format(time.RFC3339),
+		"",
+		"This confirms that LocalBox has completed the local setup for this registered domain.",
+		"Domain registration is handled as a separate registrar step and is not performed by the public request form.",
+		"The temporary mailbox password is not printed on this certificate.",
+	}
+
+	var b bytes.Buffer
+	for _, line := range lines {
+		fmt.Fprintln(&b, line)
+	}
+
+	users, err := loadUsers()
+	if err == nil {
+		var addresses []string
+		domain = normalizeDomain(domain)
+		for _, user := range users {
+			if user.Domain == domain {
+				addresses = append(addresses, user.Username+"@"+user.Domain)
+			}
+		}
+		if len(addresses) > 0 {
+			sort.Strings(addresses)
+			fmt.Fprintln(&b)
+			fmt.Fprintln(&b, "Mailboxes present at issue time:")
+			for _, address := range addresses {
+				fmt.Fprintln(&b, "- "+address)
+			}
+		}
+	}
+
+	return b.Bytes()
 }

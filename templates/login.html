@@ -15,16 +15,21 @@
         button { width: 100%; margin-top: 24px; padding: 12px; background: #00b4d8; color: white; border: none; border-radius: 4px; font-size: 1em; cursor: pointer; }
         button:hover { background: #0096c7; }
         .error { color: #e63946; margin-top: 16px; font-size: 0.9em; text-align: center; }
+        .link { margin-top: 18px; color: #777; font-size: 0.9em; text-align: center; }
+        .link a { color: #00a0c0; text-decoration: none; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h1>📬 LocalBox Mail</h1>
-        <p class="sub">Sign in to your mailbox</p>
+        <h1>{{if .Public}}LocalBox Account{{else}}LocalBox Mail{{end}}</h1>
+        <p class="sub">{{if .Public}}Sign in to your registered account{{else}}Sign in to your mailbox{{end}}</p>
         <form method="POST" action="/login">
+            <input type="hidden" name="next" value="{{.Next}}">
+            {{if .Public}}<input type="hidden" name="public" value="1">{{end}}
 
             <label>Username</label>
 <input type="text" name="username" placeholder="peter" value="{{.Username}}" required autofocus>
+            {{if not .Public}}
             <label>Domain</label>
             {{if .Domains}}
             <select name="domain" required>
@@ -35,11 +40,13 @@
             {{else}}
             <input type="text" name="domain" placeholder="opamp.co.za" value="{{.Domain}}" required>
             {{end}}
+            {{end}}
             <label>Password</label>
             <input type="password" name="password" required>
             <button type="submit">Sign in</button>
         </form>
         {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+        {{if not .Public}}<p class="link">Interested in LocalBox? <a href="{{.RegisterURL}}">Create an account</a></p>{{end}}
     </div>
 </body>
 </html>

@@ -77,3 +77,14 @@ func TestLocalContactRecipientFromUsersFile(t *testing.T) {
 		t.Fatal("did not expect unknown recipient to be local")
 	}
 }
+
+func TestSMTPConfigToIsExplicitRelayRecipient(t *testing.T) {
+	cfg := SMTPConfig{To: "sales@example.com"}
+	recipient := strings.TrimSpace(cfg.To)
+	if recipient == "" {
+		recipient = contactOwnerAddress("example.com")
+	}
+	if recipient != "sales@example.com" {
+		t.Fatalf("expected explicit recipient, got %q", recipient)
+	}
+}

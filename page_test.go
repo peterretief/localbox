@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +23,454 @@ func TestRenderMarkdownLinkedImage(t *testing.T) {
 	want := `<a href="/contact.html"><img src="/assets/image.jpg" alt="Alt text" title="Title" loading="lazy"></a>`
 	if !strings.Contains(rendered, want) {
 		t.Fatalf("rendered markdown did not include expected linked image: %s", rendered)
+	}
+}
+
+func TestRenderHomeHTMLIncludesMenuItems(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := "example.com"
+	site := domainSiteBase(domain)
+	if err := os.MkdirAll(site, 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "software.html"), []byte("software"), 0664); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordUploadedHTML(domain, "software.html"); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveSiteMenuItems(domain, []SiteMenuItem{{Name: "software.html", Label: "Software"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	rendered := string(renderHomeHTML(domain, "# Welcome"))
+	if !strings.Contains(rendered, `<a href="/software.html">Software</a>`) {
+		t.Fatalf("expected rendered homepage to include menu link, got %s", rendered)
+	}
+}
+
+func TestRenderHomeHTMLAlwaysUsesInformationPage(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := "example.com"
+	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
+		t.Fatal(err)
+	}
+
+	rendered := string(renderHomeHTML(domain, "# Welcome"))
+	if strings.Contains(rendered, "LocalBox Shopping Cart") || strings.Contains(rendered, `data-cart-item`) {
+		t.Fatalf("expected markdown homepage to stay informational, got %s", rendered)
+	}
+}
+
+func TestSaveShoppingCartPageCreatesDomainScopedPage(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+	oldDB := orderDBFile
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	t.Cleanup(func() { orderDBFile = oldDB })
+
+	domain := "example.com"
+	if err := saveSiteCatalog(domain, []cartProduct{
+		{
+			Name:        "Managed mailbox",
+			Description: "Editable mailbox catalog item.",
+			Price:       "R99",
+			Category:    "Core",
+			Image:       "/assets/mailbox.jpg",
+			Featured:    true,
+		},
+		{
+			Name:        "Onsite setup",
+			Description: "Editable add-on item.",
+			Price:       "Quoted",
+			Category:    "Add-on",
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	products, addOns := loadSiteCatalog(domain)
+	if len(products) != 1 || products[0].Name != "Managed mailbox" || !products[0].Featured {
+		t.Fatalf("unexpected products: %#v", products)
+	}
+	if products[0].Image != "/assets/mailbox.jpg" {
+		t.Fatalf("expected catalog image to persist, got %q", products[0].Image)
+	}
+	if len(addOns) != 1 || addOns[0].Name != "Onsite setup" {
+		t.Fatalf("unexpected add-ons: %#v", addOns)
+	}
+	db, err := openOrdersDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var savedDomain string
+	var savedCount int
+	if err := db.QueryRow(`SELECT domain, COUNT(*) FROM shopping_cart_items GROUP BY domain`).Scan(&savedDomain, &savedCount); err != nil {
+		t.Fatal(err)
+	}
+	if savedDomain != domain || savedCount != 2 {
+		t.Fatalf("expected SQL cart rows for %s only, got domain=%q count=%d", domain, savedDomain, savedCount)
+	}
+
+	if err := saveShoppingCartPage(domain); err != nil {
+		t.Fatal(err)
+	}
+	page, err := os.ReadFile(filepath.Join(domainSiteBase(domain), shoppingPageName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rendered := string(page)
+	if !strings.Contains(rendered, "Managed mailbox") || !strings.Contains(rendered, "Onsite setup") || !strings.Contains(rendered, "/assets/mailbox.jpg") {
+		t.Fatalf("expected editable catalog items in generated cart, got %s", rendered)
+	}
+	if !isUploadedHTML(domain, shoppingPageName) {
+		t.Fatal("expected shopping page to be recorded as uploaded HTML")
+	}
+	menu := loadSiteMenuItems(domain)
+	if len(menu) != 1 || menu[0].Name != shoppingPageName || menu[0].Label != "Shopping" {
+		t.Fatalf("expected shopping page in menu, got %#v", menu)
+	}
+
+	otherDomain := "other.com"
+	if _, err := os.Stat(filepath.Join(domainSiteBase(otherDomain), shoppingPageName)); !os.IsNotExist(err) {
+		t.Fatalf("expected other domain to have no generated shopping page, err=%v", err)
+	}
+	otherProducts, otherAddOns := loadSiteCatalog(otherDomain)
+	if len(otherProducts) != 0 || len(otherAddOns) != 0 {
+		t.Fatalf("expected other domain to have no cart items, got products=%#v addOns=%#v", otherProducts, otherAddOns)
+	}
+}
+
+func TestGeneratedShoppingPageAppearsInMenuWithoutUploadRecord(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := "example.com"
+	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(domainSiteBase(domain), shoppingPageName), []byte("cart"), 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	files, err := listSiteHTMLFiles(domain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pages := siteMenuPages(files)
+	if len(pages) != 1 || pages[0].Name != shoppingPageName || pages[0].MenuLabel != "Shopping" {
+		t.Fatalf("expected generated shopping page to be available in menu, got %#v", pages)
+	}
+
+	rendered := string(renderHomeHTML(domain, "# Welcome"))
+	if !strings.Contains(rendered, `<a href="/shopping.html">Shopping</a>`) {
+		t.Fatalf("expected homepage menu to include shopping link, got %s", rendered)
+	}
+}
+
+func TestRootHandlerServesDomainSiteHTMLPage(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+	oldUsersFile := usersFile
+	usersFile = filepath.Join(t.TempDir(), "users.conf")
+	t.Cleanup(func() { usersFile = oldUsersFile })
+
+	domain := "example.com"
+	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(domainSiteBase(domain), shoppingPageName), []byte("<h1>Shopping</h1>"), 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "http://example.com/shopping.html", nil)
+	rr := httptest.NewRecorder()
+	rootHandler(rr, req)
+	if rr.Code != 302 || !strings.HasPrefix(rr.Header().Get("Location"), "/register?next=") {
+		t.Fatalf("expected unauthenticated shopping page to redirect to registration, code=%d location=%q", rr.Code, rr.Header().Get("Location"))
+	}
+
+	hash, err := hashPasswordStrong("secret-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saveUsers([]User{{Username: "info", Domain: domain, Hash: hash}}); err != nil {
+		t.Fatal(err)
+	}
+	token := newSession("info", domain)
+	req = httptest.NewRequest("GET", "http://example.com/shopping.html", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: token})
+	rr = httptest.NewRecorder()
+	rootHandler(rr, req)
+
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "Logged in as info") || !strings.Contains(rr.Body.String(), "LocalBox Shopping Cart") {
+		t.Fatalf("expected dynamic shopping page response, code=%d body=%q", rr.Code, rr.Body.String())
+	}
+	if rr.Header().Get("Cache-Control") == "" {
+		t.Fatal("expected shopping page to disable caching")
+	}
+}
+
+func TestSiteHTMLPageShowsLoggedInPublicUser(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+	oldDB := orderDBFile
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	t.Cleanup(func() { orderDBFile = oldDB })
+
+	domain := "example.com"
+	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(domainSiteBase(domain), "software.html"), []byte("<!doctype html><html><body><h1>Software</h1></body></html>"), 0664); err != nil {
+		t.Fatal(err)
+	}
+	if err := registerPublicUser(domain, "buyer", "buyer@example.net", "secret-password"); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "http://example.com/software.html", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("buyer", domain)})
+	rr := httptest.NewRecorder()
+	rootHandler(rr, req)
+
+	body := rr.Body.String()
+	if rr.Code != http.StatusOK || !strings.Contains(body, "Logged in as buyer") || !strings.Contains(body, "/public/logout") || !strings.Contains(body, "<h1>Software</h1>") {
+		t.Fatalf("expected static page with logged-in public user bar, code=%d body=%q", rr.Code, body)
+	}
+	if rr.Header().Get("Cache-Control") == "" {
+		t.Fatal("expected logged-in static page to disable caching")
+	}
+}
+
+func TestSiteHTMLPageShowsPublicAuthLinks(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := "example.com"
+	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(domainSiteBase(domain), "software.html"), []byte("<!doctype html><html><body><h1>Software</h1></body></html>"), 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "http://example.com/software.html", nil)
+	rr := httptest.NewRecorder()
+	rootHandler(rr, req)
+
+	body := rr.Body.String()
+	if rr.Code != http.StatusOK || !strings.Contains(body, `href="/register?next=%2Fsoftware.html"`) || !strings.Contains(body, `href="/login?public=1&next=%2Fsoftware.html"`) || strings.Contains(body, "Logout") {
+		t.Fatalf("expected static page with public auth links, code=%d body=%q", rr.Code, body)
+	}
+}
+
+func TestIndexHTMLPageShowsLoggedInPublicUser(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+	oldDB := orderDBFile
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	t.Cleanup(func() { orderDBFile = oldDB })
+
+	domain := "example.com"
+	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(domainSiteBase(domain), "index.html"), []byte("<!doctype html><html><body><h1>Home</h1></body></html>"), 0664); err != nil {
+		t.Fatal(err)
+	}
+	if err := registerPublicUser(domain, "buyer", "buyer@example.net", "secret-password"); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "http://example.com/index.html", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("buyer", domain)})
+	rr := httptest.NewRecorder()
+	rootHandler(rr, req)
+
+	body := rr.Body.String()
+	if rr.Code != http.StatusOK || !strings.Contains(body, "Logged in as buyer") || !strings.Contains(body, "<h1>Home</h1>") {
+		t.Fatalf("expected index page with logged-in public user bar, code=%d body=%q", rr.Code, body)
+	}
+}
+
+func TestRegisterHandlerInfersDomainFromSiteHost(t *testing.T) {
+	oldDB := orderDBFile
+	oldSender := sendOrderNotificationEmail
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	t.Cleanup(func() {
+		orderDBFile = oldDB
+		sendOrderNotificationEmail = oldSender
+	})
+	var sent orderEmailMessage
+	sendOrderNotificationEmail = func(message orderEmailMessage) error {
+		sent = message
+		return nil
+	}
+
+	form := strings.NewReader("next=%2Fshopping.html&full_name=Buyer+Example&email=buyer%40example.net&phone=%2B27821234567&address_line_1=1+Example+Street&address_line_2=Unit+4&city=Cape+Town&province=Western+Cape&postal_code=8001&country=ZA&username=buyer&currency=USD&password=secret-password&confirm_password=secret-password")
+	req := httptest.NewRequest("POST", "http://example.com/register", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	registerHandler(rr, req)
+
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "Check your email") {
+		t.Fatalf("expected verification notice, code=%d body=%q", rr.Code, rr.Body.String())
+	}
+	if sent.To != "buyer@example.net" || !strings.Contains(sent.Body, "/register/verify?") {
+		t.Fatalf("expected verification email, got %#v", sent)
+	}
+	if !authenticatePublicUser("buyer", "example.com", "secret-password") {
+		t.Fatal("expected public user to be registered under request host domain")
+	}
+	db, err := openOrdersDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var currency, addressLine1, addressLine2, city, province, postalCode, country, physicalAddress string
+	if err := db.QueryRow(`SELECT currency, address_line_1, address_line_2, city, province, postal_code, country, physical_address FROM public_users WHERE domain = ? AND username = ?`, "example.com", "buyer").Scan(&currency, &addressLine1, &addressLine2, &city, &province, &postalCode, &country, &physicalAddress); err != nil {
+		t.Fatal(err)
+	}
+	if currency != "USD" {
+		t.Fatalf("expected saved public user currency USD, got %q", currency)
+	}
+	if addressLine1 != "1 Example Street" || addressLine2 != "Unit 4" || city != "Cape Town" || province != "Western Cape" || postalCode != "8001" || country != "ZA" {
+		t.Fatalf("expected registrar address fields to persist, got line1=%q line2=%q city=%q province=%q postal=%q country=%q", addressLine1, addressLine2, city, province, postalCode, country)
+	}
+	if physicalAddress != "1 Example Street, Unit 4, Cape Town, Western Cape, 8001, ZA" {
+		t.Fatalf("expected composed physical address, got %q", physicalAddress)
+	}
+}
+
+func TestPublicUserCanRegisterLoginAndOpenShoppingPage(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+	oldDB := orderDBFile
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	t.Cleanup(func() { orderDBFile = oldDB })
+
+	domain := "example.com"
+	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(domainSiteBase(domain), shoppingPageName), []byte("<h1>Shopping</h1>"), 0664); err != nil {
+		t.Fatal(err)
+	}
+	if err := registerPublicUser(domain, "buyer", "buyer@example.net", "secret-password"); err != nil {
+		t.Fatal(err)
+	}
+	if !authenticatePublicUser("buyer", domain, "secret-password") {
+		t.Fatal("expected registered public user to authenticate")
+	}
+
+	token := newSession("buyer", domain)
+	req := httptest.NewRequest("GET", "http://example.com/shopping.html", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: token})
+	rr := httptest.NewRecorder()
+	rootHandler(rr, req)
+
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "Logged in as buyer") || !strings.Contains(rr.Body.String(), "LocalBox Shopping Cart") {
+		t.Fatalf("expected public registered user to open dynamic shopping page, code=%d body=%q", rr.Code, rr.Body.String())
+	}
+}
+
+func TestPublicLoginDoesNotRequirePostedDomain(t *testing.T) {
+	oldDB := orderDBFile
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	t.Cleanup(func() { orderDBFile = oldDB })
+
+	if err := registerPublicUser("example.com", "buyer", "buyer@example.net", "secret-password"); err != nil {
+		t.Fatal(err)
+	}
+	form := strings.NewReader("next=%2Fshopping.html&username=buyer&password=secret-password")
+	req := httptest.NewRequest("POST", "http://example.com/login", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	loginHandler(rr, req)
+
+	if rr.Code != 302 || rr.Header().Get("Location") != "/shopping.html" {
+		t.Fatalf("expected public login redirect without domain, code=%d location=%q body=%q", rr.Code, rr.Header().Get("Location"), rr.Body.String())
+	}
+}
+
+func TestPublicLoginPageDoesNotShowMailboxDomainOptions(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://example.com/login?public=1&next=%2Fsoftware.html", nil)
+	rr := httptest.NewRecorder()
+
+	loginHandler(rr, req)
+
+	body := rr.Body.String()
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected public login page, code=%d body=%q", rr.Code, body)
+	}
+	if !strings.Contains(body, "LocalBox Account") || !strings.Contains(body, "Sign in to your registered account") || !strings.Contains(body, `name="public" value="1"`) {
+		t.Fatalf("expected public account login page, got %s", body)
+	}
+	if strings.Contains(body, "Sign in to your mailbox") || strings.Contains(body, "shopping cart") || strings.Contains(body, "Interested in LocalBox") || strings.Contains(body, `name="domain"`) || strings.Contains(body, "<select") {
+		t.Fatalf("public login should not show mailbox/domain fields, got %s", body)
+	}
+}
+
+func TestPublicUserRegistrationRequiresUniqueUsernameAndEmailPerDomain(t *testing.T) {
+	oldDB := orderDBFile
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	t.Cleanup(func() { orderDBFile = oldDB })
+
+	if err := registerPublicUser("example.com", "buyer", "buyer@example.net", "secret-password"); err != nil {
+		t.Fatal(err)
+	}
+	if err := registerPublicUser("example.com", "buyer", "other@example.net", "secret-password"); err == nil {
+		t.Fatal("expected duplicate username in same domain to fail")
+	}
+	if err := registerPublicUser("example.com", "other", "buyer@example.net", "secret-password"); err == nil {
+		t.Fatal("expected duplicate email in same domain to fail")
+	}
+	if err := registerPublicUser("other.com", "buyer", "buyer@example.net", "secret-password"); err != nil {
+		t.Fatalf("expected same username/email to be allowed in another domain, got %v", err)
+	}
+}
+
+func TestPublicLogoutClearsSessionAndReturnsHome(t *testing.T) {
+	token := newSession("buyer", "example.com")
+	req := httptest.NewRequest("GET", "http://example.com/public/logout", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: token})
+	rr := httptest.NewRecorder()
+
+	publicLogoutHandler(rr, req)
+
+	if rr.Code != 302 || rr.Header().Get("Location") != "/" {
+		t.Fatalf("expected public logout to return home, code=%d location=%q", rr.Code, rr.Header().Get("Location"))
+	}
+	if session := getSession(req); session != nil {
+		t.Fatalf("expected session to be deleted, got %#v", session)
+	}
+	var cleared bool
+	for _, cookie := range rr.Result().Cookies() {
+		if cookie.Name == cookieName && cookie.Value == "" {
+			cleared = true
+		}
+	}
+	if !cleared {
+		t.Fatal("expected logout response to clear session cookie")
+	}
+	if rr.Header().Get("Cache-Control") == "" {
+		t.Fatal("expected public logout to disable caching")
 	}
 }
 
@@ -92,6 +542,34 @@ func TestSaveUploadedSiteHTMLStoresAdditionalPageWithoutPublishingHome(t *testin
 	}
 	if !isUploadedHTML(domain, "software.html") {
 		t.Fatal("expected software.html to be recorded as uploaded")
+	}
+}
+
+func TestDeleteSiteHTMLFileRemovesMenuItem(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := "example.com"
+	site := domainSiteBase(domain)
+	if err := os.MkdirAll(site, 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "software.html"), []byte("software"), 0664); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordUploadedHTML(domain, "software.html"); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveSiteMenuItems(domain, []SiteMenuItem{{Name: "software.html", Label: "Software"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := deleteSiteHTMLFile(domain, "software.html"); err != nil {
+		t.Fatal(err)
+	}
+	if items := loadSiteMenuItems(domain); len(items) != 0 {
+		t.Fatalf("expected menu item to be removed, got %#v", items)
 	}
 }
 

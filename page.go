@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"html"
 	"html/template"
@@ -41,8 +40,11 @@ type PageEditorData struct {
 	Preview       template.HTML
 	Images        []SiteImage
 	HTMLFiles     []SiteHTMLFile
+	MenuPages     []SiteHTMLFile
+	CatalogRows   []CatalogEditorRow
 	Domain        string
 	Mode          string
+	Section       string
 	Error         string
 	Success       string
 	ImageError    string
@@ -56,10 +58,24 @@ type SiteHTMLFile struct {
 	Active      bool
 	Uploaded    bool
 	Homepage    bool
+	InMenu      bool
+	MenuLabel   string
 	Size        int64
 	DisplaySize string
 	Modified    string
 }
+
+type SiteMenuItem struct {
+	Name  string
+	Label string
+}
+
+type CatalogEditorRow struct {
+	Index   int
+	Product cartProduct
+}
+
+const shoppingPageName = "shopping.html"
 
 func loadHomeMarkdown(domain string) (string, error) {
 	data, err := os.ReadFile(homeMarkdownPath(domain))
@@ -79,7 +95,7 @@ func saveHomePage(domain, markdown string) error {
 	if err := os.WriteFile(homeMarkdownPath(domain), []byte(markdown), 0664); err != nil {
 		return err
 	}
-	if err := os.WriteFile(homeHTMLPath(domain), renderHomeHTML(markdown), 0664); err != nil {
+	if err := os.WriteFile(homeHTMLPath(domain), renderHomeHTML(domain, markdown), 0664); err != nil {
 		return err
 	}
 	return saveSiteMode(domain, "markdown")
@@ -101,6 +117,10 @@ func htmlUploadsPath(domain string) string {
 	return filepath.Join(domainSiteBase(domain), "html-uploads.conf")
 }
 
+func siteMenuPath(domain string) string {
+	return filepath.Join(domainSiteBase(domain), "menu.conf")
+}
+
 func loadSiteMode(domain string) string {
 	data, err := os.ReadFile(siteModePath(domain))
 	if err != nil {
@@ -119,7 +139,76 @@ func saveSiteMode(domain, mode string) error {
 	if mode != "html" {
 		mode = "markdown"
 	}
+	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
+		return err
+	}
 	return os.WriteFile(siteModePath(domain), []byte("mode="+mode+"\n"), 0664)
+}
+
+func cleanCatalogProduct(product cartProduct) cartProduct {
+	product.Name = cleanCatalogText(product.Name, 120)
+	product.Description = cleanCatalogText(product.Description, 320)
+	product.Price = cleanCatalogText(product.Price, 80)
+	product.Category = cleanCatalogText(product.Category, 48)
+	product.Image = cleanCatalogText(product.Image, 512)
+	product.ID = cleanCatalogID(product.ID, product.Name)
+	if product.Price == "" {
+		product.Price = "Quoted"
+	}
+	if product.Category == "" {
+		product.Category = "Core"
+	}
+	if strings.EqualFold(product.Category, "Add on") {
+		product.Category = "Add-on"
+	}
+	return product
+}
+
+func cleanCatalogText(text string, limit int) string {
+	text = strings.Join(strings.Fields(strings.TrimSpace(text)), " ")
+	if len(text) > limit {
+		text = strings.TrimSpace(text[:limit])
+	}
+	return text
+}
+
+func cleanCatalogID(id, fallback string) string {
+	id = strings.ToLower(strings.TrimSpace(id))
+	var b strings.Builder
+	lastDash := false
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastDash = false
+		case r == '-' || r == '_' || r == ' ':
+			if !lastDash && b.Len() > 0 {
+				b.WriteByte('-')
+				lastDash = true
+			}
+		}
+	}
+	cleaned := strings.Trim(b.String(), "-")
+	if cleaned == "" && strings.TrimSpace(fallback) != "" {
+		return cleanCatalogID(fallback, "")
+	}
+	if cleaned == "" {
+		return "catalog-item"
+	}
+	if len(cleaned) > 64 {
+		cleaned = strings.Trim(cleaned[:64], "-")
+	}
+	return cleaned
+}
+
+func uniqueCatalogID(id string, seen map[string]bool) string {
+	base := id
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s-%d", base, i)
+		if !seen[candidate] {
+			return candidate
+		}
+	}
 }
 
 func saveUploadedHomeHTML(domain string, htmlData []byte) (string, error) {
@@ -212,24 +301,28 @@ func listSiteHTMLFiles(domain string) ([]SiteHTMLFile, error) {
 		return nil, err
 	}
 	uploaded := loadUploadedHTMLNames(domain)
+	menu := loadSiteMenuMap(domain)
 
 	var files []SiteHTMLFile
 	for _, entry := range entries {
 		if entry.IsDir() || !allowedUploadedHTMLName(entry.Name()) {
 			continue
 		}
-		if entry.Name() != "index.html" && !isHomeHTMLName(entry.Name()) && !uploaded[entry.Name()] {
+		if entry.Name() != "index.html" && !isHomeHTMLName(entry.Name()) && !uploaded[entry.Name()] && !isGeneratedSiteHTMLName(entry.Name()) {
 			continue
 		}
 		info, err := entry.Info()
 		if err != nil {
 			continue
 		}
+		menuLabel, inMenu := menu[entry.Name()]
 		files = append(files, SiteHTMLFile{
 			Name:        entry.Name(),
 			Active:      entry.Name() == "index.html",
 			Uploaded:    uploaded[entry.Name()],
 			Homepage:    isHomeHTMLName(entry.Name()),
+			InMenu:      inMenu,
+			MenuLabel:   menuLabel,
 			Size:        info.Size(),
 			DisplaySize: displaySize(info.Size()),
 			Modified:    info.ModTime().Format("2006-01-02 15:04"),
@@ -285,7 +378,143 @@ func deleteSiteHTMLFile(domain, name string) error {
 	if err := os.Remove(filepath.Join(domainSiteBase(domain), name)); err != nil {
 		return err
 	}
+	if err := removeSiteMenuItem(domain, name); err != nil {
+		return err
+	}
 	return removeUploadedHTML(domain, name)
+}
+
+func siteMenuPages(files []SiteHTMLFile) []SiteHTMLFile {
+	var pages []SiteHTMLFile
+	for _, file := range files {
+		if file.Active || file.Homepage {
+			continue
+		}
+		if file.MenuLabel == "" {
+			file.MenuLabel = defaultMenuLabel(file.Name)
+		}
+		pages = append(pages, file)
+	}
+	return pages
+}
+
+func loadSiteMenuMap(domain string) map[string]string {
+	items := map[string]string{}
+	for _, item := range loadSiteMenuItems(domain) {
+		items[item.Name] = item.Label
+	}
+	return items
+}
+
+func loadSiteMenuItems(domain string) []SiteMenuItem {
+	data, err := os.ReadFile(siteMenuPath(domain))
+	if err != nil {
+		return defaultGeneratedMenuItems(domain, nil)
+	}
+
+	var items []SiteMenuItem
+	seen := map[string]bool{}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 2)
+		name := cleanUploadedHTMLName(parts[0])
+		if !allowedMenuHTMLName(name) || seen[name] {
+			continue
+		}
+		label := ""
+		if len(parts) == 2 {
+			label = cleanMenuLabel(parts[1])
+		}
+		if label == "" {
+			label = defaultMenuLabel(name)
+		}
+		items = append(items, SiteMenuItem{Name: name, Label: label})
+		seen[name] = true
+	}
+	return defaultGeneratedMenuItems(domain, items)
+}
+
+func saveSiteMenuItems(domain string, items []SiteMenuItem) error {
+	available := map[string]bool{}
+	files, err := listSiteHTMLFiles(domain)
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		if !file.Active && !file.Homepage {
+			available[file.Name] = true
+		}
+	}
+
+	seen := map[string]bool{}
+	var b strings.Builder
+	for _, item := range items {
+		name := cleanUploadedHTMLName(item.Name)
+		if !allowedMenuHTMLName(name) || !available[name] || seen[name] {
+			continue
+		}
+		label := cleanMenuLabel(item.Label)
+		if label == "" {
+			label = defaultMenuLabel(name)
+		}
+		fmt.Fprintf(&b, "%s\t%s\n", name, label)
+		seen[name] = true
+	}
+	return os.WriteFile(siteMenuPath(domain), []byte(b.String()), 0664)
+}
+
+func removeSiteMenuItem(domain, name string) error {
+	name = cleanUploadedHTMLName(name)
+	var kept []SiteMenuItem
+	for _, item := range loadSiteMenuItems(domain) {
+		if item.Name != name {
+			kept = append(kept, item)
+		}
+	}
+	return saveSiteMenuItems(domain, kept)
+}
+
+func allowedMenuHTMLName(name string) bool {
+	return allowedUploadedHTMLName(name) && !isHomeHTMLName(name) && !reservedSiteHTMLName(name)
+}
+
+func cleanMenuLabel(label string) string {
+	label = strings.Join(strings.Fields(strings.TrimSpace(label)), " ")
+	if len(label) > 48 {
+		label = strings.TrimSpace(label[:48])
+	}
+	return label
+}
+
+func defaultMenuLabel(name string) string {
+	name = strings.TrimSuffix(cleanUploadedHTMLName(name), ".html")
+	words := strings.Fields(strings.ReplaceAll(name, "-", " "))
+	for i, word := range words {
+		if word == "" {
+			continue
+		}
+		words[i] = strings.ToUpper(word[:1]) + word[1:]
+	}
+	return strings.Join(words, " ")
+}
+
+func defaultGeneratedMenuItems(domain string, items []SiteMenuItem) []SiteMenuItem {
+	if _, err := os.Stat(filepath.Join(domainSiteBase(domain), shoppingPageName)); err != nil {
+		return items
+	}
+	for _, item := range items {
+		if item.Name == shoppingPageName {
+			return items
+		}
+	}
+	return append(items, SiteMenuItem{Name: shoppingPageName, Label: "Shopping"})
+}
+
+func isGeneratedSiteHTMLName(name string) bool {
+	return cleanUploadedHTMLName(name) == shoppingPageName
 }
 
 func loadUploadedHTMLNames(domain string) map[string]bool {
@@ -314,6 +543,34 @@ func recordUploadedHTML(domain, name string) error {
 	names := loadUploadedHTMLNames(domain)
 	names[name] = true
 	return saveUploadedHTMLNames(domain, names)
+}
+
+func saveShoppingCartPage(domain string) error {
+	products, addOns := loadSiteCatalog(domain)
+	menu := loadSiteMenuItems(domain)
+	htmlData := []byte(newShoppingCartComponentManager(domain, "", "", menu, products, addOns).Render())
+	if err := writeFileAtomic(filepath.Join(domainSiteBase(domain), shoppingPageName), htmlData, 0664); err != nil {
+		return err
+	}
+	if err := recordUploadedHTML(domain, shoppingPageName); err != nil {
+		return err
+	}
+	if err := ensureSiteMenuItem(domain, SiteMenuItem{Name: shoppingPageName, Label: "Shopping"}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ensureSiteMenuItem(domain string, item SiteMenuItem) error {
+	items := loadSiteMenuItems(domain)
+	for i, existing := range items {
+		if existing.Name == item.Name {
+			items[i].Label = item.Label
+			return saveSiteMenuItems(domain, items)
+		}
+	}
+	items = append(items, item)
+	return saveSiteMenuItems(domain, items)
 }
 
 func removeUploadedHTML(domain, name string) error {
@@ -406,23 +663,19 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 	return nil
 }
 
-func renderHomeHTML(markdown string) []byte {
+func renderHomeHTML(domain, markdown string) []byte {
 	content := renderMarkdown(markdown)
-	var b bytes.Buffer
-	fmt.Fprint(&b, "<!DOCTYPE html>\n<html>\n<head>\n")
-	fmt.Fprint(&b, `<meta charset="UTF-8">`+"\n")
-	fmt.Fprint(&b, `<meta name="viewport" content="width=device-width, initial-scale=1.0">`+"\n")
-	fmt.Fprint(&b, "<title>LocalBox</title>\n")
-	fmt.Fprint(&b, "<style>\n")
-	fmt.Fprint(&b, "body{font-family:sans-serif;margin:0;background:#f5f5f5;color:#1a1a2e;line-height:1.6;}\n")
-	fmt.Fprint(&b, "main{max-width:760px;margin:48px auto;padding:0 22px;}\n")
-	fmt.Fprint(&b, "article{background:white;border-radius:8px;padding:34px;}\n")
-	fmt.Fprint(&b, "h1,h2,h3{line-height:1.2;}a{color:#00a0c0;}li{margin:6px 0;}img{max-width:100%;height:auto;border-radius:6px;}\n")
-	fmt.Fprint(&b, "@media(max-width:700px){main{margin:24px auto;}article{padding:24px;}}\n")
-	fmt.Fprint(&b, "</style>\n</head>\n<body>\n<main><article>\n")
-	b.WriteString(content)
-	fmt.Fprint(&b, "\n</article></main>\n</body>\n</html>\n")
-	return b.Bytes()
+	menu := loadSiteMenuItems(domain)
+	return []byte(newContentPageComponentManager(content, menu).Render())
+}
+
+func renderContentPageHTML(content string, menu []SiteMenuItem) string {
+	return newContentPageComponentManager(content, menu).Render()
+}
+
+func renderShoppingCartHTML(domain string, menu []SiteMenuItem) string {
+	products, addOns := loadSiteCatalog(domain)
+	return newShoppingCartComponentManager(domain, "", "", menu, products, addOns).Render()
 }
 
 func renderMarkdown(markdown string) string {

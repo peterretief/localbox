@@ -35,6 +35,7 @@ type ComposePageData struct {
 	Success string
 	User    string
 	Domain  string
+	Access  AccessView
 }
 
 type OutgoingAttachment struct {

@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,18 +13,26 @@ import (
 )
 
 type LoginPageData struct {
-	Error    string
-	Username string
-	Domain   string
-	Domains  []string
+	Error       string
+	Username    string
+	Domain      string
+	Domains     []string
+	Next        string
+	RegisterURL string
+	Public      bool
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
+		next := safeRedirectPath(r.URL.Query().Get("next"))
+		public := publicLoginRequest(r, next)
 		tmpl := template.Must(template.ParseFiles("templates/login.html"))
 		tmpl.Execute(w, LoginPageData{
-			Domain:  lastLoginDomain(r),
-			Domains: loginDomains(),
+			Domain:      lastLoginDomain(r),
+			Domains:     loginFormDomains(public),
+			Next:        next,
+			RegisterURL: registerURL(next),
+			Public:      public,
 		})
 		return
 	}
@@ -31,7 +40,14 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	username := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
 	domain := strings.ToLower(strings.TrimSpace(r.FormValue("domain")))
 	password := r.FormValue("password")
-	rememberLoginDomain(w, domain)
+	next := safeRedirectPath(r.FormValue("next"))
+	public := publicLoginRequest(r, next)
+	if public && domain == "" {
+		domain = registrationDomain(r)
+	}
+	if domain != "" {
+		rememberLoginDomain(w, domain)
+	}
 	if authenticate(username, domain, password) {
 		token := newSession(username, domain)
 		http.SetCookie(w, &http.Cookie{
@@ -41,17 +57,345 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			Expires:  time.Now().Add(24 * time.Hour),
 			HttpOnly: true,
 		})
-		http.Redirect(w, r, "/", http.StatusFound)
+		if next == "" {
+			next = "/"
+		}
+		http.Redirect(w, r, next, http.StatusFound)
+		return
+	}
+	if ok, currency := authenticatePublicUserWithCurrency(username, domain, password); ok {
+		token := newSessionWithCurrency(username, domain, currency)
+		http.SetCookie(w, &http.Cookie{
+			Name:     cookieName,
+			Value:    token,
+			Path:     "/",
+			Expires:  time.Now().Add(24 * time.Hour),
+			HttpOnly: true,
+		})
+		if next == "" {
+			next = "/"
+		}
+		http.Redirect(w, r, next, http.StatusFound)
 		return
 	}
 
 	tmpl := template.Must(template.ParseFiles("templates/login.html"))
 	tmpl.Execute(w, LoginPageData{
-		Error:    "Invalid credentials",
-		Username: username,
-		Domain:   domain,
-		Domains:  loginDomains(),
+		Error:       "Invalid credentials",
+		Username:    username,
+		Domain:      domain,
+		Domains:     loginFormDomains(public),
+		Next:        next,
+		RegisterURL: registerURL(next),
+		Public:      public,
 	})
+}
+
+func publicLoginFlow(next string) bool {
+	return next == "/shopping.html" || strings.HasPrefix(next, "/shopping.html?") ||
+		next == "/payment/start" || strings.HasPrefix(next, "/payment/start?")
+}
+
+func publicLoginRequest(r *http.Request, next string) bool {
+	return publicLoginFlow(next) || r.URL.Query().Get("public") == "1" || r.FormValue("public") == "1"
+}
+
+func loginFormDomains(public bool) []string {
+	if public {
+		return nil
+	}
+	return loginDomains()
+}
+
+func registerURL(next string) string {
+	if next == "" {
+		return "/register"
+	}
+	return "/register?next=" + url.QueryEscape(next)
+}
+
+func loginURL(next string) string {
+	if next == "" {
+		return "/login"
+	}
+	return "/login?next=" + url.QueryEscape(next)
+}
+
+func registerHandler(w http.ResponseWriter, r *http.Request) {
+	next := safeRedirectPath(r.URL.Query().Get("next"))
+	if next == "" {
+		next = safeRedirectPath(r.FormValue("next"))
+	}
+	domain := registrationDomain(r)
+	if formDomain := strings.ToLower(strings.TrimSpace(r.FormValue("domain"))); formDomain != "" {
+		domain = formDomain
+	}
+	data := PublicRegisterData{
+		Currency: "ZAR",
+		Country:  "ZA",
+		Domain:   domain,
+		Next:     next,
+		LoginURL: loginURL(next),
+	}
+	populateRegisterDataFromSession(r, &data)
+	if r.URL.Query().Get("payment") == "failed" {
+		data.Error = "Payment was not completed. Please check your details and try again."
+	}
+	if r.URL.Query().Get("verification") == "required" {
+		data.Error = "Please verify your email address before continuing to payment."
+	}
+	if r.Method == http.MethodGet {
+		tmpl := template.Must(template.ParseFiles("templates/register.html"))
+		tmpl.Execute(w, data)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	data.Username = strings.ToLower(strings.TrimSpace(r.FormValue("username")))
+	data.Email = strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+	data.FullName = strings.TrimSpace(r.FormValue("full_name"))
+	data.Phone = strings.TrimSpace(r.FormValue("phone"))
+	data.PhysicalAddress = strings.TrimSpace(r.FormValue("physical_address"))
+	data.AddressLine1 = strings.TrimSpace(r.FormValue("address_line_1"))
+	data.AddressLine2 = strings.TrimSpace(r.FormValue("address_line_2"))
+	data.City = strings.TrimSpace(r.FormValue("city"))
+	data.Province = strings.TrimSpace(r.FormValue("province"))
+	data.PostalCode = strings.TrimSpace(r.FormValue("postal_code"))
+	data.Country = strings.ToUpper(strings.TrimSpace(r.FormValue("country")))
+	if data.Country == "" {
+		data.Country = "ZA"
+	}
+	data.PhysicalAddress = composePublicUserPhysicalAddress(publicUserProfileInput{
+		AddressLine1: data.AddressLine1,
+		AddressLine2: data.AddressLine2,
+		City:         data.City,
+		Province:     data.Province,
+		PostalCode:   data.PostalCode,
+		Country:      data.Country,
+	})
+	data.Currency = cleanCurrency(r.FormValue("currency"))
+	password := r.FormValue("password")
+	confirmPassword := r.FormValue("confirm_password")
+	session := getRegisteredSession(r)
+	data.SignedIn = session != nil && session.Domain == data.Domain && session.User == data.Username
+	switch {
+	case data.Domain == "":
+		data.Error = "Domain required."
+	case data.SignedIn:
+		if err := updatePublicUserProfileDetails(publicUserProfileInput{
+			Domain:          data.Domain,
+			Username:        data.Username,
+			Email:           data.Email,
+			FullName:        data.FullName,
+			Phone:           data.Phone,
+			PhysicalAddress: data.PhysicalAddress,
+			AddressLine1:    data.AddressLine1,
+			AddressLine2:    data.AddressLine2,
+			City:            data.City,
+			Province:        data.Province,
+			PostalCode:      data.PostalCode,
+			Country:         data.Country,
+			Currency:        data.Currency,
+		}); err != nil {
+			data.Error = err.Error()
+		}
+	case password != confirmPassword:
+		data.Error = "Passwords do not match."
+	default:
+		if err := registerPublicUserProfileDetails(publicUserProfileInput{
+			Domain:          data.Domain,
+			Username:        data.Username,
+			Email:           data.Email,
+			FullName:        data.FullName,
+			Phone:           data.Phone,
+			PhysicalAddress: data.PhysicalAddress,
+			AddressLine1:    data.AddressLine1,
+			AddressLine2:    data.AddressLine2,
+			City:            data.City,
+			Province:        data.Province,
+			PostalCode:      data.PostalCode,
+			Country:         data.Country,
+			Password:        password,
+			Currency:        data.Currency,
+		}); err != nil {
+			data.Error = err.Error()
+		}
+	}
+	if data.Error != "" {
+		tmpl := template.Must(template.ParseFiles("templates/register.html"))
+		tmpl.Execute(w, data)
+		return
+	}
+
+	if !data.SignedIn {
+		verificationToken, err := issuePublicUserEmailVerification(data.Username, data.Domain)
+		if err != nil {
+			data.Error = err.Error()
+			tmpl := template.Must(template.ParseFiles("templates/register.html"))
+			tmpl.Execute(w, data)
+			return
+		}
+		if err := sendPublicUserVerificationEmail(r, data, verificationToken, next); err != nil {
+			data.Error = "Could not send verification email: " + err.Error()
+			tmpl := template.Must(template.ParseFiles("templates/register.html"))
+			tmpl.Execute(w, data)
+			return
+		}
+		data.Notice = "Check your email and click the verification link before continuing to payment."
+		tmpl := template.Must(template.ParseFiles("templates/register.html"))
+		tmpl.Execute(w, data)
+		return
+	}
+	profile, err := loadPublicUserProfile(data.Username, data.Domain)
+	if err != nil {
+		data.Error = err.Error()
+		tmpl := template.Must(template.ParseFiles("templates/register.html"))
+		tmpl.Execute(w, data)
+		return
+	}
+	if !publicUserEmailVerified(profile) {
+		verificationToken, err := issuePublicUserEmailVerification(data.Username, data.Domain)
+		if err != nil {
+			data.Error = err.Error()
+			tmpl := template.Must(template.ParseFiles("templates/register.html"))
+			tmpl.Execute(w, data)
+			return
+		}
+		if err := sendPublicUserVerificationEmail(r, data, verificationToken, next); err != nil {
+			data.Error = "Could not send verification email: " + err.Error()
+			tmpl := template.Must(template.ParseFiles("templates/register.html"))
+			tmpl.Execute(w, data)
+			return
+		}
+		data.Notice = "Check your email and click the verification link before continuing to payment."
+		tmpl := template.Must(template.ParseFiles("templates/register.html"))
+		tmpl.Execute(w, data)
+		return
+	}
+
+	rememberLoginDomain(w, data.Domain)
+	token := newSessionWithCurrency(data.Username, data.Domain, data.Currency)
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Value:    token,
+		Path:     "/",
+		Expires:  time.Now().Add(24 * time.Hour),
+		HttpOnly: true,
+	})
+	if next == "" {
+		next = "/shopping.html"
+	}
+	http.Redirect(w, r, next, http.StatusFound)
+}
+
+func publicEmailVerifyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	next := safeRedirectPath(r.URL.Query().Get("next"))
+	profile, err := verifyPublicUserEmailToken(r.URL.Query().Get("token"))
+	if err != nil {
+		data := PublicRegisterData{
+			Currency: "ZAR",
+			Country:  "ZA",
+			Domain:   registrationDomain(r),
+			Next:     next,
+			LoginURL: loginURL(next),
+			Error:    err.Error(),
+		}
+		tmpl := template.Must(template.ParseFiles("templates/register.html"))
+		tmpl.Execute(w, data)
+		return
+	}
+	rememberLoginDomain(w, profile.Domain)
+	token := newSessionWithCurrency(profile.Username, profile.Domain, cleanCurrency(profile.Currency))
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Value:    token,
+		Path:     "/",
+		Expires:  time.Now().Add(24 * time.Hour),
+		HttpOnly: true,
+	})
+	if next == "" {
+		next = "/shopping.html"
+	}
+	http.Redirect(w, r, next, http.StatusFound)
+}
+
+func sendPublicUserVerificationEmail(r *http.Request, data PublicRegisterData, token, next string) error {
+	values := url.Values{}
+	values.Set("token", token)
+	if next != "" {
+		values.Set("next", next)
+	}
+	link := publicRequestBaseURL(r) + "/register/verify?" + values.Encode()
+	body := "Hello " + data.FullName + ",\n\n" +
+		"Please verify your email address before continuing with your LocalBox domain order:\n\n" +
+		link + "\n\n" +
+		"If you did not create this account, you can ignore this email.\n"
+	return sendOrderNotificationEmail(orderEmailMessage{
+		To:      data.Email,
+		Subject: "Verify your LocalBox account",
+		Body:    body,
+	})
+}
+
+func publicRequestBaseURL(r *http.Request) string {
+	scheme := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto"))
+	if scheme == "" {
+		if r.TLS != nil {
+			scheme = "https"
+		} else {
+			scheme = "https"
+		}
+	}
+	host := strings.TrimSpace(r.Host)
+	if host == "" {
+		host = registrationDomain(r)
+	}
+	return scheme + "://" + host
+}
+
+func populateRegisterDataFromSession(r *http.Request, data *PublicRegisterData) {
+	s := getRegisteredSession(r)
+	if s == nil {
+		return
+	}
+	profile, err := loadPublicUserProfile(s.User, s.Domain)
+	if err != nil {
+		return
+	}
+	data.SignedIn = true
+	data.Domain = profile.Domain
+	data.Username = profile.Username
+	data.Email = profile.Email
+	data.FullName = profile.FullName
+	data.Phone = profile.Phone
+	data.PhysicalAddress = profile.PhysicalAddress
+	data.AddressLine1 = profile.AddressLine1
+	data.AddressLine2 = profile.AddressLine2
+	data.City = profile.City
+	data.Province = profile.Province
+	data.PostalCode = profile.PostalCode
+	data.Country = profile.Country
+	if data.Country == "" {
+		data.Country = "ZA"
+	}
+	data.Currency = cleanCurrency(profile.Currency)
+}
+
+func registrationDomain(r *http.Request) string {
+	if s := getSession(r); s != nil && s.Domain != "" {
+		return strings.ToLower(strings.TrimSpace(s.Domain))
+	}
+	if domain := requestSiteDomain(r); domain != "" {
+		return strings.ToLower(strings.TrimSpace(domain))
+	}
+	return strings.ToLower(strings.TrimSpace(lastLoginDomain(r)))
 }
 
 func loginDomains() []string {
@@ -93,6 +437,167 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		Expires: time.Now().Add(-1 * time.Hour),
 	})
 	http.Redirect(w, r, "/login", http.StatusFound)
+}
+
+func publicLogoutHandler(w http.ResponseWriter, r *http.Request) {
+	deleteSession(r)
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	http.SetCookie(w, &http.Cookie{
+		Name:    cookieName,
+		Value:   "",
+		Path:    "/",
+		Expires: time.Now().Add(-1 * time.Hour),
+	})
+	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" && strings.HasSuffix(strings.ToLower(r.URL.Path), ".html") {
+		siteHTMLPageHandler(w, r)
+		return
+	}
+	inboxHandler(w, r)
+}
+
+func siteHTMLPageHandler(w http.ResponseWriter, r *http.Request) {
+	name := cleanUploadedHTMLName(strings.TrimPrefix(r.URL.Path, "/"))
+	if !allowedUploadedHTMLName(name) {
+		http.NotFound(w, r)
+		return
+	}
+	if name == shoppingPageName {
+		s := getRegisteredSession(r)
+		if s == nil {
+			redirectToRegister(w, r)
+			return
+		}
+		serveShoppingCartPage(w, s)
+		return
+	}
+	domain := requestSiteDomain(r)
+	if domain == "" {
+		http.NotFound(w, r)
+		return
+	}
+	serveSiteHTMLFile(w, r, filepath.Join(domainSiteBase(domain), name), getSession(r))
+}
+
+func serveShoppingCartPage(w http.ResponseWriter, s *Session) {
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	products, addOns := loadSiteCatalog(s.Domain)
+	menu := loadSiteMenuItems(s.Domain)
+	fmt.Fprint(w, newShoppingCartComponentManager(s.Domain, s.User, s.Currency, menu, products, addOns).Render())
+}
+
+func serveSiteHTMLFile(w http.ResponseWriter, r *http.Request, path string, s *Session) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		http.ServeFile(w, r, path)
+		return
+	}
+	if s != nil && registeredUserExists(s.User, s.Domain) {
+		data = injectPublicSessionBar(data, s, r.URL.RequestURI())
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+	} else {
+		data = injectPublicSessionBar(data, nil, r.URL.RequestURI())
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func injectPublicSessionBar(data []byte, s *Session, next string) []byte {
+	next = safeRedirectPath(next)
+	if next == "" {
+		next = "/"
+	}
+	escapedNext := template.URLQueryEscaper(next)
+	content := `<a href="/register?next=` + escapedNext + `" style="color:#fff;text-decoration:underline;">Register</a><a href="/login?public=1&next=` + escapedNext + `" style="color:#fff;text-decoration:underline;">Sign in</a>`
+	if s != nil && strings.TrimSpace(s.User) != "" {
+		label := strings.TrimSpace(s.User)
+		content = `<span>Logged in as ` + template.HTMLEscapeString(label) + `</span><a href="/public/logout" style="color:#fff;text-decoration:underline;">Logout</a>`
+	}
+	bar := `<div class="localbox-session-bar" style="box-sizing:border-box;width:100%;background:#1a1a2e;color:#fff;padding:10px 18px;font:14px Arial,sans-serif;display:flex;gap:14px;align-items:center;justify-content:flex-end;position:relative;z-index:9999;">` + content + `</div>`
+	htmlText := string(data)
+	lower := strings.ToLower(htmlText)
+	if i := strings.Index(lower, "<body"); i >= 0 {
+		if end := strings.Index(lower[i:], ">"); end >= 0 {
+			insert := i + end + 1
+			return []byte(htmlText[:insert] + bar + htmlText[insert:])
+		}
+	}
+	return append([]byte(bar), data...)
+}
+
+func redirectToRegister(w http.ResponseWriter, r *http.Request) {
+	next := safeRedirectPath(r.URL.RequestURI())
+	target := "/register"
+	if next != "" {
+		target += "?next=" + url.QueryEscape(next)
+	}
+	http.Redirect(w, r, target, http.StatusFound)
+}
+
+func redirectToLogin(w http.ResponseWriter, r *http.Request) {
+	next := safeRedirectPath(r.URL.RequestURI())
+	target := "/login"
+	if next != "" {
+		target += "?next=" + url.QueryEscape(next)
+	}
+	http.Redirect(w, r, target, http.StatusFound)
+}
+
+func safeRedirectPath(next string) string {
+	next = strings.TrimSpace(next)
+	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.Contains(next, "\\") {
+		return ""
+	}
+	return next
+}
+
+func getRegisteredSession(r *http.Request) *Session {
+	s := getSession(r)
+	if s == nil {
+		return nil
+	}
+	if !registeredUserExists(s.User, s.Domain) {
+		return nil
+	}
+	return s
+}
+
+func registeredUserExists(username, domain string) bool {
+	users, err := loadUsers()
+	if err != nil {
+		return false
+	}
+	for _, user := range users {
+		if user.Username == username && user.Domain == domain {
+			return true
+		}
+	}
+	return publicUserExists(username, domain)
+}
+
+func requestSiteDomain(r *http.Request) string {
+	if s := getSession(r); s != nil {
+		return s.Domain
+	}
+	host := strings.ToLower(strings.TrimSpace(r.Host))
+	if host == "" {
+		return ""
+	}
+	if h, _, ok := strings.Cut(host, ":"); ok {
+		host = h
+	}
+	return host
 }
 
 type PasswordPageData struct {
@@ -145,14 +650,49 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
+	if r.Method == http.MethodPost {
+		if r.FormValue("action") != "create_folder" {
+			http.Error(w, "unknown mail action", http.StatusBadRequest)
+			return
+		}
+		folder, err := cleanMailFolderName(r.FormValue("folder"))
+		if err != nil || folder == "" || folder == sentFolderName {
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+		if err := ensureMailFolder(s.Domain, s.User, folder); err != nil {
+			http.Error(w, "Could not create folder", http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, inboxFolderURL(folder, 1), http.StatusFound)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
 	view := r.URL.Query().Get("view")
+	folder, err := cleanMailFolderName(r.URL.Query().Get("folder"))
+	if err != nil {
+		http.Error(w, "Invalid folder", http.StatusBadRequest)
+		return
+	}
 	maildir := maildirPath(s.Domain, s.User)
-	folder := ""
 	var messages []*Message
-	var err error
-	if view == "sent" {
-		folder = "sent"
+	if folder != "" {
+		maildir, err = mailboxFolderPath(s.Domain, s.User, folder)
+		if err != nil {
+			http.Error(w, "Invalid folder", http.StatusBadRequest)
+			return
+		}
+		messages, err = listMessagesInFolder(maildir, folder)
+		if err != nil {
+			http.Error(w, "Error reading mailbox", http.StatusInternalServerError)
+			return
+		}
+	} else if view == "sent" {
+		folder = sentFolderName
 		messages, err = listMessagesInFolder(sentMaildirPath(s.Domain, s.User), folder)
 		if err != nil {
 			http.Error(w, "Error reading mailbox", http.StatusInternalServerError)
@@ -170,7 +710,7 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	data := newInboxView(messages, s.User, s.Domain, r)
+	data := newInboxView(messages, s, r)
 
 	tmpl := template.Must(template.ParseFiles("templates/inbox.html"))
 	tmpl.Execute(w, data)
@@ -188,6 +728,7 @@ func composeHandler(w http.ResponseWriter, r *http.Request) {
 		Subject: r.URL.Query().Get("subject"),
 		User:    s.User,
 		Domain:  s.Domain,
+		Access:  accessView(s),
 	}
 
 	if r.Method == http.MethodPost {
@@ -263,21 +804,24 @@ func messageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	maildir := maildirPath(s.Domain, s.User)
-	folder := r.URL.Query().Get("folder")
-	if folder == "sent" {
+	folder, err := cleanMailFolderName(r.URL.Query().Get("folder"))
+	if err != nil {
+		http.Error(w, "Invalid folder", http.StatusBadRequest)
+		return
+	}
+	if folder == sentFolderName {
 		maildir = sentMaildirPath(s.Domain, s.User)
-	}
-	path := filepath.Join(maildir, "new", id)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		path = filepath.Join(maildir, "cur", id)
-	}
-	if folder == "sent" {
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			path = filepath.Join(legacySentMaildirPath(s.Domain, s.User), "new", id)
-			if _, err := os.Stat(path); os.IsNotExist(err) {
-				path = filepath.Join(legacySentMaildirPath(s.Domain, s.User), "cur", id)
-			}
+	} else if folder != "" {
+		maildir, err = mailboxFolderPath(s.Domain, s.User, folder)
+		if err != nil {
+			http.Error(w, "Invalid folder", http.StatusBadRequest)
+			return
 		}
+	}
+	path, err := findMessagePath(s.Domain, s.User, folder, id)
+	if err != nil {
+		http.Error(w, "Message not found", http.StatusNotFound)
+		return
 	}
 
 	msg, err := parseMessage(path, false)
@@ -286,14 +830,80 @@ func messageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg.BackURL = "/"
-	if folder == "sent" {
+	if folder == sentFolderName {
 		msg.BackURL = "/?view=sent"
 		msg.ReplyURL = composeURL(msg.To, msg.Subject)
+	} else if folder != "" {
+		msg.BackURL = inboxFolderURL(folder, 1)
 	}
+	msg.Folder = folder
+	msg.MoveFolders = messageMoveFolders(s.Domain, s.User, folder)
 
-	if folder != "sent" {
+	if folder == "" {
 		markAsRead(maildir, id)
 	}
 	tmpl := template.Must(template.ParseFiles("templates/message.html"))
 	tmpl.Execute(w, msg)
+}
+
+func messageActionHandler(w http.ResponseWriter, r *http.Request) {
+	s := getSession(r)
+	if s == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := r.FormValue("id")
+	folder, err := cleanMailFolderName(r.FormValue("folder"))
+	if err != nil {
+		http.Error(w, "Invalid folder", http.StatusBadRequest)
+		return
+	}
+	action := r.FormValue("action")
+	switch action {
+	case "archive":
+		if folder != archiveFolderName {
+			err = moveMessageToFolder(s.Domain, s.User, folder, id, archiveFolderName)
+		}
+	case "move":
+		targetFolder, targetErr := cleanMailFolderName(r.FormValue("target_folder"))
+		if targetErr != nil || targetFolder == "" || targetFolder == sentFolderName || targetFolder == folder {
+			http.Error(w, "Invalid target folder", http.StatusBadRequest)
+			return
+		}
+		err = moveMessageToFolder(s.Domain, s.User, folder, id, targetFolder)
+	case "delete":
+		err = deleteMessage(s.Domain, s.User, folder, id)
+	default:
+		http.Error(w, "unknown mail action", http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Could not update message", http.StatusInternalServerError)
+		return
+	}
+	if folder != "" && folder != sentFolderName {
+		http.Redirect(w, r, inboxFolderURL(folder, 1), http.StatusFound)
+		return
+	}
+	if folder == sentFolderName {
+		http.Redirect(w, r, "/?view=sent", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+func messageMoveFolders(domain, user, current string) []MailFolder {
+	folders := listMailFolders(domain, user, current)
+	var options []MailFolder
+	for _, folder := range folders {
+		if folder.Name == current {
+			continue
+		}
+		options = append(options, folder)
+	}
+	return options
 }

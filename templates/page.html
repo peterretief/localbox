@@ -10,6 +10,9 @@
         .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 16px; }
         h1 { margin: 0; font-size: 1.6em; }
         a { color: #00a0c0; text-decoration: none; }
+        .tabs { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0 22px; }
+        .tab { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border: 1px solid #d8d8d8; border-radius: 7px; background: white; color: #1a1a2e; font-weight: bold; }
+        .tab.active { background: #1a1a2e; border-color: #1a1a2e; color: white; }
         .editor { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 18px; }
         textarea { width: 100%; min-height: 520px; padding: 14px; border: 1px solid #d8d8d8; border-radius: 6px; font: 15px/1.5 monospace; resize: vertical; }
         .preview { background: white; border-radius: 6px; padding: 24px; min-height: 520px; line-height: 1.6; overflow-wrap: anywhere; }
@@ -40,9 +43,23 @@
         .badge { display: inline-block; padding: 3px 7px; border-radius: 999px; background: #e8f7fb; color: #007c96; font-size: 0.78em; font-weight: bold; }
         .file-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .file-actions form { margin: 0; }
+        .catalog-editor { border-top: 1px solid #e5e5e5; margin-top: 18px; padding-top: 18px; }
+        .catalog-rows { display: grid; gap: 12px; margin-top: 14px; }
+        .catalog-row { display: grid; grid-template-columns: minmax(110px, .85fr) minmax(150px, 1.1fr) minmax(90px, .65fr) minmax(90px, .65fr) minmax(130px, .9fr) auto; gap: 8px; align-items: start; border-top: 1px solid #ececec; padding-top: 12px; }
+        .catalog-row input { width: 100%; padding: 9px 10px; border: 1px solid #d8d8d8; border-radius: 5px; font-size: 0.92em; }
+        .catalog-row label { display: grid; gap: 5px; color: #555; font-size: 0.78em; font-weight: bold; text-transform: uppercase; }
+        .featured-option { display: flex !important; align-items: center; gap: 7px !important; min-height: 36px; margin-top: 18px; text-transform: none !important; font-size: 0.88em !important; }
+        .menu-editor { border-top: 1px solid #e5e5e5; margin-top: 18px; padding-top: 18px; }
+        .menu-list { display: grid; gap: 10px; max-width: 620px; }
+        .menu-row { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.2fr); gap: 10px; align-items: center; }
+        .menu-row label { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .menu-row input[type="text"] { width: 100%; padding: 9px 10px; border: 1px solid #d8d8d8; border-radius: 5px; font-size: 0.95em; }
         @media (max-width: 820px) {
             .editor { grid-template-columns: 1fr; }
             textarea, .preview { min-height: 340px; }
+            .catalog-row { grid-template-columns: 1fr; }
+            .featured-option { margin-top: 0; }
+            .menu-row { grid-template-columns: 1fr; }
             .file-table, .file-table thead, .file-table tbody, .file-table tr, .file-table th, .file-table td { display: block; }
             .file-table thead { display: none; }
             .file-table tr { border-top: 1px solid #e5e5e5; padding: 10px 0; }
@@ -53,11 +70,16 @@
 <body>
     <div class="shell">
         <div class="top">
-            <h1>Edit Home Page</h1>
+            <h1>{{if eq .Section "html"}}HTML Site{{else}}Markdown Site{{end}}</h1>
             <div><a href="/">Inbox</a> · <a href="/admin">Admin</a> · <a href="/logout">Sign out</a></div>
         </div>
         <p style="color:#777;margin-top:-10px;">{{.Domain}} · current mode: {{.Mode}}</p>
+        <nav class="tabs" aria-label="Site editor sections">
+            <a class="tab {{if eq .Section "markdown"}}active{{end}}" href="/page">Markdown site</a>
+            <a class="tab {{if eq .Section "html"}}active{{end}}" href="/page/html">HTML site</a>
+        </nav>
 
+        {{if eq .Section "markdown"}}
         <form method="POST" action="/page">
             <div class="editor">
                 <textarea name="content" spellcheck="true">{{.Content}}</textarea>
@@ -70,6 +92,70 @@
             </div>
         </form>
 
+        <section class="images">
+            <h2>Images</h2>
+            <form class="upload" method="POST" action="/page/images" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="upload">
+                <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" required>
+                <button type="submit">Upload</button>
+                {{if .ImageSuccess}}<span class="status">{{.ImageSuccess}}</span>{{end}}
+                {{if .ImageError}}<span class="error">{{.ImageError}}</span>{{end}}
+            </form>
+
+            {{if .Images}}
+            <div class="image-grid">
+                {{range .Images}}
+                <div class="image-card">
+                    <img src="{{.Path}}" alt="{{.Name}}" loading="lazy">
+                    <div class="image-name">{{.Name}}</div>
+                    <div class="image-size">{{.DisplaySize}}</div>
+                    <input class="snippet" readonly value="{{.Markdown}}" onclick="this.select()">
+                    <div class="image-actions">
+                        <a href="{{.Path}}" target="_blank">Open</a>
+                        <form method="POST" action="/page/images">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="name" value="{{.Name}}">
+                            <button class="danger" type="submit">Delete</button>
+                        </form>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="empty">No images uploaded yet.</div>
+            {{end}}
+        </section>
+
+        <section class="images">
+            <h2>Menu</h2>
+            <p class="help">Choose uploaded HTML pages to show in the Markdown homepage menu. This menu is added when the homepage is published from Markdown.</p>
+            {{if .MenuPages}}
+            <form method="POST" action="/page/html">
+                <input type="hidden" name="action" value="save_menu">
+                <div class="menu-list">
+                    {{range .MenuPages}}
+                    <div class="menu-row">
+                        <label>
+                            <input type="checkbox" name="menu" value="{{.Name}}" {{if .InMenu}}checked{{end}}>
+                            <span class="file-name">{{.Name}}</span>
+                        </label>
+                        <input type="text" name="label_{{.Name}}" value="{{.MenuLabel}}" maxlength="48" placeholder="Menu label">
+                    </div>
+                    {{end}}
+                </div>
+                <div class="actions">
+                    <button type="submit">Save menu</button>
+                    {{if .UploadSuccess}}<span class="status">{{.UploadSuccess}}</span>{{end}}
+                    {{if .UploadError}}<span class="error">{{.UploadError}}</span>{{end}}
+                </div>
+            </form>
+            {{else}}
+            <div class="empty">Upload a non-home HTML page, such as software.html, from the HTML Site tab to add it to the menu.</div>
+            {{end}}
+        </section>
+        {{end}}
+
+        {{if eq .Section "html"}}
         <section class="images">
             <h2>HTML Pages</h2>
             <p class="help">Upload <strong>index.html</strong> to publish the homepage. Upload other safe page names, such as <strong>software.html</strong>, to make them available beside the homepage.</p>
@@ -88,6 +174,10 @@
                 <form method="POST" action="/page/html">
                     <input type="hidden" name="action" value="use_html">
                     <button type="submit">Publish HTML</button>
+                </form>
+                <form method="POST" action="/page/html">
+                    <input type="hidden" name="action" value="create_shopping">
+                    <button type="submit">Create shopping page</button>
                 </form>
             </div>
             {{if .HTMLFiles}}
@@ -137,41 +227,46 @@
             {{else}}
             <div class="empty">No HTML homepage uploaded yet.</div>
             {{end}}
-        </section>
 
-        <section class="images">
-            <h2>Images</h2>
-            <form class="upload" method="POST" action="/page/images" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="upload">
-                <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" required>
-                <button type="submit">Upload</button>
-                {{if .ImageSuccess}}<span class="status">{{.ImageSuccess}}</span>{{end}}
-                {{if .ImageError}}<span class="error">{{.ImageError}}</span>{{end}}
-            </form>
-
-            {{if .Images}}
-            <div class="image-grid">
-                {{range .Images}}
-                <div class="image-card">
-                    <img src="{{.Path}}" alt="{{.Name}}" loading="lazy">
-                    <div class="image-name">{{.Name}}</div>
-                    <div class="image-size">{{.DisplaySize}}</div>
-                    <input class="snippet" readonly value="{{.Markdown}}" onclick="this.select()">
-                    <div class="image-actions">
-                        <a href="{{.Path}}" target="_blank">Open</a>
-                        <form method="POST" action="/page/images">
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="name" value="{{.Name}}">
-                            <button class="danger" type="submit">Delete</button>
-                        </form>
+            <div class="catalog-editor">
+                <h2>Shopping Items</h2>
+                <p class="help">These items are saved in the SQL database for {{.Domain}} only. Use category <strong>Add-on</strong> to move an item into the add-ons section. Clear a row name to remove it.</p>
+                <form method="POST" action="/page/html">
+                    <input type="hidden" name="action" value="save_catalog">
+                    <input type="hidden" name="catalog_count" value="{{len .CatalogRows}}">
+                    <div class="catalog-rows">
+                        {{range .CatalogRows}}
+                        <div class="catalog-row">
+                            <input type="hidden" name="catalog_{{.Index}}_id" value="{{.Product.ID}}">
+                            <label>Name
+                                <input name="catalog_{{.Index}}_name" value="{{.Product.Name}}" maxlength="120" placeholder="Item name">
+                            </label>
+                            <label>Description
+                                <input name="catalog_{{.Index}}_description" value="{{.Product.Description}}" maxlength="320" placeholder="Short description">
+                            </label>
+                            <label>Price
+                                <input name="catalog_{{.Index}}_price" value="{{.Product.Price}}" maxlength="80" placeholder="Quoted">
+                            </label>
+                            <label>Category
+                                <input name="catalog_{{.Index}}_category" value="{{.Product.Category}}" maxlength="48" placeholder="Core">
+                            </label>
+                            <label>Image URL
+                                <input name="catalog_{{.Index}}_image" value="{{.Product.Image}}" maxlength="512" placeholder="/assets/images/item.jpg">
+                            </label>
+                            <label class="featured-option">
+                                <input type="checkbox" name="catalog_{{.Index}}_featured" value="1" {{if .Product.Featured}}checked{{end}}>
+                                Featured
+                            </label>
+                        </div>
+                        {{end}}
                     </div>
-                </div>
-                {{end}}
+                    <div class="actions">
+                        <button type="submit">Save shopping items</button>
+                    </div>
+                </form>
             </div>
-            {{else}}
-            <div class="empty">No images uploaded yet.</div>
-            {{end}}
         </section>
+        {{end}}
     </div>
 </body>
 </html>

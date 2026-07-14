@@ -36,8 +36,11 @@ func sendContactMessage(domain, name, email, subject, message string) error {
 		return err
 	}
 
-	recipient := contactOwnerAddress(domain)
-	if localContactRecipient(recipient) {
+	recipient := strings.TrimSpace(cfg.To)
+	if recipient == "" {
+		recipient = contactOwnerAddress(domain)
+	}
+	if cfg.To == "" && localContactRecipient(recipient) {
 		log.Printf("contact SMTP skipped for local recipient %s", recipient)
 		return nil
 	}

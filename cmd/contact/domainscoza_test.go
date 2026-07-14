@@ -47,6 +47,8 @@ enabled=true
 api_url=https://lapi-dev.domains.co.za/api
 username=reseller
 api_key=secret
+ns1=sam.ns.cloudflare.com
+ns2=marissa.ns.cloudflare.com
 co_za_register_price=150.00
 co_za_renew_price=175
 `), 0600); err != nil {
@@ -60,6 +62,9 @@ co_za_renew_price=175
 
 	if !cfg.Enabled || cfg.APIURL != "https://lapi-dev.domains.co.za/api" || cfg.Username != "reseller" || cfg.Password != "secret" {
 		t.Fatalf("unexpected config: %+v", cfg)
+	}
+	if strings.Join(cfg.Nameservers, ",") != "sam.ns.cloudflare.com,marissa.ns.cloudflare.com" {
+		t.Fatalf("unexpected nameservers: %+v", cfg.Nameservers)
 	}
 	if got := cfg.RegisterPrice["co_za"]; got != 15000 {
 		t.Fatalf("expected register price 15000 cents, got %d", got)
@@ -141,6 +146,218 @@ func TestDomainsCoZaUpdateNameservers(t *testing.T) {
 	}
 	if sawNS1 != "abby.ns.cloudflare.com" || sawNS2 != "jake.ns.cloudflare.com" {
 		t.Fatalf("unexpected nameservers %q %q", sawNS1, sawNS2)
+	}
+}
+
+func TestDomainsCoZaRegisterDomainUsesRegistrantAndCloudflareNameservers(t *testing.T) {
+	var saw url.Values
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch r.URL.Path {
+		case "/login":
+			return jsonResponse(t, domainsCoZaLoginResponse{IntReturnCode: 1, Token: "token"}), nil
+		case "/domain":
+			if r.Method != http.MethodPost {
+				t.Fatalf("expected POST /domain, got %s", r.Method)
+			}
+			if r.Header.Get("Authorization") != "Bearer token" {
+				t.Fatalf("unexpected auth header: %s", r.Header.Get("Authorization"))
+			}
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				return nil, err
+			}
+			saw = mustParseForm(t, string(body))
+			return jsonResponse(t, domainsCoZaActionResponse{
+				IntReturnCode: 1,
+				UUID:          "7ec167a0-0034-11ec-80f6-13a1aba3d2d2",
+				StrMessage:    "Successful",
+				StrEPPMessage: "Domain Create completed successfully",
+				Registrant:    "ZLAKv3J3JAvLukkP",
+				DomainName:    "mydomainname.co.za",
+				ExpiryDate:    1660834602,
+				CreatedDate:   1629298602,
+			}), nil
+		default:
+			return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("{}"))}, nil
+		}
+	})
+
+	client := newDomainsCoZaClient(DomainsCoZaConfig{
+		Enabled:  true,
+		APIURL:   "https://api.test",
+		Username: "reseller",
+		Password: "secret",
+	})
+	client.httpClient.Transport = transport
+
+	result, err := client.RegisterDomain(context.Background(), DomainsCoZaRegistration{
+		Domain: "mydomainname.co.za",
+		Registrant: DomainsCoZaRegistrant{
+			Name:          "John Doe",
+			Email:         "john.doe@mydomainname.co.za",
+			Country:       "ZA",
+			Province:      "Gauteng",
+			ContactNumber: "+27.0123456789",
+			PostalCode:    "2198",
+			Address1:      "219 Osborn Rd",
+			Address2:      "Houghton Estate Office Park",
+			City:          "Johannesburg",
+		},
+		Nameservers: []string{"ABBY.ns.cloudflare.com", "jake.ns.cloudflare.com"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.UUID == "" || result.DomainName != "mydomainname.co.za" || result.Registrant == "" {
+		t.Fatalf("unexpected registration result: %+v", result)
+	}
+	for key, want := range map[string]string{
+		"sld":                     "mydomainname",
+		"tld":                     "co.za",
+		"registrantName":          "John Doe",
+		"registrantEmail":         "john.doe@mydomainname.co.za",
+		"registrantCountry":       "ZA",
+		"registrantProvince":      "Gauteng",
+		"registrantContactNumber": "+27.0123456789",
+		"registrantPostalCode":    "2198",
+		"registrantAddress1":      "219 Osborn Rd",
+		"registrantAddress2":      "Houghton Estate Office Park",
+		"registrantCity":          "Johannesburg",
+		"period":                  "1",
+		"ns1":                     "abby.ns.cloudflare.com",
+		"ns2":                     "jake.ns.cloudflare.com",
+	} {
+		if got := saw.Get(key); got != want {
+			t.Fatalf("expected %s=%q, got %q in %v", key, want, got, saw)
+		}
+	}
+}
+
+func TestDomainsCoZaRegisterDomainNormalizesSouthAfricanPhone(t *testing.T) {
+	var saw url.Values
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch r.URL.Path {
+		case "/login":
+			return jsonResponse(t, domainsCoZaLoginResponse{IntReturnCode: 1, Token: "token"}), nil
+		case "/domain":
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				return nil, err
+			}
+			saw = mustParseForm(t, string(body))
+			return jsonResponse(t, domainsCoZaActionResponse{IntReturnCode: 1, UUID: "uuid", DomainName: "example.co.za"}), nil
+		default:
+			return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("{}"))}, nil
+		}
+	})
+
+	client := newDomainsCoZaClient(DomainsCoZaConfig{
+		Enabled:  true,
+		APIURL:   "https://api.test",
+		Username: "reseller",
+		Password: "secret",
+	})
+	client.httpClient.Transport = transport
+
+	_, err := client.RegisterDomain(context.Background(), DomainsCoZaRegistration{
+		Domain: "example.co.za",
+		Registrant: DomainsCoZaRegistrant{
+			Name:          "Buyer Example",
+			Email:         "buyer@example.net",
+			Country:       "ZA",
+			Province:      "Gauteng",
+			ContactNumber: "+27 82 123 4567",
+			PostalCode:    "2198",
+			Address1:      "1 Example Street",
+			City:          "Johannesburg",
+		},
+		Nameservers: []string{"sam.ns.cloudflare.com", "marissa.ns.cloudflare.com"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := saw.Get("registrantContactNumber"); got != "+27.821234567" {
+		t.Fatalf("unexpected normalized phone: %q", got)
+	}
+}
+
+func TestDomainsCoZaRegisterDomainUsesConfiguredNameservers(t *testing.T) {
+	var saw url.Values
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch r.URL.Path {
+		case "/login":
+			return jsonResponse(t, domainsCoZaLoginResponse{IntReturnCode: 1, Token: "token"}), nil
+		case "/domain":
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				return nil, err
+			}
+			saw = mustParseForm(t, string(body))
+			return jsonResponse(t, domainsCoZaActionResponse{
+				IntReturnCode: 1,
+				UUID:          "uuid",
+				DomainName:    "mydomainname.co.za",
+				Registrant:    "registrant",
+			}), nil
+		default:
+			return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("{}"))}, nil
+		}
+	})
+
+	client := newDomainsCoZaClient(DomainsCoZaConfig{
+		Enabled:     true,
+		APIURL:      "https://api.test",
+		Username:    "reseller",
+		Password:    "secret",
+		Nameservers: []string{"sam.ns.cloudflare.com", "marissa.ns.cloudflare.com"},
+	})
+	client.httpClient.Transport = transport
+
+	_, err := client.RegisterDomain(context.Background(), DomainsCoZaRegistration{
+		Domain: "mydomainname.co.za",
+		Registrant: DomainsCoZaRegistrant{
+			Name:          "John Doe",
+			Email:         "john.doe@example.co.za",
+			Country:       "ZA",
+			Province:      "Gauteng",
+			ContactNumber: "+27.0123456789",
+			PostalCode:    "2198",
+			Address1:      "219 Osborn Rd",
+			City:          "Johannesburg",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saw.Get("ns1") != "sam.ns.cloudflare.com" || saw.Get("ns2") != "marissa.ns.cloudflare.com" {
+		t.Fatalf("expected configured nameservers, got %v", saw)
+	}
+}
+
+func TestDomainsCoZaHTTPErrorIncludesProviderMessage(t *testing.T) {
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusUnauthorized,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(`{
+				"intReturnCode": 0,
+				"strMessage": "Login Failed",
+				"strReason": "Invalid credentials"
+			}`)),
+		}, nil
+	})
+
+	client := newDomainsCoZaClient(DomainsCoZaConfig{
+		Enabled:  true,
+		APIURL:   "https://api.test",
+		Username: "reseller",
+		Password: "secret",
+	})
+	client.httpClient.Transport = transport
+
+	_, err := client.CheckDomain(context.Background(), "example", "co.za")
+	if err == nil || !strings.Contains(err.Error(), "Domains.co.za returned HTTP 401: Invalid credentials") {
+		t.Fatalf("expected provider error message, got %v", err)
 	}
 }
 
