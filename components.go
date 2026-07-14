@@ -293,6 +293,7 @@ func renderCheckout(b *strings.Builder, checkoutURL string, products, addOns []c
             <label>First email address<input name="wanted_email" data-email-input placeholder="info@example.co.za" required></label>
             <label>Physical address<textarea name="physical_address" autocomplete="street-address" required></textarea></label>
         </div>
+        <p class="domain-note">LocalBox is starting with new South African .za domain registrations. Transfers, existing domains, and international domains are planned as we broaden the offering.</p>
         <label>Extra notes<textarea data-extra-notes placeholder="Anything else we should include before quoting?"></textarea></label>
         <div class="checkout-actions">
             <button type="submit" data-checkout-button disabled>Submit checkout request</button>
@@ -348,6 +349,7 @@ h1{font-size:42px;max-width:760px}h2{font-size:26px}h3{font-size:19px}
 .product p{margin:0;color:#59625d}.price{margin-top:auto;color:#8a521f}
 .checkout-form{background:#fff;border:1px solid #dde3dc;border-radius:8px;padding:22px;display:grid;gap:16px}
 .field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.domain-note{margin:0;color:#58645e;background:#f6f8f4;border:1px solid #dde3dc;border-radius:7px;padding:11px 13px}
 label{display:grid;gap:6px;font-weight:800;color:#344039}
 input,textarea{width:100%;min-height:42px;padding:10px 12px;border:1px solid #cbd3ca;border-radius:6px;font:inherit;background:white}
 textarea{min-height:104px;resize:vertical}.honeypot{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
