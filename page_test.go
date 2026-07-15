@@ -327,7 +327,8 @@ func TestRegisterHandlerInfersDomainFromSiteHost(t *testing.T) {
 	rr := httptest.NewRecorder()
 	registerHandler(rr, req)
 
-	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "You can then make purchases on this site") {
+	body := rr.Body.String()
+	if rr.Code != 200 || !strings.Contains(body, "You can then make purchases on this site") || !strings.Contains(body, ">Close</button>") || strings.Contains(body, `<form method="POST" action="/register">`) {
 		t.Fatalf("expected verification notice, code=%d body=%q", rr.Code, rr.Body.String())
 	}
 	if sent.To != "buyer@example.net" || sent.Subject != "Welcome to LocalBox" || !strings.Contains(sent.Body, "registered as a user for example.com") || !strings.Contains(sent.Body, "/register/verify?") || !strings.Contains(sent.HTMLBody, "<a href=") {
