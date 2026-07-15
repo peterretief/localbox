@@ -41,6 +41,9 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 			case "complete_registration":
 				err = completeOrderRegistration(r.Context(), selectedID, r.FormValue("registrar_reference"))
 				data.Success = "Domain registration completed and certificate email sent."
+			case "create_first_mailbox":
+				err = createFirstOrderMailbox(r.Context(), selectedID)
+				data.Success = "First mailbox created and login email sent."
 			case "domain_propagated":
 				err = markOrderDomainPropagated(r.Context(), selectedID)
 				data.Success = "Domain propagation confirmed and website link sent."

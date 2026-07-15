@@ -194,7 +194,7 @@
                             <input name="registrar_reference" placeholder="registrar reference" value="{{.Current.RegistrarReference}}" required>
                             <button type="submit">Send certificate</button>
                         </div>
-                        <p class="muted">Creates the starter website files and sends the certificate with email voucher. Send the live link only after DNS propagation.</p>
+                        <p class="muted">Creates the starter website files and sends the certificate. The first mailbox is completed with the separate email step below.</p>
                     </form>
 
                     <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">
@@ -208,6 +208,19 @@
                             <button type="submit">Send website link</button>
                         </div>
                         <p class="muted">Use after the new domain resolves to LocalBox and the starter website is reachable.</p>
+                    </form>
+
+                    <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">
+                        <h3>First Mailbox</h3>
+                        <input type="hidden" name="action" value="create_first_mailbox">
+                        <input type="hidden" name="order_id" value="{{.Current.ID}}">
+                        <input type="hidden" name="q" value="{{.Query}}">
+                        {{if .ShowProcessed}}<input type="hidden" name="show_processed" value="1">{{end}}
+                        {{if .ShowArchived}}<input type="hidden" name="show_archived" value="1">{{end}}
+                        <div class="row">
+                            <button type="submit" {{if not .Current.CertificateSentAt}}disabled{{end}}>Create first mailbox</button>
+                        </div>
+                        <p class="muted">Creates {{.Current.WantedEmail}} as a receiving mailbox, grants domain-admin access, and emails the temporary password. Brevo and outbound sending setup remain manual.</p>
                     </form>
 
                     <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">

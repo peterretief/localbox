@@ -70,18 +70,13 @@ func TestCompleteOrderRegistrationPublishesSiteAndSendsCertificateOnly(t *testin
 		t.Fatalf("expected certificate attachment in first email: %#v", sent[0].Attachment)
 	}
 	if !strings.Contains(sent[0].Body, "Email voucher/reference:") ||
-		!strings.Contains(sent[0].Body, "Email address: info@example.co.za") ||
-		!strings.Contains(sent[0].Body, "Username: info") ||
-		!strings.Contains(sent[0].Body, "Temporary password: LB-") ||
-		!strings.Contains(sent[0].Body, "Email login: https://example.co.za/login") ||
+		!strings.Contains(sent[0].Body, "first mailbox requested for this order is: info@example.co.za") ||
+		!strings.Contains(sent[0].Body, "Mailbox login: https://example.co.za/login") ||
 		!strings.Contains(sent[0].Body, "Domain admin page: https://example.co.za/admin") {
-		t.Fatalf("certificate email missing login details:\n%s", sent[0].Body)
+		t.Fatalf("certificate email missing certificate details:\n%s", sent[0].Body)
 	}
-	if !authenticate("info", "example.co.za", strings.TrimPrefix(firstLineWithPrefix(sent[0].Body, "Temporary password: "), "Temporary password: ")) {
-		t.Fatalf("expected first mailbox login to authenticate")
-	}
-	if !isDomainAdmin("info", "example.co.za") {
-		t.Fatalf("expected first mailbox to be domain admin")
+	if userExists("info", "example.co.za") || isDomainAdmin("info", "example.co.za") {
+		t.Fatalf("certificate step should not create mailbox/admin login")
 	}
 
 	detail, err := loadOrderDetail("ord_test")
@@ -112,6 +107,79 @@ func TestCompleteOrderRegistrationPublishesSiteAndSendsCertificateOnly(t *testin
 	}
 	if !strings.Contains(string(site), "Peter Example") || !strings.Contains(string(site), "This domain is registered") {
 		t.Fatalf("starter site missing expected content:\n%s", string(site))
+	}
+}
+
+func TestCreateFirstOrderMailboxCreatesAdminMailboxAndSendsLogin(t *testing.T) {
+	oldDB := orderDBFile
+	oldBase := localBoxBase
+	oldSender := sendOrderNotificationEmail
+	oldUsersFile := usersFile
+	oldAdminsFile := adminsFile
+	oldDomainsFile := domainsFile
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	localBoxBase = t.TempDir()
+	configDir := t.TempDir()
+	usersFile = filepath.Join(configDir, "users.conf")
+	adminsFile = filepath.Join(configDir, "admins.conf")
+	domainsFile = filepath.Join(configDir, "domains.conf")
+	t.Cleanup(func() {
+		orderDBFile = oldDB
+		localBoxBase = oldBase
+		sendOrderNotificationEmail = oldSender
+		usersFile = oldUsersFile
+		adminsFile = oldAdminsFile
+		domainsFile = oldDomainsFile
+	})
+
+	var sent []orderEmailMessage
+	sendOrderNotificationEmail = func(message orderEmailMessage) error {
+		sent = append(sent, message)
+		return nil
+	}
+
+	db, err := openOrdersDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureOrdersAdminSchema(context.Background(), db); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := db.Exec(`
+		INSERT INTO customers (id, full_name, email, phone, physical_address, created_at)
+		VALUES (1, 'Peter Example', 'peter@example.com', '+27 82 123 4567', '1 Example Street', ?)
+	`, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO orders (id, customer_id, domain, wanted_email, status, notes, registrar_reference, certificate_sent_at, website_url, created_at, updated_at)
+		VALUES ('ord_test', 1, 'example.co.za', 'info@example.co.za', 'registered', '', 'reg_123', ?, 'https://example.co.za/', ?, ?)
+	`, now, now, now); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	if err := createFirstOrderMailbox(context.Background(), "ord_test"); err != nil {
+		t.Fatal(err)
+	}
+	if len(sent) != 1 {
+		t.Fatalf("expected 1 email, got %d", len(sent))
+	}
+	if !strings.Contains(sent[0].Body, "Email address: info@example.co.za") ||
+		!strings.Contains(sent[0].Body, "Username: info") ||
+		!strings.Contains(sent[0].Body, "Temporary password: LB-") ||
+		!strings.Contains(sent[0].Body, "Email login: https://example.co.za/login") ||
+		!strings.Contains(sent[0].Body, "Domain admin page: https://example.co.za/admin") ||
+		!strings.Contains(sent[0].Body, "Outbound sending is not enabled automatically") {
+		t.Fatalf("first mailbox email missing login details:\n%s", sent[0].Body)
+	}
+	password := strings.TrimPrefix(firstLineWithPrefix(sent[0].Body, "Temporary password: "), "Temporary password: ")
+	if !authenticate("info", "example.co.za", password) {
+		t.Fatalf("expected first mailbox login to authenticate")
+	}
+	if !isDomainAdmin("info", "example.co.za") {
+		t.Fatalf("expected first mailbox to be domain admin")
 	}
 }
 

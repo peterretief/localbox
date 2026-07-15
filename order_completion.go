@@ -62,23 +62,6 @@ func completeOrderRegistration(ctx context.Context, id, registrarReference strin
 	if strings.TrimSpace(websiteURL) == "" {
 		websiteURL = "https://" + domain + "/"
 	}
-	mailboxUser := normalizeMailboxUser(strings.TrimSuffix(strings.ToLower(wantedEmail.Address), "@"+domain))
-	if !safeMailboxUser(mailboxUser) {
-		return fmt.Errorf("valid first email address required")
-	}
-	temporaryPassword := ""
-	if !userExists(mailboxUser, domain) {
-		temporaryPassword, err = newTemporaryMailboxPassword()
-		if err != nil {
-			return err
-		}
-		if err := addMailbox(mailboxUser, domain, temporaryPassword); err != nil {
-			return err
-		}
-	}
-	if err := addDomainAdmin(mailboxUser, domain); err != nil {
-		return err
-	}
 	if err := createStarterWebsite(domain, order.FullName, now); err != nil {
 		return err
 	}
@@ -96,7 +79,7 @@ func completeOrderRegistration(ctx context.Context, id, registrarReference strin
 		if err := sendOrderNotificationEmail(orderEmailMessage{
 			To:      customerEmail.Address,
 			Subject: "Domain registration certificate for " + domain,
-			Body:    certificateEmailBody(domain, wantedEmail.Address, mailboxUser, temporaryPassword, voucher),
+			Body:    certificateEmailBody(domain, wantedEmail.Address, voucher),
 			Attachment: &OutgoingAttachment{
 				Filename:    domain + "-localbox-certificate.txt",
 				ContentType: "text/plain; charset=utf-8",
@@ -114,6 +97,50 @@ func completeOrderRegistration(ctx context.Context, id, registrarReference strin
 		"email_voucher_code":  voucher,
 		"website_url":         websiteURL,
 		"certificate_sent_at": order.CertificateSentAt,
+	})
+}
+
+func createFirstOrderMailbox(ctx context.Context, id string) error {
+	order, err := loadOrderDetail(id)
+	if err != nil {
+		return err
+	}
+	domain := normalizeDomain(order.Domain)
+	if !safeDomain(domain) {
+		return fmt.Errorf("invalid domain")
+	}
+	wantedEmail, err := mail.ParseAddress(order.WantedEmail)
+	if err != nil || !strings.HasSuffix(strings.ToLower(wantedEmail.Address), "@"+domain) {
+		return fmt.Errorf("valid first email address required")
+	}
+	customerEmail, err := mail.ParseAddress(order.Email)
+	if err != nil {
+		return fmt.Errorf("valid customer email required")
+	}
+	mailboxUser := normalizeMailboxUser(strings.TrimSuffix(strings.ToLower(wantedEmail.Address), "@"+domain))
+	if !safeMailboxUser(mailboxUser) {
+		return fmt.Errorf("valid first email address required")
+	}
+	if userExists(mailboxUser, domain) {
+		if err := addDomainAdmin(mailboxUser, domain); err != nil {
+			return err
+		}
+		return fmt.Errorf("first mailbox already exists; reset the password from the domain admin page if needed")
+	}
+	temporaryPassword, err := newTemporaryMailboxPassword()
+	if err != nil {
+		return err
+	}
+	if err := addMailbox(mailboxUser, domain, temporaryPassword); err != nil {
+		return err
+	}
+	if err := addDomainAdmin(mailboxUser, domain); err != nil {
+		return err
+	}
+	return sendOrderNotificationEmail(orderEmailMessage{
+		To:      customerEmail.Address,
+		Subject: "First LocalBox mailbox for " + domain,
+		Body:    firstMailboxEmailBody(domain, wantedEmail.Address, mailboxUser, temporaryPassword),
 	})
 }
 
@@ -193,32 +220,44 @@ func orderRegistrationCertificate(order OrderDetail, voucher, websiteURL string,
 	return b.Bytes()
 }
 
-func certificateEmailBody(domain, wantedEmail, mailboxUser, temporaryPassword, voucher string) string {
+func certificateEmailBody(domain, wantedEmail, voucher string) string {
 	loginURL := "https://" + domain + "/login"
 	adminURL := "https://" + domain + "/admin"
-	passwordLine := "Temporary password: already created earlier. Use the password supplied by LocalBox, or reset it from the admin page."
-	if strings.TrimSpace(temporaryPassword) != "" {
-		passwordLine = "Temporary password: " + temporaryPassword
-	}
 	return fmt.Sprintf(`Your domain registration for %s is complete.
 
 Your registration certificate is attached.
 
-First mailbox and admin login
+The first mailbox requested for this order is: %s
+When LocalBox completes the first mailbox step, the customer will receive the mailbox username and temporary password separately.
+
+Email voucher/reference: %s
+
+Mailbox login: %s
+Domain admin page: %s
+
+LocalBox Mail
+`, domain, wantedEmail, voucher, loginURL, adminURL)
+}
+
+func firstMailboxEmailBody(domain, wantedEmail, mailboxUser, temporaryPassword string) string {
+	loginURL := "https://" + domain + "/login"
+	adminURL := "https://" + domain + "/admin"
+	return fmt.Sprintf(`The first LocalBox mailbox for %s has been created.
+
 Email address: %s
 Username: %s
 Domain: %s
-%s
+Temporary password: %s
 
 Email login: %s
 Domain admin page: %s
 
 Please sign in and change the temporary password from the password page.
 
-Email voucher/reference: %s
+Outbound sending is not enabled automatically. LocalBox will confirm any Brevo or sending-domain setup separately.
 
 LocalBox Mail
-`, domain, wantedEmail, mailboxUser, domain, passwordLine, loginURL, adminURL, voucher)
+`, domain, wantedEmail, mailboxUser, domain, temporaryPassword, loginURL, adminURL)
 }
 
 func siteLiveEmailBody(domain, websiteURL string) string {
