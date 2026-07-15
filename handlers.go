@@ -245,7 +245,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 			tmpl.Execute(w, data)
 			return
 		}
-		data.Notice = "Check your email and click the verification link before continuing to payment."
+		data.Notice = "Check your email and click the verification link. You can then make purchases on this site."
 		tmpl := template.Must(template.ParseFiles("templates/register.html"))
 		tmpl.Execute(w, data)
 		return
@@ -271,7 +271,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 			tmpl.Execute(w, data)
 			return
 		}
-		data.Notice = "Check your email and click the verification link before continuing to payment."
+		data.Notice = "Check your email and click the verification link. You can then make purchases on this site."
 		tmpl := template.Must(template.ParseFiles("templates/register.html"))
 		tmpl.Execute(w, data)
 		return
