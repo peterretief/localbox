@@ -122,6 +122,27 @@
                 </tbody>
             </table>
         </section>
+
+        <section class="panel" style="margin-top:18px;">
+            <h2>Mailing list</h2>
+            <p class="muted">People who joined the LocalBox update list. Use this for feature announcements, release notes, and useful setup guides. Keep sending controlled and manual.</p>
+            <p><a href="/admin/mailing-list.csv">Download CSV</a></p>
+            <table>
+                <thead><tr><th>Email</th><th>Source</th><th>Joined</th><th>Updated</th></tr></thead>
+                <tbody>
+                {{range .MailingList}}
+                <tr>
+                    <td>{{.Email}}</td>
+                    <td>{{if .Source}}{{.Source}}{{else}}<span class="muted">Unknown</span>{{end}}</td>
+                    <td>{{.CreatedAt}}</td>
+                    <td>{{.UpdatedAt}}</td>
+                </tr>
+                {{else}}
+                <tr><td colspan="4" class="muted">No mailing list signups yet.</td></tr>
+                {{end}}
+                </tbody>
+            </table>
+        </section>
     </div>
 </body>
 </html>

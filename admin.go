@@ -23,6 +23,7 @@ type AdminView struct {
 	Domain          AdminDomain
 	Users           []User
 	RegisteredUsers []publicUserProfile
+	MailingList     []mailingListEntry
 	Error           string
 	Success         string
 }
@@ -98,10 +99,12 @@ func adminView(domain string) AdminView {
 	}
 	_ = ensureRegistrationCertificateForUsers(domain, domainUsers, time.Now())
 	registeredUsers, _ := listPublicUsers(domain)
+	mailingList, _ := listMailingListEntries(domain)
 
 	return AdminView{
 		Users:           domainUsers,
 		RegisteredUsers: registeredUsers,
+		MailingList:     mailingList,
 		Domain: AdminDomain{
 			Name:                 domain,
 			UserCount:            len(domainUsers),

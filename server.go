@@ -5,6 +5,7 @@ import "net/http"
 func newServer() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/admin", adminHandler)
+	mux.HandleFunc("/admin/mailing-list.csv", mailingListExportHandler)
 	mux.HandleFunc("/attachment", attachmentHandler)
 	mux.HandleFunc("/certificate", certificateHandler)
 	mux.HandleFunc("/compose", composeHandler)
