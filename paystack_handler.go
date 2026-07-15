@@ -47,7 +47,7 @@ func failedPaymentRegisterURL(orderID string) string {
 	if err != nil {
 		return ""
 	}
-	next := "/payment/start?domain=" + domain
+	next := paymentStartPath(domain, "")
 	values := url.Values{}
 	values.Set("payment", "failed")
 	values.Set("next", next)

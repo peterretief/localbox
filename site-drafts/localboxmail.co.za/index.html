@@ -350,6 +350,46 @@
         .result-action {
             margin-top: 12px;
         }
+        .option-choice {
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid #dfe3dc;
+        }
+        .option-choice legend {
+            margin-bottom: 10px;
+            color: #22312c;
+            font-weight: 800;
+        }
+        .option-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .option-card {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 9px;
+            align-items: start;
+            min-height: 112px;
+            padding: 13px;
+            border: 1px solid #dfe3dc;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #4f5a54;
+            font-size: 14px;
+            font-weight: 400;
+            cursor: pointer;
+        }
+        .option-card strong {
+            display: block;
+            margin-bottom: 4px;
+            color: #22312c;
+        }
+        .option-card input {
+            width: 18px;
+            min-height: 18px;
+            margin-top: 2px;
+        }
         .waitlist-form {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
@@ -392,7 +432,7 @@
                 max-height: 48vh;
                 opacity: 0.24;
             }
-            .grid, .flow, .forms, .domain-check, .offer, .product-line, .waitlist-form { grid-template-columns: 1fr; }
+            .grid, .flow, .forms, .domain-check, .offer, .product-line, .option-grid, .waitlist-form { grid-template-columns: 1fr; }
             .links { display: none; }
             section { padding: 52px 18px; }
             .hero-inner { padding: 78px 18px 54px; }
@@ -498,6 +538,23 @@
                         </label>
                         <button type="submit">Check</button>
                     </form>
+                    <fieldset class="option-choice" data-package-options>
+                        <legend>After paying for the domain, choose the LocalBox option you want</legend>
+                        <div class="option-grid">
+                            <label class="option-card">
+                                <input type="radio" name="package_option" value="hosted-domain-email" checked>
+                                <span><strong>We host the domain and email</strong>Domain, DNS, starter website, and first receiving mailbox.</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="package_option" value="hosted-pi">
+                                <span><strong>We host your Raspberry Pi</strong>Your assigned Pi stays hosted with LocalBox for power, network, and support.</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="package_option" value="full-pi">
+                                <span><strong>Full Raspberry Pi package</strong>Prepared Pi with case, storage, power, setup, and courier add-ons.</span>
+                            </label>
+                        </div>
+                    </fieldset>
                     <div class="result" data-domain-result aria-live="polite"></div>
                     <p style="margin-top:14px;">For .co.za domains, the current estimate is R150 for domain registration including DNS setup. We hope to add more domain types soon.</p>
                     <p class="fine">No domain is registered until the responsible contact confirms the request and payment route.</p>
@@ -670,6 +727,10 @@
             if(!form || !result){
                 return;
             }
+            function selectedPackageOption(){
+                const selected = document.querySelector("input[name='package_option']:checked");
+                return selected ? selected.value : "hosted-domain-email";
+            }
             function cleanName(value){
                 value = String(value || "").trim().toLowerCase();
                 value = value.replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[\/?#]/)[0].replace(/\.+$/, "");
@@ -717,7 +778,7 @@
                         actions.className = "result-actions";
                         const link = document.createElement("a");
                         link.className = "result-action";
-                        link.href = "/payment/start?domain=" + encodeURIComponent(item.domain);
+                        link.href = "/payment/start?domain=" + encodeURIComponent(item.domain) + "&option=" + encodeURIComponent(selectedPackageOption());
                         link.textContent = "Register now";
                         actions.appendChild(link);
                         row.appendChild(actions);

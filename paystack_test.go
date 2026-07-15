@@ -394,7 +394,7 @@ func TestPaymentStartUsesRegisteredProfileForPaystackCheckout(t *testing.T) {
 		return `{"status":true,"message":"Authorization URL created","data":{"authorization_url":"https://checkout.paystack.test/pay","reference":"lb-ord-start"}}`
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "http://localboxmail.co.za/payment/start?domain=chosen.co.za", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://localboxmail.co.za/payment/start?domain=chosen.co.za&option=hosted-pi", nil)
 	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("buyer", "localboxmail.co.za")})
 	rec := httptest.NewRecorder()
 
@@ -408,18 +408,21 @@ func TestPaymentStartUsesRegisteredProfileForPaystackCheckout(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	var fullName, email, domain, status string
+	var fullName, email, domain, status, notes string
 	var amount int
 	if err := db.QueryRow(`
-		SELECT customers.full_name, customers.email, orders.domain, orders.status, orders.quoted_amount_cents
+		SELECT customers.full_name, customers.email, orders.domain, orders.status, orders.notes, orders.quoted_amount_cents
 		FROM orders
 		JOIN customers ON customers.id = orders.customer_id
 		WHERE orders.domain = 'chosen.co.za'
-	`).Scan(&fullName, &email, &domain, &status, &amount); err != nil {
+	`).Scan(&fullName, &email, &domain, &status, &notes, &amount); err != nil {
 		t.Fatal(err)
 	}
 	if fullName != "Buyer Example" || email != "buyer@example.net" || domain != "chosen.co.za" || status != "pending_payment" || amount != 15000 {
 		t.Fatalf("unexpected order values: name=%q email=%q domain=%q status=%q amount=%d", fullName, email, domain, status, amount)
+	}
+	if !strings.Contains(notes, "Selected LocalBox option: We host your Raspberry Pi") {
+		t.Fatalf("expected selected option in notes, got %q", notes)
 	}
 }
 

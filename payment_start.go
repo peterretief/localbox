@@ -24,21 +24,27 @@ func paymentStartHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	packageOption, err := normalizeLocalBoxPackageOption(r.URL.Query().Get("option"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	next := paymentStartPath(domain, packageOption)
 	session := getRegisteredSession(r)
 	if session == nil {
-		http.Redirect(w, r, "/register?next="+url.QueryEscape("/payment/start?domain="+domain), http.StatusFound)
+		http.Redirect(w, r, "/register?next="+url.QueryEscape(next), http.StatusFound)
 		return
 	}
 	profile, err := loadPublicUserProfile(session.User, session.Domain)
 	if err != nil || strings.TrimSpace(profile.FullName) == "" || strings.TrimSpace(profile.Phone) == "" || strings.TrimSpace(profile.PhysicalAddress) == "" {
-		http.Redirect(w, r, "/register?next="+url.QueryEscape("/payment/start?domain="+domain), http.StatusFound)
+		http.Redirect(w, r, "/register?next="+url.QueryEscape(next), http.StatusFound)
 		return
 	}
 	if !publicUserEmailVerified(profile) {
-		http.Redirect(w, r, "/register?verification=required&next="+url.QueryEscape("/payment/start?domain="+domain), http.StatusFound)
+		http.Redirect(w, r, "/register?verification=required&next="+url.QueryEscape(next), http.StatusFound)
 		return
 	}
-	orderID, err := createOrderFromRegisteredProfile(r.Context(), profile, domain)
+	orderID, err := createOrderFromRegisteredProfile(r.Context(), profile, domain, packageOption)
 	if err != nil {
 		http.Error(w, "Unable to create order", http.StatusInternalServerError)
 		return
@@ -65,12 +71,17 @@ func paymentStartHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, detail.PaymentURL, http.StatusSeeOther)
 }
 
-func createOrderFromRegisteredProfile(ctx context.Context, profile publicUserProfile, domain string) (string, error) {
+func createOrderFromRegisteredProfile(ctx context.Context, profile publicUserProfile, domain, packageOption string) (string, error) {
 	orderID, err := newPaymentOrderID()
 	if err != nil {
 		return "", err
 	}
+	packageOption, err = normalizeLocalBoxPackageOption(packageOption)
+	if err != nil {
+		return "", err
+	}
 	wantedEmail := "info@" + domain
+	notes := "Created from registered customer profile.\nSelected LocalBox option: " + localBoxPackageOptionLabel(packageOption)
 	now := time.Now().UTC().Format(time.RFC3339)
 	db, err := openOrdersDB()
 	if err != nil {
@@ -103,7 +114,7 @@ func createOrderFromRegisteredProfile(ctx context.Context, profile publicUserPro
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO orders (id, customer_id, domain, wanted_email, status, notes, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, orderID, customerID, domain, wantedEmail, "pending_payment", "Created from registered customer profile.", now, now)
+	`, orderID, customerID, domain, wantedEmail, "pending_payment", notes, now, now)
 	if err != nil {
 		return "", err
 	}
@@ -114,6 +125,39 @@ func createOrderFromRegisteredProfile(ctx context.Context, profile publicUserPro
 		return "", err
 	}
 	return orderID, tx.Commit()
+}
+
+func paymentStartPath(domain, packageOption string) string {
+	values := url.Values{}
+	values.Set("domain", domain)
+	if option, err := normalizeLocalBoxPackageOption(packageOption); err == nil && option != "hosted-domain-email" {
+		values.Set("option", option)
+	}
+	return "/payment/start?" + values.Encode()
+}
+
+func normalizeLocalBoxPackageOption(value string) (string, error) {
+	value = strings.TrimSpace(strings.ToLower(value))
+	if value == "" {
+		return "hosted-domain-email", nil
+	}
+	switch value {
+	case "hosted-domain-email", "hosted-pi", "full-pi":
+		return value, nil
+	default:
+		return "", fmt.Errorf("invalid LocalBox option")
+	}
+}
+
+func localBoxPackageOptionLabel(value string) string {
+	switch value {
+	case "hosted-pi":
+		return "We host your Raspberry Pi"
+	case "full-pi":
+		return "Full Raspberry Pi package"
+	default:
+		return "We host the domain and email"
+	}
 }
 
 type paymentDomainCheckResult struct {
