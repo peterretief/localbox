@@ -330,7 +330,7 @@ func TestRegisterHandlerInfersDomainFromSiteHost(t *testing.T) {
 	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "Check your email") {
 		t.Fatalf("expected verification notice, code=%d body=%q", rr.Code, rr.Body.String())
 	}
-	if sent.To != "buyer@example.net" || !strings.Contains(sent.Body, "/register/verify?") {
+	if sent.To != "buyer@example.net" || sent.Subject != "Welcome to LocalBox" || !strings.Contains(sent.Body, "registered as a user for example.com") || !strings.Contains(sent.Body, "/register/verify?") || !strings.Contains(sent.HTMLBody, "<a href=") {
 		t.Fatalf("expected verification email, got %#v", sent)
 	}
 	if !authenticatePublicUser("buyer", "example.com", "secret-password") {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"html"
 	"html/template"
 	"io"
 	"net/http"
@@ -333,14 +334,25 @@ func sendPublicUserVerificationEmail(r *http.Request, data PublicRegisterData, t
 		values.Set("next", next)
 	}
 	link := publicRequestBaseURL(r) + "/register/verify?" + values.Encode()
-	body := "Hello " + data.FullName + ",\n\n" +
-		"Please verify your email address before continuing with your LocalBox domain order:\n\n" +
+	domain := strings.TrimSpace(data.Domain)
+	if domain == "" {
+		domain = "this domain"
+	}
+	body := "Welcome to LocalBox, " + data.FullName + ".\n\n" +
+		"You are registered as a user for " + domain + ". Please open this link to confirm the email address and continue. You can then make domain orders if you wish:\n\n" +
 		link + "\n\n" +
 		"If you did not create this account, you can ignore this email.\n"
+	htmlBody := "<!doctype html><html><body>" +
+		"<p>Welcome to LocalBox, " + html.EscapeString(data.FullName) + ".</p>" +
+		"<p>You are registered as a user for <strong>" + html.EscapeString(domain) + "</strong>. Please open this link to confirm the email address and continue. You can then make domain orders if you wish.</p>" +
+		"<p><a href=\"" + html.EscapeString(link) + "\">Continue to LocalBox</a></p>" +
+		"<p>If you did not create this account, you can ignore this email.</p>" +
+		"</body></html>"
 	return sendOrderNotificationEmail(orderEmailMessage{
-		To:      data.Email,
-		Subject: "Verify your LocalBox account",
-		Body:    body,
+		To:       data.Email,
+		Subject:  "Welcome to LocalBox",
+		Body:     body,
+		HTMLBody: htmlBody,
 	})
 }
 

@@ -130,6 +130,45 @@ func buildOutgoingEmail(from, to, subject, body string, now time.Time, attachmen
 	return b.Bytes()
 }
 
+func buildOutgoingHTMLEmail(from, to, subject, textBody, htmlBody string, now time.Time) []byte {
+	if subject == "" {
+		subject = "(no subject)"
+	}
+
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "From: %s\r\n", (&mail.Address{Address: from}).String())
+	fmt.Fprintf(&b, "To: %s\r\n", (&mail.Address{Address: to}).String())
+	fmt.Fprintf(&b, "Subject: %s\r\n", subject)
+	fmt.Fprintf(&b, "Date: %s\r\n", now.Format(time.RFC1123Z))
+	fmt.Fprintf(&b, "Message-ID: <%d.mail@localbox>\r\n", now.UnixNano())
+	fmt.Fprint(&b, "MIME-Version: 1.0\r\n")
+
+	writer := multipart.NewWriter(&b)
+	fmt.Fprintf(&b, "Content-Type: multipart/alternative; boundary=%q\r\n", writer.Boundary())
+	fmt.Fprint(&b, "\r\n")
+
+	textHeader := make(textproto.MIMEHeader)
+	textHeader.Set("Content-Type", "text/plain; charset=utf-8")
+	textHeader.Set("Content-Transfer-Encoding", "8bit")
+	textPart, _ := writer.CreatePart(textHeader)
+	fmt.Fprint(textPart, textBody)
+	if !strings.HasSuffix(textBody, "\n") {
+		fmt.Fprint(textPart, "\n")
+	}
+
+	htmlHeader := make(textproto.MIMEHeader)
+	htmlHeader.Set("Content-Type", "text/html; charset=utf-8")
+	htmlHeader.Set("Content-Transfer-Encoding", "8bit")
+	htmlPart, _ := writer.CreatePart(htmlHeader)
+	fmt.Fprint(htmlPart, htmlBody)
+	if !strings.HasSuffix(htmlBody, "\n") {
+		fmt.Fprint(htmlPart, "\n")
+	}
+
+	_ = writer.Close()
+	return b.Bytes()
+}
+
 func writeMultipartEmail(b *bytes.Buffer, body string, attachment *OutgoingAttachment) {
 	writer := multipart.NewWriter(b)
 	fmt.Fprintf(b, "Content-Type: multipart/mixed; boundary=%q\r\n", writer.Boundary())

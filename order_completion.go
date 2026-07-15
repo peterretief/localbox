@@ -19,6 +19,7 @@ type orderEmailMessage struct {
 	To         string
 	Subject    string
 	Body       string
+	HTMLBody   string
 	Attachment *OutgoingAttachment
 }
 
@@ -247,7 +248,13 @@ func sendOrderSMTPNotification(message orderEmailMessage) error {
 	if err != nil {
 		return fmt.Errorf("valid SMTP from address is required")
 	}
-	raw := buildOutgoingEmail(fromAddress.Address, toAddress.Address, cleanMailHeader(message.Subject), message.Body, time.Now().UTC(), message.Attachment)
+	subject := cleanMailHeader(message.Subject)
+	var raw []byte
+	if strings.TrimSpace(message.HTMLBody) != "" && message.Attachment == nil {
+		raw = buildOutgoingHTMLEmail(fromAddress.Address, toAddress.Address, subject, message.Body, message.HTMLBody, time.Now().UTC())
+	} else {
+		raw = buildOutgoingEmail(fromAddress.Address, toAddress.Address, subject, message.Body, time.Now().UTC(), message.Attachment)
+	}
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	auth := smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
 	return smtp.SendMail(addr, auth, cfg.From, []string{toAddress.Address}, raw)

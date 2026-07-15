@@ -36,3 +36,28 @@ func TestBuildOutgoingEmailWithAttachment(t *testing.T) {
 		t.Fatalf("expected test.txt attachment, got %#v", attachments)
 	}
 }
+
+func TestBuildOutgoingHTMLEmail(t *testing.T) {
+	raw := buildOutgoingHTMLEmail(
+		"someone@opamp.co.za",
+		"buyer@example.net",
+		"Welcome",
+		"Open https://example.net/register/verify?token=abc",
+		`<p><a href="https://example.net/register/verify?token=abc">Continue</a></p>`,
+		time.Unix(100, 0).UTC(),
+	)
+
+	msg, err := mail.ReadMessage(strings.NewReader(string(raw)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	contentType := msg.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "multipart/alternative") {
+		t.Fatalf("expected multipart alternative email, got %q", contentType)
+	}
+	rawText := string(raw)
+	if !strings.Contains(rawText, "Content-Type: text/html; charset=utf-8") ||
+		!strings.Contains(rawText, `<a href="https://example.net/register/verify?token=abc">Continue</a>`) {
+		t.Fatalf("expected html link body, got %q", rawText)
+	}
+}
