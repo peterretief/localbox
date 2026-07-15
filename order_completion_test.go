@@ -13,12 +13,22 @@ func TestCompleteOrderRegistrationPublishesSiteAndSendsCertificateOnly(t *testin
 	oldDB := orderDBFile
 	oldBase := localBoxBase
 	oldSender := sendOrderNotificationEmail
+	oldUsersFile := usersFile
+	oldAdminsFile := adminsFile
+	oldDomainsFile := domainsFile
 	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
 	localBoxBase = t.TempDir()
+	configDir := t.TempDir()
+	usersFile = filepath.Join(configDir, "users.conf")
+	adminsFile = filepath.Join(configDir, "admins.conf")
+	domainsFile = filepath.Join(configDir, "domains.conf")
 	t.Cleanup(func() {
 		orderDBFile = oldDB
 		localBoxBase = oldBase
 		sendOrderNotificationEmail = oldSender
+		usersFile = oldUsersFile
+		adminsFile = oldAdminsFile
+		domainsFile = oldDomainsFile
 	})
 
 	var sent []orderEmailMessage
@@ -59,8 +69,19 @@ func TestCompleteOrderRegistrationPublishesSiteAndSendsCertificateOnly(t *testin
 	if sent[0].Attachment == nil || !strings.Contains(string(sent[0].Attachment.Data), "LOCALBOX DOMAIN REGISTRATION CERTIFICATE") {
 		t.Fatalf("expected certificate attachment in first email: %#v", sent[0].Attachment)
 	}
-	if !strings.Contains(sent[0].Body, "Email voucher:") || !strings.Contains(sent[0].Body, "info@example.co.za") {
-		t.Fatalf("certificate email missing voucher or address:\n%s", sent[0].Body)
+	if !strings.Contains(sent[0].Body, "Email voucher/reference:") ||
+		!strings.Contains(sent[0].Body, "Email address: info@example.co.za") ||
+		!strings.Contains(sent[0].Body, "Username: info") ||
+		!strings.Contains(sent[0].Body, "Temporary password: LB-") ||
+		!strings.Contains(sent[0].Body, "Email login: https://example.co.za/login") ||
+		!strings.Contains(sent[0].Body, "Domain admin page: https://example.co.za/admin") {
+		t.Fatalf("certificate email missing login details:\n%s", sent[0].Body)
+	}
+	if !authenticate("info", "example.co.za", strings.TrimPrefix(firstLineWithPrefix(sent[0].Body, "Temporary password: "), "Temporary password: ")) {
+		t.Fatalf("expected first mailbox login to authenticate")
+	}
+	if !isDomainAdmin("info", "example.co.za") {
+		t.Fatalf("expected first mailbox to be domain admin")
 	}
 
 	detail, err := loadOrderDetail("ord_test")
@@ -80,6 +101,9 @@ func TestCompleteOrderRegistrationPublishesSiteAndSendsCertificateOnly(t *testin
 	}
 	if !strings.Contains(string(certificate), detail.EmailVoucherCode) {
 		t.Fatalf("certificate missing voucher:\n%s", string(certificate))
+	}
+	if strings.Contains(string(certificate), "Temporary password:") {
+		t.Fatalf("certificate should not print temporary password:\n%s", string(certificate))
 	}
 
 	site, err := os.ReadFile(filepath.Join(domainSiteBase("example.co.za"), "index.html"))
@@ -153,6 +177,15 @@ func TestMarkOrderDomainPropagatedSendsWebsiteLink(t *testing.T) {
 	}
 }
 
+func firstLineWithPrefix(text, prefix string) string {
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(line, prefix) {
+			return line
+		}
+	}
+	return ""
+}
+
 func TestOrderRegistrationCertificateIncludesVoucher(t *testing.T) {
 	now := time.Date(2026, 7, 13, 8, 0, 0, 0, time.UTC)
 	cert := string(orderRegistrationCertificate(OrderDetail{
@@ -170,6 +203,8 @@ func TestOrderRegistrationCertificateIncludesVoucher(t *testing.T) {
 		"Registrant: Peter Example",
 		"Registrar reference: reg_123",
 		"Voucher code: EMAIL-AAAA-BBBB",
+		"Mailbox login: https://example.co.za/login",
+		"Domain admin page: https://example.co.za/admin",
 		"Website: https://example.co.za/",
 	} {
 		if !strings.Contains(cert, want) {

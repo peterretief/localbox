@@ -54,12 +54,22 @@ func TestProvisionPaidDomainOrderWithFakesCompletesOrder(t *testing.T) {
 	oldDB := orderDBFile
 	oldBase := localBoxBase
 	oldSender := sendOrderNotificationEmail
+	oldUsersFile := usersFile
+	oldAdminsFile := adminsFile
+	oldDomainsFile := domainsFile
 	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
 	localBoxBase = t.TempDir()
+	configDir := t.TempDir()
+	usersFile = filepath.Join(configDir, "users.conf")
+	adminsFile = filepath.Join(configDir, "admins.conf")
+	domainsFile = filepath.Join(configDir, "domains.conf")
 	t.Cleanup(func() {
 		orderDBFile = oldDB
 		localBoxBase = oldBase
 		sendOrderNotificationEmail = oldSender
+		usersFile = oldUsersFile
+		adminsFile = oldAdminsFile
+		domainsFile = oldDomainsFile
 	})
 	sendOrderNotificationEmail = func(message orderEmailMessage) error {
 		return nil
@@ -132,12 +142,22 @@ func TestProvisionPaidDomainOrderWithFakesResumesAfterRegistrarSuccess(t *testin
 	oldDB := orderDBFile
 	oldBase := localBoxBase
 	oldSender := sendOrderNotificationEmail
+	oldUsersFile := usersFile
+	oldAdminsFile := adminsFile
+	oldDomainsFile := domainsFile
 	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
 	localBoxBase = t.TempDir()
+	configDir := t.TempDir()
+	usersFile = filepath.Join(configDir, "users.conf")
+	adminsFile = filepath.Join(configDir, "admins.conf")
+	domainsFile = filepath.Join(configDir, "domains.conf")
 	t.Cleanup(func() {
 		orderDBFile = oldDB
 		localBoxBase = oldBase
 		sendOrderNotificationEmail = oldSender
+		usersFile = oldUsersFile
+		adminsFile = oldAdminsFile
+		domainsFile = oldDomainsFile
 	})
 	sendOrderNotificationEmail = func(message orderEmailMessage) error {
 		return nil

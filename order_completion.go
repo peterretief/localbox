@@ -62,6 +62,23 @@ func completeOrderRegistration(ctx context.Context, id, registrarReference strin
 	if strings.TrimSpace(websiteURL) == "" {
 		websiteURL = "https://" + domain + "/"
 	}
+	mailboxUser := normalizeMailboxUser(strings.TrimSuffix(strings.ToLower(wantedEmail.Address), "@"+domain))
+	if !safeMailboxUser(mailboxUser) {
+		return fmt.Errorf("valid first email address required")
+	}
+	temporaryPassword := ""
+	if !userExists(mailboxUser, domain) {
+		temporaryPassword, err = newTemporaryMailboxPassword()
+		if err != nil {
+			return err
+		}
+		if err := addMailbox(mailboxUser, domain, temporaryPassword); err != nil {
+			return err
+		}
+	}
+	if err := addDomainAdmin(mailboxUser, domain); err != nil {
+		return err
+	}
 	if err := createStarterWebsite(domain, order.FullName, now); err != nil {
 		return err
 	}
@@ -79,7 +96,7 @@ func completeOrderRegistration(ctx context.Context, id, registrarReference strin
 		if err := sendOrderNotificationEmail(orderEmailMessage{
 			To:      customerEmail.Address,
 			Subject: "Domain registration certificate for " + domain,
-			Body:    certificateEmailBody(domain, wantedEmail.Address, voucher),
+			Body:    certificateEmailBody(domain, wantedEmail.Address, mailboxUser, temporaryPassword, voucher),
 			Attachment: &OutgoingAttachment{
 				Filename:    domain + "-localbox-certificate.txt",
 				ContentType: "text/plain; charset=utf-8",
@@ -147,6 +164,14 @@ func newEmailVoucherCode() (string, error) {
 	return "EMAIL-" + strings.ToUpper(hex.EncodeToString(raw[:4])) + "-" + strings.ToUpper(hex.EncodeToString(raw[4:])), nil
 }
 
+func newTemporaryMailboxPassword() (string, error) {
+	var raw [9]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", err
+	}
+	return "LB-" + strings.ToUpper(hex.EncodeToString(raw[:])), nil
+}
+
 func orderRegistrationCertificate(order OrderDetail, voucher, websiteURL string, now time.Time) []byte {
 	var b bytes.Buffer
 	fmt.Fprintln(&b, "LOCALBOX DOMAIN REGISTRATION CERTIFICATE")
@@ -155,27 +180,45 @@ func orderRegistrationCertificate(order OrderDetail, voucher, websiteURL string,
 	fmt.Fprintln(&b, "Registrant: "+order.FullName)
 	fmt.Fprintln(&b, "Registrar reference: "+order.RegistrarReference)
 	fmt.Fprintln(&b, "First email address reserved: "+strings.ToLower(order.WantedEmail))
+	fmt.Fprintln(&b, "Mailbox login: https://"+normalizeDomain(order.Domain)+"/login")
+	fmt.Fprintln(&b, "Domain admin page: https://"+normalizeDomain(order.Domain)+"/admin")
 	fmt.Fprintln(&b, "Website: "+websiteURL)
 	fmt.Fprintln(&b, "Issued: "+now.UTC().Format(time.RFC3339))
 	fmt.Fprintln(&b)
 	fmt.Fprintln(&b, "Email address registration voucher")
 	fmt.Fprintln(&b, "Voucher code: "+voucher)
-	fmt.Fprintln(&b, "Redeem this voucher with LocalBox to activate one email address on this domain.")
+	fmt.Fprintln(&b, "The first mailbox is created by LocalBox. The temporary password is sent in the certificate email and is not printed on this certificate.")
 	fmt.Fprintln(&b)
 	fmt.Fprintln(&b, "This confirms that LocalBox has completed the domain registration step for this order.")
 	return b.Bytes()
 }
 
-func certificateEmailBody(domain, wantedEmail, voucher string) string {
+func certificateEmailBody(domain, wantedEmail, mailboxUser, temporaryPassword, voucher string) string {
+	loginURL := "https://" + domain + "/login"
+	adminURL := "https://" + domain + "/admin"
+	passwordLine := "Temporary password: already created earlier. Use the password supplied by LocalBox, or reset it from the admin page."
+	if strings.TrimSpace(temporaryPassword) != "" {
+		passwordLine = "Temporary password: " + temporaryPassword
+	}
 	return fmt.Sprintf(`Your domain registration for %s is complete.
 
 Your registration certificate is attached.
 
-Email voucher: %s
-Redeem it with LocalBox to register your first email address: %s
+First mailbox and admin login
+Email address: %s
+Username: %s
+Domain: %s
+%s
+
+Email login: %s
+Domain admin page: %s
+
+Please sign in and change the temporary password from the password page.
+
+Email voucher/reference: %s
 
 LocalBox Mail
-`, domain, voucher, wantedEmail)
+`, domain, wantedEmail, mailboxUser, domain, passwordLine, loginURL, adminURL, voucher)
 }
 
 func siteLiveEmailBody(domain, websiteURL string) string {
