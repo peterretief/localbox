@@ -60,6 +60,16 @@ iface eth0 inet dhcp
 auto end0
 iface end0 inet dhcp
 EOF
+cat > "$BOOT_MOUNT/interfaces" << 'EOF'
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+
+auto end0
+iface end0 inet dhcp
+EOF
 ln -sfn ../../init.d/networking "$WORK/etc/runlevels/default/networking"
 ln -sfn ../../init.d/sshd "$WORK/etc/runlevels/default/sshd"
 ln -sfn ../../init.d/chronyd "$WORK/etc/runlevels/default/chronyd"

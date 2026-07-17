@@ -3,6 +3,10 @@ mail-ingest
 contact-service
 /contact
 build/
+setup_new_pi/*.tar.gz
+images/*.img
+images/*.img.gz
+images/*.sha256
 
 # Sensitive
 settings.conf
