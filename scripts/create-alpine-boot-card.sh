@@ -10,11 +10,16 @@ BASE_APKOVL=${BASE_APKOVL:-"$PROJECT_DIR/setup_new_pi/headless.apkovl.tar.gz"}
 
 usage() {
     cat <<EOF
-Usage: CONFIRM_BOOT_DEVICE=/dev/sdX $0 alpine-rpi-*.tar.gz /dev/sdX [localbox-firstboot.conf]
+Usage: CONFIRM_BOOT_DEVICE=/dev/sdX CONFIRM_BOOT_SERIAL=SERIAL $0 alpine-rpi-*.tar.gz /dev/sdX [localbox-firstboot.conf]
 
 This erases TARGET, creates one FAT32 Alpine boot partition, extracts the
 Alpine Raspberry Pi tarball, seeds the LocalBox headless overlay, and patches
 the card for DHCP, SSH, and LocalBox first boot.
+
+Safety defaults:
+  - target must be removable media;
+  - target must be 128GB or smaller;
+  - CONFIRM_BOOT_SERIAL must match lsblk SERIAL.
 EOF
 }
 
@@ -52,10 +57,56 @@ case "$TARGET" in
         ;;
 esac
 
+TARGET_SIZE=$(lsblk -dn -b -o SIZE "$TARGET" | tr -d '[:space:]')
+TARGET_MODEL=$(lsblk -dn -o MODEL "$TARGET" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+TARGET_SERIAL=$(lsblk -dn -o SERIAL "$TARGET" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+TARGET_TRAN=$(lsblk -dn -o TRAN "$TARGET" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+TARGET_RM=$(lsblk -dn -o RM "$TARGET" | tr -d '[:space:]')
+TARGET_RO=$(lsblk -dn -o RO "$TARGET" | tr -d '[:space:]')
+TARGET_MODEL=${TARGET_MODEL:-unknown}
+MAX_BOOT_CARD_BYTES=${MAX_BOOT_CARD_BYTES:-137438953472}
+
+if [ "$TARGET_RO" != "0" ]; then
+    echo "ERROR: target is read-only: $TARGET"
+    exit 1
+fi
+
+if [ "$TARGET_RM" != "1" ]; then
+    echo "ERROR: refusing non-removable disk: $TARGET"
+    echo "Model: $TARGET_MODEL"
+    echo "Serial: ${TARGET_SERIAL:-unknown}"
+    echo "This command is only for SD cards/removable media."
+    exit 1
+fi
+
+if [ "$TARGET_SIZE" -gt "$MAX_BOOT_CARD_BYTES" ]; then
+    echo "ERROR: refusing oversized boot-card target: $TARGET"
+    echo "Size bytes: $TARGET_SIZE"
+    echo "Limit bytes: $MAX_BOOT_CARD_BYTES"
+    echo "This protects backup drives from being mistaken for SD cards."
+    exit 1
+fi
+
 if [ "${CONFIRM_BOOT_DEVICE:-}" != "$TARGET" ]; then
     echo "Refusing to erase $TARGET without explicit confirmation."
     echo "Run:"
-    echo "  CONFIRM_BOOT_DEVICE=$TARGET $0 $TARBALL $TARGET ${FIRSTBOOT_CONFIG:-}"
+    echo "  CONFIRM_BOOT_DEVICE=$TARGET CONFIRM_BOOT_SERIAL=${TARGET_SERIAL:-unknown} $0 $TARBALL $TARGET ${FIRSTBOOT_CONFIG:-}"
+    exit 1
+fi
+
+if [ -z "$TARGET_SERIAL" ]; then
+    echo "ERROR: target has no reported serial; refusing destructive operation."
+    echo "Use a card reader that reports serial/device identity."
+    exit 1
+fi
+
+if [ "${CONFIRM_BOOT_SERIAL:-}" != "$TARGET_SERIAL" ]; then
+    echo "Refusing to erase $TARGET without matching serial confirmation."
+    echo "Device: $TARGET"
+    echo "Model:  $TARGET_MODEL"
+    echo "Serial: $TARGET_SERIAL"
+    echo "Run:"
+    echo "  CONFIRM_BOOT_DEVICE=$TARGET CONFIRM_BOOT_SERIAL=$TARGET_SERIAL $0 $TARBALL $TARGET ${FIRSTBOOT_CONFIG:-}"
     exit 1
 fi
 
@@ -78,6 +129,10 @@ trap cleanup EXIT
 
 echo "About to erase and rebuild Alpine boot card:"
 lsblk "$TARGET"
+echo "Model:          $TARGET_MODEL"
+echo "Serial:         $TARGET_SERIAL"
+echo "Transport:      ${TARGET_TRAN:-unknown}"
+echo "Removable:      $TARGET_RM"
 echo "Alpine tarball: $TARBALL"
 echo "Base overlay:    $BASE_APKOVL"
 
