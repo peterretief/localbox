@@ -12,6 +12,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
+	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -24,9 +27,10 @@ const (
 )
 
 type User struct {
-	Username string
-	Domain   string
-	Hash     string
+	Username      string
+	Domain        string
+	Hash          string
+	RecoveryEmail string
 }
 
 func loadUsers() ([]User, error) {
@@ -45,15 +49,16 @@ func loadUsers() ([]User, error) {
 			continue
 		}
 
-		parts := strings.SplitN(line, ":", 3)
-		if len(parts) != 3 {
+		parts := strings.SplitN(line, ":", 4)
+		if len(parts) < 3 {
 			continue
 		}
 
 		users = append(users, User{
-			Username: parts[0],
-			Domain:   parts[1],
-			Hash:     parts[2],
+			Username:      parts[0],
+			Domain:        parts[1],
+			Hash:          parts[2],
+			RecoveryEmail: userField(parts, 3),
 		})
 	}
 
@@ -140,7 +145,10 @@ func changePassword(username, domain, currentPassword, newPassword string) error
 			return fmt.Errorf("current password is incorrect")
 		}
 
-		return setPasswordHashAt(users, i, newPassword)
+		if err := setPasswordHashAt(users, i, newPassword); err != nil {
+			return err
+		}
+		return syncExternalMailboxPassword(username, domain, newPassword)
 	}
 
 	return fmt.Errorf("user not found")
@@ -183,10 +191,163 @@ func passwordNeedsRehash(storedHash string) bool {
 func saveUsers(users []User) error {
 	var b bytes.Buffer
 	for _, u := range users {
-		fmt.Fprintf(&b, "%s:%s:%s\n", u.Username, u.Domain, u.Hash)
+		if strings.TrimSpace(u.RecoveryEmail) == "" {
+			fmt.Fprintf(&b, "%s:%s:%s\n", u.Username, u.Domain, u.Hash)
+			continue
+		}
+		fmt.Fprintf(&b, "%s:%s:%s:%s\n", u.Username, u.Domain, u.Hash, strings.ToLower(strings.TrimSpace(u.RecoveryEmail)))
 	}
 
 	return os.WriteFile(usersFile, b.Bytes(), 0640)
+}
+
+func userField(parts []string, index int) string {
+	if len(parts) <= index {
+		return ""
+	}
+	return strings.TrimSpace(parts[index])
+}
+
+func syncDovecotMailboxPassword(username, domain, password string) error {
+	if _, err := os.Stat(dovecotUsersFile); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	hash, err := dovecotPasswordHash(password)
+	if err != nil {
+		return err
+	}
+	line, err := dovecotUserLine(username, domain, hash)
+	if err != nil {
+		return err
+	}
+
+	data, err := os.ReadFile(dovecotUsersFile)
+	if err != nil {
+		return err
+	}
+
+	address := username + "@" + domain
+	var b bytes.Buffer
+	replaced := false
+	for _, existing := range strings.Split(string(data), "\n") {
+		existing = strings.TrimSpace(existing)
+		if existing == "" {
+			continue
+		}
+		if strings.HasPrefix(existing, address+":") {
+			fmt.Fprintln(&b, line)
+			replaced = true
+			continue
+		}
+		fmt.Fprintln(&b, existing)
+	}
+	if !replaced {
+		fmt.Fprintln(&b, line)
+	}
+
+	return os.WriteFile(dovecotUsersFile, b.Bytes(), 0644)
+}
+
+func syncExternalMailboxPassword(username, domain, password string) error {
+	if err := syncDovecotMailboxPassword(username, domain, password); err != nil {
+		return err
+	}
+	if radicaleUsesDovecotAuth() {
+		return nil
+	}
+	return syncRadicalePassword(username, domain, password)
+}
+
+func radicaleUsesDovecotAuth() bool {
+	data, err := os.ReadFile(radicaleConfigFile)
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if strings.EqualFold(strings.TrimSpace(parts[0]), "type") {
+			return strings.EqualFold(strings.TrimSpace(parts[1]), "dovecot")
+		}
+	}
+	return false
+}
+
+func syncRadicalePassword(username, domain, password string) error {
+	if _, err := os.Stat(radicaleUsersFile); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	hash, err := sha512CryptHash(password)
+	if err != nil {
+		return err
+	}
+	line := username + "@" + domain + ":" + hash
+
+	data, err := os.ReadFile(radicaleUsersFile)
+	if err != nil {
+		return err
+	}
+
+	address := strings.ToLower(username + "@" + domain)
+	var b bytes.Buffer
+	replaced := false
+	for _, existing := range strings.Split(string(data), "\n") {
+		existing = strings.TrimSpace(existing)
+		if existing == "" {
+			continue
+		}
+		parts := strings.SplitN(existing, ":", 2)
+		if strings.ToLower(parts[0]) == address {
+			fmt.Fprintln(&b, line)
+			replaced = true
+			continue
+		}
+		fmt.Fprintln(&b, existing)
+	}
+	if !replaced {
+		fmt.Fprintln(&b, line)
+	}
+
+	return os.WriteFile(radicaleUsersFile, b.Bytes(), 0640)
+}
+
+func dovecotPasswordHash(password string) (string, error) {
+	return sha512CryptHash(password)
+}
+
+func sha512CryptHash(password string) (string, error) {
+	cmd := exec.Command("openssl", "passwd", "-6", "-stdin")
+	cmd.Stdin = strings.NewReader(password)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("could not create sha512-crypt password hash: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func dovecotUserLine(username, domain, hash string) (string, error) {
+	www, err := user.Lookup("www")
+	if err != nil {
+		return "", fmt.Errorf("could not find www user for Dovecot password file: %w", err)
+	}
+	mail, err := user.LookupGroup("mail")
+	if err != nil {
+		return "", fmt.Errorf("could not find mail group for Dovecot password file: %w", err)
+	}
+
+	home := filepath.Join(localBoxBase, "domains", domain, "mail", username)
+	return fmt.Sprintf("%s@%s:%s:%s:%s::%s::", username, domain, hash, www.Uid, mail.Gid, home), nil
 }
 
 func pbkdf2SHA256(password, salt []byte, iterations, keyLength int) []byte {

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"net/mail"
 	"os"
 	"path/filepath"
 	"sort"
@@ -227,8 +228,16 @@ func archiveDomain(domain string) error {
 }
 
 func addMailbox(username, domain, password string) error {
+	return addMailboxWithRecovery(username, domain, password, "")
+}
+
+func addMailboxWithRecovery(username, domain, password, recoveryEmail string) error {
 	username = normalizeMailboxUser(username)
 	domain = normalizeDomain(domain)
+	recoveryEmail, err := normalizeRecoveryEmail(recoveryEmail)
+	if err != nil {
+		return err
+	}
 	if !safeMailboxUser(username) || !safeDomain(domain) {
 		return fmt.Errorf("invalid email address")
 	}
@@ -254,17 +263,45 @@ func addMailbox(username, domain, password string) error {
 		return err
 	}
 	users = append(users, User{
-		Username: username,
-		Domain:   domain,
-		Hash:     hash,
+		Username:      username,
+		Domain:        domain,
+		Hash:          hash,
+		RecoveryEmail: recoveryEmail,
 	})
 	if err := saveUsers(users); err != nil {
+		return err
+	}
+	if err := syncExternalMailboxPassword(username, domain, password); err != nil {
 		return err
 	}
 	if err := ensureRegistrationCertificateForUsers(domain, users, time.Now()); err != nil {
 		return err
 	}
 	return ensureMailboxDirs(domain, username)
+}
+
+func updateMailboxRecoveryEmail(username, domain, recoveryEmail string) error {
+	username = normalizeMailboxUser(username)
+	domain = normalizeDomain(domain)
+	recoveryEmail, err := normalizeRecoveryEmail(recoveryEmail)
+	if err != nil {
+		return err
+	}
+	if !safeMailboxUser(username) || !safeDomain(domain) {
+		return fmt.Errorf("invalid mailbox")
+	}
+
+	users, err := loadUsers()
+	if err != nil {
+		return err
+	}
+	for i, user := range users {
+		if user.Username == username && user.Domain == domain {
+			users[i].RecoveryEmail = recoveryEmail
+			return saveUsers(users)
+		}
+	}
+	return fmt.Errorf("mailbox not found")
 }
 
 func resetMailboxPassword(username, domain, password string) error {
@@ -283,7 +320,10 @@ func resetMailboxPassword(username, domain, password string) error {
 	}
 	for i, user := range users {
 		if user.Username == username && user.Domain == domain {
-			return setPasswordHashAt(users, i, password)
+			if err := setPasswordHashAt(users, i, password); err != nil {
+				return err
+			}
+			return syncExternalMailboxPassword(username, domain, password)
 		}
 	}
 	return fmt.Errorf("mailbox not found")
@@ -350,6 +390,21 @@ func normalizeDomain(domain string) string {
 
 func normalizeMailboxUser(username string) string {
 	return strings.ToLower(strings.TrimSpace(username))
+}
+
+func normalizeRecoveryEmail(value string) (string, error) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return "", nil
+	}
+	if strings.Contains(value, ":") {
+		return "", fmt.Errorf("recovery email cannot contain ':'")
+	}
+	addr, err := mail.ParseAddress(value)
+	if err != nil || strings.ToLower(addr.Address) != value {
+		return "", fmt.Errorf("valid recovery email required")
+	}
+	return value, nil
 }
 
 func safeDomain(domain string) bool {

@@ -38,7 +38,7 @@
                 <h1>Domain Admin</h1>
                 <div class="domain">{{.Domain.Name}}</div>
             </div>
-            <div><a href="/">Inbox</a> · <a href="/page">Home page</a> · <a href="/orders">Orders</a> · <a href="/system">System</a> · <a href="/logout">Sign out</a></div>
+            <div><a href="/dashboard">Dashboard</a> · <a href="/">Inbox</a> · <a href="/page">Home page</a> · <a href="/orders">Orders</a> · <a href="/system">System</a> · <a href="/logout">Sign out</a></div>
         </div>
 
         {{if .Success}}<div class="status">{{.Success}}</div>{{end}}
@@ -68,6 +68,9 @@
                         <input name="password" type="password" placeholder="temporary password" required minlength="8">
                         <button type="submit">Add mailbox</button>
                     </div>
+                    <div class="row">
+                        <input name="recovery_email" type="email" placeholder="recovery email">
+                    </div>
                 </form>
             </section>
         </div>
@@ -75,11 +78,19 @@
         <section class="panel" style="margin-top:18px;">
             <h2>Mailboxes</h2>
             <table>
-                <thead><tr><th>Email address</th><th>Reset password</th><th></th></tr></thead>
+                <thead><tr><th>Email address</th><th>Recovery email</th><th>Reset password</th><th></th></tr></thead>
                 <tbody>
                 {{range .Users}}
                 <tr>
                     <td>{{.Username}}@{{.Domain}}</td>
+                    <td>
+                        <form method="POST" action="/admin" class="row">
+                            <input type="hidden" name="action" value="update_recovery">
+                            <input type="hidden" name="username" value="{{.Username}}">
+                            <input name="recovery_email" type="email" placeholder="recovery email" value="{{.RecoveryEmail}}">
+                            <button type="submit">Save</button>
+                        </form>
+                    </td>
                     <td>
                         <form method="POST" action="/admin" class="row">
                             <input type="hidden" name="action" value="reset_password">

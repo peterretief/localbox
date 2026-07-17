@@ -113,7 +113,15 @@ chmod 600 /etc/localbox/secret
 chown www:mail /etc/localbox/secret
 
 # Generate password hash
-MAIL_HASH=$(echo -n "$MAIL_PASS" | sha512sum | awk '{print $1}' | xxd -r -p | base64 -w 0)
+MAIL_SALT=$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | cut -c1-16)
+MAIL_SALT_B64=$(printf '%s' "$MAIL_SALT" | base64 | tr -d '\n=')
+MAIL_KEY=$(openssl kdf -binary -keylen 32 \
+    -kdfopt digest:SHA256 \
+    -kdfopt "pass:$MAIL_PASS" \
+    -kdfopt "salt:$MAIL_SALT" \
+    -kdfopt iter:120000 \
+    PBKDF2 | base64 | tr -d '\n=')
+MAIL_HASH="pbkdf2-sha256\$120000\$$MAIL_SALT_B64\$$MAIL_KEY"
 
 # Users file
 echo "$MAIL_USER:$MAIL_DOMAIN:$MAIL_HASH" > /etc/localbox/users.conf
@@ -133,8 +141,10 @@ echo "   Created account: $MAIL_USER@$MAIL_DOMAIN"
 # ── 8. Log file ──────────────────────────────────────────────────────────────
 echo ">> Creating log file..."
 touch /var/log/mail-ingest.log
-chown www:mail /var/log/mail-ingest.log
-chmod 664 /var/log/mail-ingest.log
+touch /var/localbox/security.log
+touch /etc/localbox/password-reset-tokens.conf
+chown www:mail /var/log/mail-ingest.log /var/localbox/security.log /etc/localbox/password-reset-tokens.conf
+chmod 664 /var/log/mail-ingest.log /var/localbox/security.log /etc/localbox/password-reset-tokens.conf
 
 # ── 9. mail-ingest init script ───────────────────────────────────────────────
 echo ">> Creating mail-ingest service..."
@@ -221,8 +231,44 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    location = /forgot-password {
+        proxy_pass http://127.0.0.1:8080/forgot-password;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /reset-password {
+        proxy_pass http://127.0.0.1:8080/reset-password;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /dashboard {
+        proxy_pass http://127.0.0.1:8080/dashboard;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location = /public/logout {
         proxy_pass http://127.0.0.1:8080/public/logout;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /health {
+        proxy_pass http://127.0.0.1:8080/health;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -329,6 +375,7 @@ lbu add /etc/fstab
 lbu add /var/log/mail-ingest.log
 lbu add /var/log/contact-service.log
 lbu add /var/localbox/contact.log
+lbu add /var/localbox/security.log
 lbu commit -d
 
 echo ""

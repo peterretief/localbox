@@ -35,9 +35,12 @@ type InboxView struct {
 	ShowingFolder bool
 	HasMessages   bool
 	Access        AccessView
+	BasePath      string
+	Webmail       bool
 }
 
 func newInboxView(messages []*Message, s *Session, r *http.Request) InboxView {
+	basePath := inboxBasePath(r)
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	view := r.URL.Query().Get("view")
 	folder, _ := cleanMailFolderName(r.URL.Query().Get("folder"))
@@ -74,11 +77,11 @@ func newInboxView(messages []*Message, s *Session, r *http.Request) InboxView {
 		TotalPages:    totalPages,
 		Start:         start + 1,
 		End:           end,
-		AllURL:        inboxURL(query, "all", 1),
-		NewURL:        inboxURL(query, "new", 1),
-		SentURL:       inboxURL(query, "sent", 1),
-		Folders:       listMailFolders(s.Domain, s.User, folder),
-		SearchURL:     inboxSearchURL(view, folder),
+		AllURL:        inboxURL(basePath, query, "all", 1),
+		NewURL:        inboxURL(basePath, query, "new", 1),
+		SentURL:       inboxURL(basePath, query, "sent", 1),
+		Folders:       listMailFolders(s.Domain, s.User, folder, basePath),
+		SearchURL:     inboxSearchURL(basePath, view, folder),
 		HasPrev:       page > 1,
 		HasNext:       page < totalPages,
 		ShowingNew:    view == "new",
@@ -86,12 +89,14 @@ func newInboxView(messages []*Message, s *Session, r *http.Request) InboxView {
 		ShowingFolder: view == "folder",
 		HasMessages:   total > 0,
 		Access:        accessView(s),
+		BasePath:      basePath,
+		Webmail:       basePath == "/mail",
 	}
 	if data.HasPrev {
-		data.PrevURL = inboxFolderAwareURL(query, view, folder, page-1)
+		data.PrevURL = inboxFolderAwareURL(basePath, query, view, folder, page-1)
 	}
 	if data.HasNext {
-		data.NextURL = inboxFolderAwareURL(query, view, folder, page+1)
+		data.NextURL = inboxFolderAwareURL(basePath, query, view, folder, page+1)
 	}
 
 	return data
@@ -141,19 +146,33 @@ func pageCount(total, pageSize int) int {
 	return (total + pageSize - 1) / pageSize
 }
 
-func inboxURL(query, view string, page int) string {
-	return inboxFolderAwareURL(query, view, "", page)
+func inboxBasePath(r *http.Request) string {
+	if r.URL.Path == "/mail" {
+		return "/mail"
+	}
+	return "/"
+}
+
+func inboxURL(basePath, query, view string, page int) string {
+	return inboxFolderAwareURL(basePath, query, view, "", page)
 }
 
 func inboxFolderURL(folder string, page int) string {
-	return inboxFolderAwareURL("", "folder", folder, page)
+	return inboxFolderURLForBase("/", folder, page)
 }
 
-func inboxSearchURL(view, folder string) string {
-	return inboxFolderAwareURL("", view, folder, 1)
+func inboxFolderURLForBase(basePath, folder string, page int) string {
+	return inboxFolderAwareURL(basePath, "", "folder", folder, page)
 }
 
-func inboxFolderAwareURL(query, view, folder string, page int) string {
+func inboxSearchURL(basePath, view, folder string) string {
+	return inboxFolderAwareURL(basePath, "", view, folder, 1)
+}
+
+func inboxFolderAwareURL(basePath, query, view, folder string, page int) string {
+	if basePath == "" {
+		basePath = "/"
+	}
 	values := url.Values{}
 	if strings.TrimSpace(query) != "" {
 		values.Set("q", strings.TrimSpace(query))
@@ -167,7 +186,7 @@ func inboxFolderAwareURL(query, view, folder string, page int) string {
 		values.Set("page", strconv.Itoa(page))
 	}
 	if encoded := values.Encode(); encoded != "" {
-		return "/?" + encoded
+		return basePath + "?" + encoded
 	}
-	return "/"
+	return basePath
 }

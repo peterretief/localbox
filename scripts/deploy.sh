@@ -60,6 +60,10 @@ cat scripts/create-localbox-backup.sh | ssh $PI_USER@$PI_HOST \
     'mkdir -p /usr/local/sbin && \
      cat > /usr/local/sbin/localbox-create-backup && \
      chmod +x /usr/local/sbin/localbox-create-backup'
+cat scripts/sync-surrogate-mail.sh | ssh $PI_USER@$PI_HOST \
+    'mkdir -p /usr/local/sbin && \
+     cat > /usr/local/sbin/localbox-sync-surrogate-mail && \
+     chmod +x /usr/local/sbin/localbox-sync-surrogate-mail'
 cat scripts/provision-template.sh | ssh $PI_USER@$PI_HOST \
     'mkdir -p /usr/local/sbin && \
      cat > /usr/local/sbin/localbox-provision-template && \
@@ -128,8 +132,10 @@ EOF
 chmod +x /etc/init.d/contact-service
 touch /var/log/contact-service.log
 touch /var/localbox/send.log
-chown www:mail /var/log/contact-service.log /var/localbox/contact.log /var/localbox/send.log 2>/dev/null || true
-chmod 664 /var/log/contact-service.log /var/localbox/contact.log /var/localbox/send.log
+touch /var/localbox/security.log
+touch /etc/localbox/password-reset-tokens.conf
+chown www:mail /var/log/contact-service.log /var/localbox/contact.log /var/localbox/send.log /var/localbox/security.log /etc/localbox/password-reset-tokens.conf 2>/dev/null || true
+chmod 664 /var/log/contact-service.log /var/localbox/contact.log /var/localbox/send.log /var/localbox/security.log /etc/localbox/password-reset-tokens.conf
 rc-update add contact-service default 2>/dev/null || true'
 echo "   Contact service deployed"
 
@@ -274,6 +280,42 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    location = /forgot-password {
+        proxy_pass http://127.0.0.1:8080/forgot-password;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /reset-password {
+        proxy_pass http://127.0.0.1:8080/reset-password;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /dashboard {
+        proxy_pass http://127.0.0.1:8080/dashboard;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /mail {
+        proxy_pass http://127.0.0.1:8080/mail;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location = /public/logout {
         proxy_pass http://127.0.0.1:8080/public/logout;
         proxy_set_header Host $host;
@@ -402,6 +444,15 @@ server {
 
     location = /system/certificate {
         proxy_pass http://127.0.0.1:8080/system/certificate;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /health {
+        proxy_pass http://127.0.0.1:8080/health;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -564,10 +615,12 @@ ssh $PI_USER@$PI_HOST \
      [ ! -f /etc/localbox/cloudflare.conf ] || lbu add /etc/localbox/cloudflare.conf && \
      [ ! -f /etc/localbox/cloudflare-tunnel.conf ] || lbu add /etc/localbox/cloudflare-tunnel.conf && \
      [ ! -f /etc/localbox/paystack.conf ] || lbu add /etc/localbox/paystack.conf && \
+     [ ! -f /etc/localbox/password-reset-tokens.conf ] || lbu add /etc/localbox/password-reset-tokens.conf && \
      [ ! -f /var/log/mail-ingest.log ] || lbu add /var/log/mail-ingest.log && \
      lbu add /var/log/contact-service.log && \
      lbu add /var/localbox/contact.log && \
      lbu add /var/localbox/send.log && \
+     lbu add /var/localbox/security.log && \
      lbu commit -d'
 
 echo ""

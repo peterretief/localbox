@@ -52,6 +52,8 @@ DOMAIN=""
 EMAIL_WORKER=""
 INGEST_URL=""
 INGEST_SECRET=""
+BACKUP_INGEST_URL=""
+BACKUP_INGEST_SECRET=""
 INGEST_HOST=""
 INGEST_CNAME_TARGET=""
 EMAIL_ROUTES=""
@@ -89,6 +91,12 @@ while IFS= read -r line || [ -n "$line" ]; do
             ;;
         email_ingest_secret|ingest_secret)
             INGEST_SECRET=$value
+            ;;
+        backup_ingest_url|email_backup_ingest_url)
+            BACKUP_INGEST_URL=$value
+            ;;
+        backup_ingest_secret|email_backup_ingest_secret)
+            BACKUP_INGEST_SECRET=$value
             ;;
         email_route)
             EMAIL_ROUTES="${EMAIL_ROUTES}${EMAIL_ROUTES:+
@@ -193,6 +201,22 @@ fi
 echo "Cloudflare zone: $DOMAIN ($ZONE_ID)"
 echo "Worker:          $EMAIL_WORKER"
 echo "Ingest URL:      $INGEST_URL"
+if [ -n "$BACKUP_INGEST_URL" ]; then
+    echo "Backup URL:      $BACKUP_INGEST_URL"
+fi
+
+ROUTE_MAP=""
+if [ -n "$BACKUP_INGEST_URL" ] || [ -n "$BACKUP_INGEST_SECRET" ]; then
+    if [ -z "$BACKUP_INGEST_URL" ] || [ -z "$BACKUP_INGEST_SECRET" ]; then
+        echo "ERROR: backup_ingest_url and backup_ingest_secret must be set together" >&2
+        exit 1
+    fi
+    ROUTE_MAP=$(jq -nc \
+        --arg domain "$DOMAIN" \
+        --arg home_url "$INGEST_URL" \
+        --arg backup_url "$BACKUP_INGEST_URL" \
+        '{($domain): {home: {url: $home_url}, backup: {url: $backup_url}}}')
+fi
 
 if [ "$WORKER_DEPLOY_METHOD" = "wrangler" ]; then
     tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/localbox-worker.XXXXXX")
@@ -204,11 +228,16 @@ if [ "$WORKER_DEPLOY_METHOD" = "wrangler" ]; then
   "main": "localbox-email-worker.mjs",
   "compatibility_date": "2026-07-11",
   "vars": {
-    "LOCALBOX_INGEST_URL": "$INGEST_URL"
+    "LOCALBOX_INGEST_URL": "$INGEST_URL",
+    "LOCALBOX_BACKUP_INGEST_URL": "$BACKUP_INGEST_URL",
+    "LOCALBOX_ROUTE_MAP": $(printf '%s' "${ROUTE_MAP:-{}}" | jq -Rs .)
   }
 }
 EOF
     printf '%s\n' "LOCALBOX_INGEST_SECRET=$INGEST_SECRET" > "$tmpdir/.localbox-secrets.env"
+    if [ -n "$BACKUP_INGEST_SECRET" ]; then
+        printf '%s\n' "LOCALBOX_BACKUP_INGEST_SECRET=$BACKUP_INGEST_SECRET" >> "$tmpdir/.localbox-secrets.env"
+    fi
     echo ">> Deploying Worker module with Wrangler..."
     if command -v wrangler >/dev/null 2>&1; then
         (cd "$tmpdir" && CLOUDFLARE_API_TOKEN=$API_TOKEN wrangler deploy --config wrangler.jsonc --secrets-file .localbox-secrets.env)
@@ -220,12 +249,19 @@ else
         --arg main "localbox-email-worker.mjs" \
         --arg ingest_url "$INGEST_URL" \
         --arg ingest_secret "$INGEST_SECRET" \
+        --arg backup_ingest_url "$BACKUP_INGEST_URL" \
+        --arg backup_ingest_secret "$BACKUP_INGEST_SECRET" \
+        --arg route_map "${ROUTE_MAP:-{}}" \
         '{
           main_module: $main,
           bindings: [
             {type:"plain_text", name:"LOCALBOX_INGEST_URL", text:$ingest_url},
+            {type:"plain_text", name:"LOCALBOX_ROUTE_MAP", text:$route_map},
             {type:"secret_text", name:"LOCALBOX_INGEST_SECRET", text:$ingest_secret}
-          ]
+          ] + (if $backup_ingest_url != "" then [
+            {type:"plain_text", name:"LOCALBOX_BACKUP_INGEST_URL", text:$backup_ingest_url},
+            {type:"secret_text", name:"LOCALBOX_BACKUP_INGEST_SECRET", text:$backup_ingest_secret}
+          ] else [] end)
         }')
 
     echo ">> Uploading Worker module with Cloudflare API..."

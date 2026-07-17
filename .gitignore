@@ -2,9 +2,13 @@
 mail-ingest
 contact-service
 /contact
+build/
 
 # Sensitive
 settings.conf
+cloudflare.conf
+setup_new_pi/domain.conf
+setup_new_pi/localbox-firstboot.conf
 
 # Go
 *.test

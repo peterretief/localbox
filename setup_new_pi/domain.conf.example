@@ -23,5 +23,11 @@ ingest_tunnel_id=your-cloudflare-tunnel-uuid
 
 email_ingest_secret=change-this-secret
 
+# Optional backup/surrogate Pi. If the home Pi is offline or rejects ingest,
+# the Worker will try this URL next. The backup Pi must already have the same
+# domain and mailbox layout.
+# backup_ingest_url=https://b.diode.co.za/ingest
+# backup_ingest_secret=backup-pi-ingest-secret
+
 email_route=info@example.com
 email_route=peter@example.com

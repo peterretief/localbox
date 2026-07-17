@@ -4,6 +4,7 @@ set -eu
 LOCALBOX_BASE=${LOCALBOX_BASE:-/mnt/data/localbox}
 BACKUP_DIR=${BACKUP_DIR:-$LOCALBOX_BASE/backups}
 INCLUDE_MAIL_DATA=${INCLUDE_MAIL_DATA:-0}
+INCLUDE_FILE_DATA=${INCLUDE_FILE_DATA:-0}
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 HOST=$(hostname 2>/dev/null || echo localbox)
 WORKDIR=$(mktemp -d)
@@ -33,13 +34,21 @@ copy_if_exists() {
 
 copy_if_exists /etc/localbox
 copy_if_exists /etc/nginx/http.d/localbox-sites.conf
+copy_if_exists /etc/nginx/http.d/alps-webmail.conf
+copy_if_exists /etc/nginx/http.d/localbox-webdav.conf
+copy_if_exists /etc/nginx/localbox-webdav.htpasswd
+copy_if_exists /etc/nginx/modules
 copy_if_exists /etc/dovecot
 copy_if_exists /etc/postfix
+copy_if_exists /etc/radicale
 copy_if_exists /etc/ssh
 copy_if_exists /etc/init.d/mail-ingest
 copy_if_exists /etc/init.d/contact-service
 copy_if_exists /etc/init.d/dovecot
 copy_if_exists /etc/init.d/postfix
+copy_if_exists /etc/init.d/radicale
+copy_if_exists /etc/init.d/alps
+copy_if_exists /etc/init.d/filebrowser
 copy_if_exists /etc/init.d/sshd
 copy_if_exists /etc/init.d/tailscale
 copy_if_exists /etc/init.d/tailscaled
@@ -52,11 +61,15 @@ copy_if_exists /etc/group
 copy_if_exists /etc/sudoers
 copy_if_exists /usr/local/bin/mail-ingest
 copy_if_exists /usr/local/bin/contact-service
+copy_if_exists /usr/local/bin/filebrowser
+copy_if_exists /usr/local/bin/localbox-filebrowser-auth
 copy_if_exists /usr/local/sbin/localbox-enable-mail-client-access
 copy_if_exists /usr/local/sbin/localbox-enable-tailscale-persistence
 copy_if_exists /var/lib/tailscale
 copy_if_exists /var/localbox/contact.log
 copy_if_exists /var/localbox/send.log
+copy_if_exists /mnt/data/alps-test/config.toml
+copy_if_exists "$LOCALBOX_BASE/filebrowser"
 
 if [ "$INCLUDE_MAIL_DATA" = "1" ]; then
     echo ">> Including LocalBox mail/site data..."
@@ -64,6 +77,14 @@ if [ "$INCLUDE_MAIL_DATA" = "1" ]; then
     cp -a "$LOCALBOX_BASE/domains" "$WORKDIR/rootfs$LOCALBOX_BASE/" 2>/dev/null || true
 else
     echo ">> Skipping mail/site data. Set INCLUDE_MAIL_DATA=1 to include it."
+fi
+
+if [ "$INCLUDE_FILE_DATA" = "1" ]; then
+    echo ">> Including LocalBox user files..."
+    mkdir -p "$WORKDIR/rootfs$LOCALBOX_BASE"
+    cp -a "$LOCALBOX_BASE/files" "$WORKDIR/rootfs$LOCALBOX_BASE/" 2>/dev/null || true
+else
+    echo ">> Skipping user files. Set INCLUDE_FILE_DATA=1 to include them."
 fi
 
 echo ">> Writing restore notes..."

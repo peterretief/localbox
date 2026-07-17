@@ -98,9 +98,9 @@ echo ">> Preparing LocalBox directories..."
 mkdir -p /mnt/data /mnt/data/localbox /etc/localbox/templates /var/localbox
 mount /mnt/data 2>/dev/null || true
 chmod 755 /etc/localbox
-touch /var/localbox/contact.log /var/localbox/send.log
-chown www:mail /var/localbox/contact.log /var/localbox/send.log 2>/dev/null || true
-chmod 664 /var/localbox/contact.log /var/localbox/send.log
+touch /var/localbox/contact.log /var/localbox/send.log /var/localbox/security.log /etc/localbox/password-reset-tokens.conf
+chown www:mail /var/localbox/contact.log /var/localbox/send.log /var/localbox/security.log /etc/localbox/password-reset-tokens.conf 2>/dev/null || true
+chmod 664 /var/localbox/contact.log /var/localbox/send.log /var/localbox/security.log /etc/localbox/password-reset-tokens.conf
 
 if [ -n "${ingest_secret:-}" ]; then
     echo ">> Writing ingest secret..."
@@ -204,6 +204,8 @@ persist_if_exists /var/log/mail-ingest.log
 persist_if_exists /var/log/contact-service.log
 persist_if_exists /var/localbox/contact.log
 persist_if_exists /var/localbox/send.log
+persist_if_exists /var/localbox/security.log
+persist_if_exists /etc/localbox/password-reset-tokens.conf
 persist_if_exists /etc/group
 
 rc-update del localbox-firstboot default 2>/dev/null || true

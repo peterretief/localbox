@@ -13,16 +13,21 @@ const (
 )
 
 var (
-	usersFile             = "/etc/localbox/users.conf"
-	domainsFile           = "/etc/localbox/domains.conf"
-	adminsFile            = "/etc/localbox/admins.conf"
-	boxAdminsFile         = "/etc/localbox/box-admins.conf"
-	localBoxBase          = "/mnt/data/localbox"
-	orderDBFile           = "/mnt/data/localbox/localbox.db"
-	paystackConfigFile    = "/etc/localbox/paystack.conf"
-	domainsCoZaConfigFile = "/etc/localbox/domainscoza.conf"
-	cloudflareConfigFile  = "/etc/localbox/cloudflare.conf"
-	safeLabel             = regexp.MustCompile(`^[a-z0-9._-]+$`)
+	usersFile              = "/etc/localbox/users.conf"
+	domainsFile            = "/etc/localbox/domains.conf"
+	adminsFile             = "/etc/localbox/admins.conf"
+	boxAdminsFile          = "/etc/localbox/box-admins.conf"
+	dovecotUsersFile       = "/etc/dovecot/localbox/users"
+	radicaleConfigFile     = "/etc/radicale/config"
+	radicaleUsersFile      = "/etc/radicale/users"
+	passwordResetTokenFile = "/etc/localbox/password-reset-tokens.conf"
+	securityLogFile        = "/var/localbox/security.log"
+	localBoxBase           = "/mnt/data/localbox"
+	orderDBFile            = "/mnt/data/localbox/localbox.db"
+	paystackConfigFile     = "/etc/localbox/paystack.conf"
+	domainsCoZaConfigFile  = "/etc/localbox/domainscoza.conf"
+	cloudflareConfigFile   = "/etc/localbox/cloudflare.conf"
+	safeLabel              = regexp.MustCompile(`^[a-z0-9._-]+$`)
 )
 
 func applyRuntimeConfig() {

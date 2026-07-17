@@ -35,8 +35,14 @@ ensure_line() {
 password_hash() {
     password=$1
     salt=$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | cut -c1-16)
-    key=$(printf '%s' "$password" | openssl dgst -sha512 -binary | base64 | tr -d '\n')
-    printf '%s' "$key"
+    salt_b64=$(printf '%s' "$salt" | base64 | tr -d '\n=')
+    key=$(openssl kdf -binary -keylen 32 \
+        -kdfopt digest:SHA256 \
+        -kdfopt "pass:$password" \
+        -kdfopt "salt:$salt" \
+        -kdfopt iter:120000 \
+        PBKDF2 | base64 | tr -d '\n=')
+    printf 'pbkdf2-sha256$120000$%s$%s' "$salt_b64" "$key"
 }
 
 ensure_domain() {

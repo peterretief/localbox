@@ -58,33 +58,35 @@
                 <a class="nav-link {{if .ShowingNew}}active{{end}}" href="{{.NewURL}}">New</a>
                 <a class="nav-link" href="/compose">Compose</a>
                 <a class="nav-link {{if .ShowingSent}}active{{end}}" href="{{.SentURL}}">Sent</a>
-                <a class="nav-link" href="/certificate">Certificate</a>
+                {{if not .Webmail}}<a class="nav-link" href="/certificate">Certificate</a>{{end}}
             </div>
             <div class="nav-box">
                 <div class="nav-title">Folders</div>
                 {{range .Folders}}
                 <a class="nav-link {{if .Active}}active{{end}}" href="{{.URL}}">{{.Name}}</a>
                 {{end}}
-                <form class="folder-form" method="POST" action="/">
+                <form class="folder-form" method="POST" action="{{.BasePath}}">
                     <input type="hidden" name="action" value="create_folder">
                     <input class="folder-input" name="folder" placeholder="New folder" required>
                     <button class="small-button" type="submit">Add</button>
                 </form>
             </div>
-            <div class="nav-box">
+            {{if not .Webmail}}<div class="nav-box">
                 <div class="nav-title">Admin</div>
                 {{if .Access.CanDomainAdmin}}<a class="nav-link" href="/page">Home page</a>{{else}}<span class="nav-link disabled" title="Domain admin access required">Home page · no access</span>{{end}}
                 {{if .Access.CanDomainAdmin}}<a class="nav-link" href="/admin">Admin</a>{{else}}<span class="nav-link disabled" title="Domain admin access required">Admin · no access</span>{{end}}
                 {{if .Access.CanBoxAdmin}}<a class="nav-link" href="/orders">Orders</a>{{else}}<span class="nav-link disabled" title="Box admin access required">Orders · no access</span>{{end}}
                 {{if .Access.CanBoxAdmin}}<a class="nav-link" href="/system">System</a>{{else}}<span class="nav-link disabled" title="Box admin access required">System · no access</span>{{end}}
-            </div>
+            </div>{{end}}
         </aside>
 
         <main class="main">
             <div class="header">
-                <h1>LocalBox Mail</h1>
+                <h1>{{if .Webmail}}Webmail{{else}}LocalBox Mail{{end}}</h1>
                 <div>
                     <span class="user">{{.User}}@{{.Domain}}</span>
+                    &nbsp;·&nbsp;
+                    <a class="logout" href="/dashboard">Dashboard</a>
                     &nbsp;·&nbsp;
                     <a class="logout" href="/password">Change password</a>
                     &nbsp;·&nbsp;
@@ -92,7 +94,7 @@
                 </div>
             </div>
 
-            <form class="toolbar" method="GET" action="/">
+            <form class="toolbar" method="GET" action="{{.BasePath}}">
                 {{if .ShowingNew}}<input type="hidden" name="view" value="new">{{end}}
                 {{if .ShowingFolder}}<input type="hidden" name="folder" value="{{.Folder}}">{{end}}
                 <input class="search" type="search" name="q" value="{{.Query}}" placeholder="Search mail">

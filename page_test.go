@@ -221,6 +221,52 @@ func TestRootHandlerServesDomainSiteHTMLPage(t *testing.T) {
 	}
 }
 
+func TestMailRouteRedirectsToLoginWithReturnPath(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/mail?folder=Clients", nil)
+	rr := httptest.NewRecorder()
+
+	mailHandler(rr, req)
+
+	if rr.Code != http.StatusFound {
+		t.Fatalf("expected redirect, got %d", rr.Code)
+	}
+	location := rr.Header().Get("Location")
+	if location != "/login?next=%2Fmail%3Ffolder%3DClients" {
+		t.Fatalf("unexpected redirect location: %q", location)
+	}
+}
+
+func TestMailRouteServesInboxForLoggedInUser(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+	oldUsersFile := usersFile
+	usersFile = filepath.Join(t.TempDir(), "users.conf")
+	t.Cleanup(func() { usersFile = oldUsersFile })
+
+	domain := "example.com"
+	if err := ensureMailboxDirs(domain, "info"); err != nil {
+		t.Fatal(err)
+	}
+	token := newSession("info", domain)
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/mail", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: token})
+	rr := httptest.NewRecorder()
+
+	mailHandler(rr, req)
+
+	body := rr.Body.String()
+	if rr.Code != http.StatusOK || !strings.Contains(body, "Webmail") {
+		t.Fatalf("expected inbox response, code=%d body=%q", rr.Code, rr.Body.String())
+	}
+	if strings.Contains(body, "<div class=\"nav-title\">Admin</div>") {
+		t.Fatalf("webmail route should not show admin navigation, body=%q", body)
+	}
+	if !strings.Contains(body, `href="/mail?view=new"`) || !strings.Contains(body, `action="/mail"`) {
+		t.Fatalf("webmail navigation should stay under /mail, body=%q", body)
+	}
+}
+
 func TestSiteHTMLPageShowsLoggedInPublicUser(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()

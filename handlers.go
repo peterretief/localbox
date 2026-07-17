@@ -59,7 +59,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			HttpOnly: true,
 		})
 		if next == "" {
-			next = "/"
+			next = "/dashboard"
 		}
 		http.Redirect(w, r, next, http.StatusFound)
 		return
@@ -74,7 +74,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			HttpOnly: true,
 		})
 		if next == "" {
-			next = "/"
+			next = "/dashboard"
 		}
 		http.Redirect(w, r, next, http.StatusFound)
 		return
@@ -534,7 +534,7 @@ func injectPublicSessionBar(data []byte, s *Session, next string) []byte {
 	content := `<a href="/register?next=` + escapedNext + `" style="color:#fff;text-decoration:underline;">Register</a><a href="/login?public=1&next=` + escapedNext + `" style="color:#fff;text-decoration:underline;">Sign in</a>`
 	if s != nil && strings.TrimSpace(s.User) != "" {
 		label := strings.TrimSpace(s.User)
-		content = `<span>Logged in as ` + template.HTMLEscapeString(label) + `</span><a href="/public/logout" style="color:#fff;text-decoration:underline;">Logout</a>`
+		content = `<span>Logged in as ` + template.HTMLEscapeString(label) + `</span><a href="/dashboard" style="color:#fff;text-decoration:underline;">Dashboard</a><a href="/public/logout" style="color:#fff;text-decoration:underline;">Logout</a>`
 	}
 	bar := `<div class="localbox-session-bar" style="box-sizing:border-box;width:100%;background:#1a1a2e;color:#fff;padding:10px 18px;font:14px Arial,sans-serif;display:flex;gap:14px;align-items:center;justify-content:flex-end;position:relative;z-index:9999;">` + content + `</div>`
 	htmlText := string(data)
@@ -669,14 +669,14 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		folder, err := cleanMailFolderName(r.FormValue("folder"))
 		if err != nil || folder == "" || folder == sentFolderName {
-			http.Redirect(w, r, "/", http.StatusFound)
+			http.Redirect(w, r, inboxBasePath(r), http.StatusFound)
 			return
 		}
 		if err := ensureMailFolder(s.Domain, s.User, folder); err != nil {
 			http.Error(w, "Could not create folder", http.StatusInternalServerError)
 			return
 		}
-		http.Redirect(w, r, inboxFolderURL(folder, 1), http.StatusFound)
+		http.Redirect(w, r, inboxFolderURLForBase(inboxBasePath(r), folder, 1), http.StatusFound)
 		return
 	}
 	if r.Method != http.MethodGet {
@@ -726,6 +726,18 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
 
 	tmpl := template.Must(template.ParseFiles("templates/inbox.html"))
 	tmpl.Execute(w, data)
+}
+
+func mailHandler(w http.ResponseWriter, r *http.Request) {
+	if getSession(r) == nil {
+		next := "/mail"
+		if r.URL.RawQuery != "" {
+			next += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, "/login?next="+url.QueryEscape(next), http.StatusFound)
+		return
+	}
+	inboxHandler(w, r)
 }
 
 func composeHandler(w http.ResponseWriter, r *http.Request) {
@@ -909,7 +921,7 @@ func messageActionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func messageMoveFolders(domain, user, current string) []MailFolder {
-	folders := listMailFolders(domain, user, current)
+	folders := listMailFolders(domain, user, current, "/")
 	var options []MailFolder
 	for _, folder := range folders {
 		if folder.Name == current {

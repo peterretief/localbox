@@ -22,6 +22,12 @@ vi localbox-firstboot.conf
 vi domain.conf
 ```
 
+For a fresh Raspberry Pi base install, follow:
+
+```text
+BASE-INSTALL.md
+```
+
 Check attached disks:
 
 ```sh

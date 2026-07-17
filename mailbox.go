@@ -124,7 +124,7 @@ func ensureMailFolder(domain, user, folder string) error {
 	return nil
 }
 
-func listMailFolders(domain, user, active string) []MailFolder {
+func listMailFolders(domain, user, active, basePath string) []MailFolder {
 	seen := map[string]bool{}
 	names := []string{archiveFolderName, trashFolderName}
 	seen[archiveFolderName] = true
@@ -154,7 +154,7 @@ func listMailFolders(domain, user, active string) []MailFolder {
 	for _, name := range names {
 		folders = append(folders, MailFolder{
 			Name:   name,
-			URL:    inboxFolderURL(name, 1),
+			URL:    inboxFolderURLForBase(basePath, name, 1),
 			Active: name == active,
 		})
 	}
