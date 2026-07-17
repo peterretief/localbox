@@ -17,7 +17,45 @@ cleanup() {
 trap cleanup EXIT
 
 sed 's/\r$//' "$BOOT_CONFIG" > "$CONFIG_TMP"
-. "$CONFIG_TMP"
+
+hostname=
+ssh_authorized_key=
+root_password=
+headscale_login_server=
+tailscale_authkey=
+ingest_secret=
+cloudflare_tunnel_token=
+
+read_firstboot_config() {
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            ''|'#'*) continue ;;
+            *=*) ;;
+            *) continue ;;
+        esac
+
+        key=${line%%=*}
+        value=${line#*=}
+        key=$(printf '%s' "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        value=$(printf '%s' "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        case "$value" in
+            \"*\") value=${value#\"}; value=${value%\"} ;;
+            \'*\') value=${value#\'}; value=${value%\'} ;;
+        esac
+
+        case "$key" in
+            hostname) hostname=$value ;;
+            ssh_authorized_key) ssh_authorized_key=$value ;;
+            root_password) root_password=$value ;;
+            headscale_login_server) headscale_login_server=$value ;;
+            tailscale_authkey) tailscale_authkey=$value ;;
+            ingest_secret) ingest_secret=$value ;;
+            cloudflare_tunnel_token) cloudflare_tunnel_token=$value ;;
+        esac
+    done < "$CONFIG_TMP"
+}
+
+read_firstboot_config
 
 ensure_line() {
     file=$1
