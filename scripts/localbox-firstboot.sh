@@ -9,6 +9,17 @@ if [ ! -f "$BOOT_CONFIG" ]; then
     exit 0
 fi
 
+BOOT_DIR=$(dirname "$BOOT_CONFIG")
+LOG_FILE="$BOOT_DIR/localbox-firstboot.log"
+if touch "$LOG_FILE" 2>/dev/null; then
+    exec >> "$LOG_FILE" 2>&1
+else
+    exec >> /tmp/localbox-firstboot.log 2>&1
+fi
+echo "================================================"
+echo "   LocalBox first boot: $(date)"
+echo "================================================"
+
 CONFIG_TMP=$(mktemp)
 PROVISION_TMP=$(mktemp)
 cleanup() {
@@ -68,10 +79,6 @@ persist_if_exists() {
     [ ! -e "$path" ] || lbu add "$path" 2>/dev/null || true
 }
 
-echo "================================================"
-echo "   LocalBox first boot"
-echo "================================================"
-
 if [ -n "${hostname:-}" ]; then
     echo ">> Setting hostname: $hostname"
     printf '%s\n' "$hostname" > /etc/hostname
@@ -104,9 +111,6 @@ iface lo inet loopback
 
 auto eth0
 iface eth0 inet dhcp
-
-auto end0
-iface end0 inet dhcp
 EOF
 rc-update add networking default 2>/dev/null || true
 rc-service networking restart 2>/dev/null || rc-service networking start 2>/dev/null || true
