@@ -10,6 +10,7 @@ Usage: ./setup.sh COMMAND [args]
 
 Commands:
   inventory                         Show attached disks and mounts.
+  fresh-boot-card TARBALL DEVICE     Erase SD, extract Alpine, seed overlay, patch boot.
   prepare-boot                      Patch mounted Alpine boot card.
   save-image                        Save known-good SD card image.
   write-image IMAGE DEVICE           Write saved image to a whole SD device.
@@ -26,6 +27,7 @@ Common environment:
 
 Examples:
   ./setup.sh inventory
+  sudo CONFIRM_BOOT_DEVICE=/dev/sdX ./setup.sh fresh-boot-card ./alpine-rpi-3.24.1-armv7.tar.gz /dev/sdX
   BOOT_MOUNT=/mnt/piboot FIRSTBOOT_CONFIG=./localbox-firstboot.conf ./setup.sh prepare-boot
   WORKER_DEPLOY_METHOD=wrangler ./setup.sh cloudflare ./domain.conf
   PI_HOST=192.168.0.6 ./setup.sh deploy-domain ./domain.conf
@@ -47,6 +49,12 @@ shift || true
 case "$command" in
     inventory)
         exec "$PROJECT_DIR/scripts/device-inventory.sh" "$@"
+        ;;
+    fresh-boot-card)
+        tarball=${1:-}
+        device=${2:-}
+        config=${3:-"$SETUP_DIR/localbox-firstboot.conf"}
+        exec "$PROJECT_DIR/scripts/create-alpine-boot-card.sh" "$tarball" "$device" "$config"
         ;;
     prepare-boot)
         BOOT_MOUNT=${BOOT_MOUNT:-/mnt/piboot}

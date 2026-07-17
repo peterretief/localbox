@@ -109,7 +109,7 @@ fi
 echo ">> Repacking overlay..."
 (
     cd "$WORK"
-    tar -czf "$APKOVL.new" .
+    tar --owner=0 --group=0 --numeric-owner -czf "$APKOVL.new" .
 )
 mv "$APKOVL.new" "$APKOVL"
 sync

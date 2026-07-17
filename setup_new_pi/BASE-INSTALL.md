@@ -64,7 +64,31 @@ Pi Tailscale IP:          __________________
 
 Use whole disk devices for destructive operations, for example `/dev/sdf`, not `/dev/sdf1`.
 
-## 2. Write The Alpine SD Image
+## 2. Build The Alpine SD Boot Card
+
+For a clean rebuild from the Alpine Raspberry Pi tarball, use this path. It erases the SD card, creates a fresh FAT32 boot partition, extracts Alpine, seeds the LocalBox headless overlay, and injects DHCP, SSH, and first boot in one run.
+
+```sh
+./setup.sh inventory
+sudo CONFIRM_BOOT_DEVICE=/dev/sdX \
+  ./setup.sh fresh-boot-card ./alpine-rpi-3.24.1-armv7.tar.gz /dev/sdX ./localbox-firstboot.conf
+```
+
+Use the whole SD card device, for example `/dev/sdf`, not `/dev/sdf1`.
+
+To SSH with the exact matching private key after boot:
+
+```sh
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes root@PI_LAN_IP
+```
+
+The public key line in `localbox-firstboot.conf` must match that private key:
+
+```ini
+ssh_authorized_key=ssh-ed25519 AAAA... peter@devmachine
+```
+
+## 3. Write A Saved Alpine SD Image
 
 If a known-good LocalBox Alpine image exists:
 
@@ -78,7 +102,7 @@ Unplug and reinsert the SD card after writing.
 
 If no saved image exists yet, flash the standard Alpine Raspberry Pi image manually, boot it once if needed to create the Alpine overlay, then continue with the boot-card preparation step.
 
-## 3. Mount And Prepare The Boot Partition
+## 4. Mount And Prepare An Existing Boot Partition
 
 Mount the SD card boot partition read-write:
 
@@ -99,7 +123,7 @@ sync
 sudo umount /mnt/piboot
 ```
 
-## 4. Format The Data USB
+## 5. Format The Data USB
 
 This erases the whole target USB disk:
 
@@ -110,7 +134,7 @@ sudo CONFIRM_FORMAT_DEVICE=/dev/sdY ./setup.sh format-usb /dev/sdY
 
 Copy the printed `UUID=... /mnt/data ext4 defaults 0 2` line into your install notes. The first-boot/provisioning path can use that UUID when adding a persistent `/mnt/data` mount.
 
-## 5. First Boot
+## 6. First Boot
 
 Insert the prepared SD card and data USB into the Pi. Connect Ethernet, then power on.
 
@@ -124,6 +148,12 @@ SSH in:
 
 ```sh
 ssh root@PI_LAN_IP
+```
+
+Or force the specific private key:
+
+```sh
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes root@PI_LAN_IP
 ```
 
 Check first-boot results:
@@ -144,7 +174,7 @@ If Tailscale joined successfully, prefer the Tailscale IP for later deployment:
 tailscale ip
 ```
 
-## 6. Deploy Current LocalBox Code
+## 7. Deploy Current LocalBox Code
 
 From the development machine:
 
@@ -170,7 +200,7 @@ sudo lbu add /var/lib/tailscale 2>/dev/null || true
 sudo lbu commit -d
 ```
 
-## 7. Base Install Done
+## 8. Base Install Done
 
 At this point the Pi should have:
 
