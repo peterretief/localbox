@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>LocalBox Files</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; margin: 0; background: #f5f5f5; color: #1a1a2e; }
+        a { color: inherit; text-decoration: none; }
+        .shell { max-width: 920px; margin: 40px auto; padding: 0 20px; }
+        .header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 22px; }
+        h1 { margin: 0; font-size: 1.8em; }
+        .identity { color: #777; margin-top: 5px; }
+        .nav { color: #00a0c0; font-size: 0.92em; white-space: nowrap; }
+        .panel { background: white; border: 1px solid #e4e4e4; border-radius: 8px; padding: 18px; margin-bottom: 16px; }
+        .upload { display: flex; gap: 10px; align-items: center; }
+        input[type=file] { flex: 1; min-width: 0; padding: 9px; border: 1px solid #d8d8d8; border-radius: 6px; background: #fff; }
+        .button { border: 0; border-radius: 6px; background: #00b4d8; color: white; padding: 10px 14px; cursor: pointer; font-size: 0.95em; }
+        .danger { background: #e63946; }
+        .error { color: #b00020; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #e4e4e4; border-radius: 8px; overflow: hidden; }
+        th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        th { color: #666; font-size: 0.82em; text-transform: uppercase; }
+        tr:last-child td { border-bottom: 0; }
+        .actions { display: flex; gap: 8px; justify-content: flex-end; }
+        .link { color: #00a0c0; font-weight: bold; }
+        .empty { color: #777; text-align: center; padding: 34px; background: white; border: 1px solid #e4e4e4; border-radius: 8px; }
+        @media (max-width: 680px) {
+            .shell { margin: 24px auto; }
+            .header, .upload { display: block; }
+            .nav { margin-top: 12px; white-space: normal; }
+            input[type=file], .button { width: 100%; margin-top: 10px; }
+            th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <div class="header">
+            <div>
+                <h1>LocalBox Files</h1>
+                <div class="identity">{{.Email}}</div>
+            </div>
+            <div class="nav"><a href="/dashboard">Dashboard</a> · <a href="/">Mail</a> · <a href="/logout">Sign out</a></div>
+        </div>
+
+        <section class="panel">
+            {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+            <form class="upload" method="POST" enctype="multipart/form-data" action="/files">
+                <input type="file" name="file" required>
+                <button class="button" type="submit">Upload</button>
+            </form>
+        </section>
+
+        {{if .Files}}
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Size</th><th>Modified</th><th></th></tr>
+            </thead>
+            <tbody>
+                {{range .Files}}
+                <tr>
+                    <td><a class="link" href="{{.URL}}">{{.Name}}</a></td>
+                    <td>{{.Size}}</td>
+                    <td>{{.ModTime}}</td>
+                    <td>
+                        <form class="actions" method="POST" action="/files/delete">
+                            <input type="hidden" name="name" value="{{.Name}}">
+                            <a class="link" href="{{.URL}}">Download</a>
+                            <button class="button danger" type="submit">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+        {{else}}
+        <div class="empty">No files uploaded.</div>
+        {{end}}
+    </main>
+</body>
+</html>

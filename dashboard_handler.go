@@ -40,13 +40,12 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 			{
 				Title:       "Mail",
 				Description: "Open this LocalBox mailbox.",
-				URL:         "/",
+				URL:         "/mail",
 			},
 			{
 				Title:       "Files",
-				Description: "Upload, manage, and share files in LocalBox Files.",
-				URL:         "https://files.localboxmail.co.za/portal/",
-				External:    true,
+				Description: "Upload, manage, and download files for this mailbox.",
+				URL:         "/files",
 			},
 			{
 				Title:       "WebDAV",
