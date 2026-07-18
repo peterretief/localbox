@@ -97,3 +97,53 @@ func TestRunAuthCheck(t *testing.T) {
 		t.Fatalf("code = %d, want 2", code)
 	}
 }
+
+func TestRunResetPassword(t *testing.T) {
+	oldUsersFile := usersFile
+	oldDovecotUsersFile := dovecotUsersFile
+	oldRadicaleConfigFile := radicaleConfigFile
+	oldRadicaleUsersFile := radicaleUsersFile
+	tmp := t.TempDir()
+	usersFile = filepath.Join(tmp, "users.conf")
+	dovecotUsersFile = filepath.Join(tmp, "missing-dovecot-users")
+	radicaleConfigFile = filepath.Join(tmp, "missing-radicale-config")
+	radicaleUsersFile = filepath.Join(tmp, "missing-radicale-users")
+	t.Cleanup(func() {
+		usersFile = oldUsersFile
+		dovecotUsersFile = oldDovecotUsersFile
+		radicaleConfigFile = oldRadicaleConfigFile
+		radicaleUsersFile = oldRadicaleUsersFile
+	})
+
+	hash, err := hashPasswordStrong("old-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saveUsers([]User{{
+		Username: "info",
+		Domain:   "example.co.za",
+		Hash:     hash,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stderr bytes.Buffer
+	if code := runResetPassword([]string{"info@example.co.za"}, strings.NewReader("new-password\n"), &stderr); code != 0 {
+		t.Fatalf("code = %d, want 0, stderr=%q", code, stderr.String())
+	}
+	if authenticate("info", "example.co.za", "old-password") {
+		t.Fatal("old password should not authenticate")
+	}
+	if !authenticate("info", "example.co.za", "new-password") {
+		t.Fatal("new password should authenticate")
+	}
+}
+
+func TestRunResetPasswordRejectsInvalidInput(t *testing.T) {
+	if code := runResetPassword([]string{"bad-address"}, strings.NewReader("new-password\n"), &bytes.Buffer{}); code != 2 {
+		t.Fatalf("code = %d, want 2", code)
+	}
+	if code := runResetPassword([]string{"info@example.co.za"}, strings.NewReader("short\n"), &bytes.Buffer{}); code != 1 {
+		t.Fatalf("code = %d, want 1", code)
+	}
+}

@@ -15,6 +15,8 @@ func main() {
 		switch os.Args[1] {
 		case "auth-check":
 			os.Exit(runAuthCheck(os.Args[2:], os.Stdin, os.Stderr))
+		case "reset-password":
+			os.Exit(runResetPassword(os.Args[2:], os.Stdin, os.Stderr))
 		}
 	}
 
@@ -34,9 +36,8 @@ func runAuthCheck(args []string, stdin io.Reader, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "Usage: mail-ingest auth-check user@example.co.za")
 		return 2
 	}
-	address := strings.ToLower(strings.TrimSpace(args[0]))
-	user, domain, ok := strings.Cut(address, "@")
-	if !ok || user == "" || domain == "" {
+	user, domain, ok := splitMailboxAddress(args[0])
+	if !ok {
 		fmt.Fprintln(stderr, "invalid mailbox address")
 		return 2
 	}
@@ -50,4 +51,34 @@ func runAuthCheck(args []string, stdin io.Reader, stderr io.Writer) int {
 		return 0
 	}
 	return 1
+}
+
+func runResetPassword(args []string, stdin io.Reader, stderr io.Writer) int {
+	if len(args) != 1 {
+		fmt.Fprintln(stderr, "Usage: mail-ingest reset-password user@example.co.za")
+		return 2
+	}
+	user, domain, ok := splitMailboxAddress(args[0])
+	if !ok {
+		fmt.Fprintln(stderr, "invalid mailbox address")
+		return 2
+	}
+	passwordData, err := io.ReadAll(io.LimitReader(stdin, 4096))
+	if err != nil {
+		fmt.Fprintln(stderr, "could not read password")
+		return 2
+	}
+	password := strings.TrimRight(string(passwordData), "\r\n")
+	if err := resetMailboxPassword(user, domain, password); err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	fmt.Fprintf(stderr, "Password reset for %s@%s\n", user, domain)
+	return 0
+}
+
+func splitMailboxAddress(address string) (string, string, bool) {
+	address = strings.ToLower(strings.TrimSpace(address))
+	user, domain, ok := strings.Cut(address, "@")
+	return user, domain, ok && user != "" && domain != ""
 }
