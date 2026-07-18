@@ -233,9 +233,11 @@ persist_if_exists /etc/apk/repositories
 persist_if_exists /etc/apk/world
 persist_if_exists /etc/localbox
 persist_if_exists /usr/local/sbin/localbox-add-email-routes
+persist_if_exists /usr/local/sbin/localbox-network-rescue
 persist_if_exists /etc/nginx/http.d
 persist_if_exists /etc/init.d/mail-ingest
 persist_if_exists /etc/init.d/contact-service
+persist_if_exists /etc/init.d/localbox-network-rescue
 persist_if_exists /etc/init.d/nginx
 persist_if_exists /etc/init.d/tailscale
 persist_if_exists /etc/init.d/chronyd

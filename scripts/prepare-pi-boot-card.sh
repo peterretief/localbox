@@ -5,6 +5,7 @@ BOOT_MOUNT=${BOOT_MOUNT:-${1:-/mnt/piboot}}
 FIRSTBOOT_CONFIG=${FIRSTBOOT_CONFIG:-${2:-}}
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 FIRSTBOOT_SCRIPT=${FIRSTBOOT_SCRIPT:-"$SCRIPT_DIR/localbox-firstboot.sh"}
+NETWORK_RESCUE_SCRIPT=${NETWORK_RESCUE_SCRIPT:-"$SCRIPT_DIR/localbox-network-rescue.sh"}
 
 if [ ! -d "$BOOT_MOUNT" ]; then
     echo "Usage: BOOT_MOUNT=/mnt/piboot FIRSTBOOT_CONFIG=/path/localbox-firstboot.conf $0"
@@ -20,6 +21,11 @@ fi
 
 if [ ! -f "$FIRSTBOOT_SCRIPT" ]; then
     echo "ERROR: first-boot script not found: $FIRSTBOOT_SCRIPT"
+    exit 1
+fi
+
+if [ ! -f "$NETWORK_RESCUE_SCRIPT" ]; then
+    echo "ERROR: network rescue script not found: $NETWORK_RESCUE_SCRIPT"
     exit 1
 fi
 
@@ -77,6 +83,8 @@ echo ">> Installing LocalBox first-boot script into overlay..."
 mkdir -p "$WORK/usr/local/sbin" "$WORK/etc/init.d"
 cp "$FIRSTBOOT_SCRIPT" "$WORK/usr/local/sbin/localbox-firstboot"
 chmod +x "$WORK/usr/local/sbin/localbox-firstboot"
+cp "$NETWORK_RESCUE_SCRIPT" "$WORK/usr/local/sbin/localbox-network-rescue"
+chmod +x "$WORK/usr/local/sbin/localbox-network-rescue"
 cat > "$WORK/etc/init.d/localbox-firstboot" << 'EOF'
 #!/sbin/openrc-run
 name="localbox-firstboot"
@@ -90,6 +98,19 @@ depend() {
 EOF
 chmod +x "$WORK/etc/init.d/localbox-firstboot"
 ln -sfn ../../init.d/localbox-firstboot "$WORK/etc/runlevels/default/localbox-firstboot"
+cat > "$WORK/etc/init.d/localbox-network-rescue" << 'EOF'
+#!/sbin/openrc-run
+name="localbox-network-rescue"
+description="LocalBox network rescue DHCP fallback"
+command="/usr/local/sbin/localbox-network-rescue"
+command_background=false
+depend() {
+    after networking
+    before sshd localbox-firstboot
+}
+EOF
+chmod +x "$WORK/etc/init.d/localbox-network-rescue"
+ln -sfn ../../init.d/localbox-network-rescue "$WORK/etc/runlevels/default/localbox-network-rescue"
 
 if [ -n "$FIRSTBOOT_CONFIG" ]; then
     if [ ! -f "$FIRSTBOOT_CONFIG" ]; then
@@ -109,7 +130,7 @@ mv "$APKOVL.new" "$APKOVL"
 sync
 
 echo ">> Verifying overlay..."
-tar -tzf "$APKOVL" | grep -E 'etc/network/interfaces|etc/runlevels/default/networking|usr/local/sbin/localbox-firstboot|etc/runlevels/default/localbox-firstboot'
+tar -tzf "$APKOVL" | grep -E 'etc/network/interfaces|etc/runlevels/default/networking|usr/local/sbin/localbox-firstboot|etc/runlevels/default/localbox-firstboot|usr/local/sbin/localbox-network-rescue|etc/runlevels/default/localbox-network-rescue'
 
 echo "Prepared Pi boot card."
 echo "Overlay: $APKOVL"
