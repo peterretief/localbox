@@ -39,9 +39,8 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 		Links: []DashboardLink{
 			{
 				Title:       "Mail",
-				Description: "Open ALPS webmail, contacts, and calendar.",
-				URL:         "https://mail.localboxmail.co.za/",
-				External:    true,
+				Description: "Open this LocalBox mailbox.",
+				URL:         "/",
 			},
 			{
 				Title:       "Files",
