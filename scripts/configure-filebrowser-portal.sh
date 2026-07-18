@@ -63,7 +63,15 @@ case "$username" in
         ;;
 esac
 
-if doveadm auth test "$username" "$password" >/dev/null 2>&1; then
+if command -v mail-ingest >/dev/null 2>&1 && printf '%s\n' "$password" | mail-ingest auth-check "$username" >/dev/null 2>&1; then
+    authenticated=1
+elif doveadm auth test "$username" "$password" >/dev/null 2>&1; then
+    authenticated=1
+else
+    authenticated=0
+fi
+
+if [ "$authenticated" = "1" ]; then
     mkdir -p "/mnt/data/localbox/files/$username"
     chown nginx:nginx "/mnt/data/localbox/files/$username" 2>/dev/null || true
     chmod 750 "/mnt/data/localbox/files/$username" 2>/dev/null || true

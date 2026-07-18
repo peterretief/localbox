@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -66,5 +67,33 @@ func TestAuthenticateRehashesLegacyPassword(t *testing.T) {
 	}
 	if !authenticate("info", "example.co.za", "secret-password") {
 		t.Fatal("expected upgraded password to authenticate")
+	}
+}
+
+func TestRunAuthCheck(t *testing.T) {
+	oldUsersFile := usersFile
+	usersFile = filepath.Join(t.TempDir(), "users.conf")
+	t.Cleanup(func() { usersFile = oldUsersFile })
+
+	hash, err := hashPasswordStrong("secret-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saveUsers([]User{{
+		Username: "info",
+		Domain:   "example.co.za",
+		Hash:     hash,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if code := runAuthCheck([]string{"info@example.co.za"}, strings.NewReader("secret-password\n"), &bytes.Buffer{}); code != 0 {
+		t.Fatalf("code = %d, want 0", code)
+	}
+	if code := runAuthCheck([]string{"info@example.co.za"}, strings.NewReader("wrong-password\n"), &bytes.Buffer{}); code != 1 {
+		t.Fatalf("code = %d, want 1", code)
+	}
+	if code := runAuthCheck([]string{"bad-address"}, strings.NewReader("secret-password\n"), &bytes.Buffer{}); code != 2 {
+		t.Fatalf("code = %d, want 2", code)
 	}
 }
