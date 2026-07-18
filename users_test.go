@@ -189,3 +189,26 @@ func TestRunSetRecoveryEmail(t *testing.T) {
 		t.Fatalf("unexpected users: %#v", users)
 	}
 }
+
+func TestRadicaleUsesDovecotAuthReadsAuthSection(t *testing.T) {
+	oldRadicaleConfigFile := radicaleConfigFile
+	radicaleConfigFile = filepath.Join(t.TempDir(), "radicale.conf")
+	t.Cleanup(func() { radicaleConfigFile = oldRadicaleConfigFile })
+
+	err := os.WriteFile(radicaleConfigFile, []byte(`[server]
+hosts = 127.0.0.1:5232
+
+[auth]
+type = dovecot
+dovecot_socket = /run/dovecot/auth-radicale
+
+[rights]
+type = owner_only
+`), 0640)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !radicaleUsesDovecotAuth() {
+		t.Fatal("expected Radicale Dovecot auth to be detected from [auth] section")
+	}
+}

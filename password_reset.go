@@ -93,7 +93,11 @@ func resetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		data.Error = "New passwords do not match."
 	default:
 		if err := completePasswordReset(token, password); err != nil {
-			data.Error = "Reset link is invalid or expired."
+			if err.Error() == "reset token not found" || err.Error() == "invalid token" {
+				data.Error = "Reset link is invalid or expired."
+			} else {
+				data.Error = "Could not update password. Please try again or ask the box admin to reset it."
+			}
 			logPasswordResetIncident(r, "", err.Error())
 		} else {
 			data.Token = ""

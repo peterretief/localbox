@@ -267,13 +267,18 @@ func radicaleUsesDovecotAuth() bool {
 	if err != nil {
 		return false
 	}
+	section := ""
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = strings.ToLower(strings.Trim(line, "[]"))
+			continue
+		}
 		if strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
 			continue
 		}
 		parts := strings.SplitN(line, "=", 2)
-		if strings.EqualFold(strings.TrimSpace(parts[0]), "type") {
+		if section == "auth" && strings.EqualFold(strings.TrimSpace(parts[0]), "type") {
 			return strings.EqualFold(strings.TrimSpace(parts[1]), "dovecot")
 		}
 	}
