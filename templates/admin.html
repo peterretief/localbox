@@ -25,6 +25,7 @@
         .status { color: #2a9d4b; margin-bottom: 14px; }
         .error { color: #e63946; margin-bottom: 14px; }
         .muted { color: #777; font-size: 0.86em; }
+        .hint { color: #777; font-size: 0.84em; margin: -2px 0 10px 0; line-height: 1.35; }
         @media (max-width: 820px) {
             .grid { grid-template-columns: 1fr; }
             .top { align-items: flex-start; flex-direction: column; }
@@ -69,8 +70,9 @@
                         <button type="submit">Add mailbox</button>
                     </div>
                     <div class="row">
-                        <input name="recovery_email" type="email" placeholder="recovery email">
+                        <input name="recovery_email" type="email" placeholder="recovery email outside LocalBox" required>
                     </div>
+                    <p class="hint">Use a personal or other external email address. Do not use a mailbox hosted on this LocalBox.</p>
                 </form>
             </section>
         </div>
@@ -87,9 +89,10 @@
                         <form method="POST" action="/admin" class="row">
                             <input type="hidden" name="action" value="update_recovery">
                             <input type="hidden" name="username" value="{{.Username}}">
-                            <input name="recovery_email" type="email" placeholder="recovery email" value="{{.RecoveryEmail}}">
+                            <input name="recovery_email" type="email" placeholder="external recovery email" value="{{.RecoveryEmail}}" required>
                             <button type="submit">Save</button>
                         </form>
+                        <div class="muted">Must be outside this LocalBox.</div>
                     </td>
                     <td>
                         <form method="POST" action="/admin" class="row">

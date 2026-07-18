@@ -131,7 +131,7 @@ func createFirstOrderMailbox(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if err := addMailbox(mailboxUser, domain, temporaryPassword); err != nil {
+	if err := addMailboxWithRequiredRecovery(mailboxUser, domain, temporaryPassword, customerEmail.Address); err != nil {
 		return err
 	}
 	if err := addDomainAdmin(mailboxUser, domain); err != nil {

@@ -232,9 +232,17 @@ func addMailbox(username, domain, password string) error {
 }
 
 func addMailboxWithRecovery(username, domain, password, recoveryEmail string) error {
+	return addMailboxWithRecoveryOption(username, domain, password, recoveryEmail, false)
+}
+
+func addMailboxWithRequiredRecovery(username, domain, password, recoveryEmail string) error {
+	return addMailboxWithRecoveryOption(username, domain, password, recoveryEmail, true)
+}
+
+func addMailboxWithRecoveryOption(username, domain, password, recoveryEmail string, requireRecovery bool) error {
 	username = normalizeMailboxUser(username)
 	domain = normalizeDomain(domain)
-	recoveryEmail, err := normalizeRecoveryEmail(recoveryEmail)
+	recoveryEmail, err := validateRecoveryEmail(recoveryEmail, domain, requireRecovery)
 	if err != nil {
 		return err
 	}
@@ -283,7 +291,7 @@ func addMailboxWithRecovery(username, domain, password, recoveryEmail string) er
 func updateMailboxRecoveryEmail(username, domain, recoveryEmail string) error {
 	username = normalizeMailboxUser(username)
 	domain = normalizeDomain(domain)
-	recoveryEmail, err := normalizeRecoveryEmail(recoveryEmail)
+	recoveryEmail, err := validateRecoveryEmail(recoveryEmail, domain, true)
 	if err != nil {
 		return err
 	}
@@ -393,8 +401,15 @@ func normalizeMailboxUser(username string) string {
 }
 
 func normalizeRecoveryEmail(value string) (string, error) {
+	return validateRecoveryEmail(value, "", false)
+}
+
+func validateRecoveryEmail(value, mailboxDomain string, required bool) (string, error) {
 	value = strings.ToLower(strings.TrimSpace(value))
 	if value == "" {
+		if required {
+			return "", fmt.Errorf("recovery email is required and must be outside this LocalBox")
+		}
 		return "", nil
 	}
 	if strings.Contains(value, ":") {
@@ -403,6 +418,22 @@ func normalizeRecoveryEmail(value string) (string, error) {
 	addr, err := mail.ParseAddress(value)
 	if err != nil || strings.ToLower(addr.Address) != value {
 		return "", fmt.Errorf("valid recovery email required")
+	}
+	recoveryDomain := ""
+	if _, domain, ok := strings.Cut(value, "@"); ok {
+		recoveryDomain = normalizeDomain(domain)
+	}
+	mailboxDomain = normalizeDomain(mailboxDomain)
+	if mailboxDomain != "" && recoveryDomain == mailboxDomain {
+		return "", fmt.Errorf("recovery email must be outside this LocalBox")
+	}
+	domains, err := loadDomains()
+	if err == nil {
+		for _, domain := range domains {
+			if recoveryDomain == normalizeDomain(domain) {
+				return "", fmt.Errorf("recovery email must be outside this LocalBox")
+			}
+		}
 	}
 	return value, nil
 }

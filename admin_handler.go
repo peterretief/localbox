@@ -18,7 +18,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 		var err error
 		switch action {
 		case "add_mailbox":
-			err = addMailboxWithRecovery(r.FormValue("username"), s.Domain, r.FormValue("password"), r.FormValue("recovery_email"))
+			err = addMailboxWithRequiredRecovery(r.FormValue("username"), s.Domain, r.FormValue("password"), r.FormValue("recovery_email"))
 			data.Success = "Mailbox added."
 		case "reset_password":
 			err = resetMailboxPassword(r.FormValue("username"), s.Domain, r.FormValue("password"))

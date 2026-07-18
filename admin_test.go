@@ -63,3 +63,38 @@ func TestAdminViewIncludesMailingListEntries(t *testing.T) {
 		t.Fatalf("unexpected mailing list entry: %#v", entry)
 	}
 }
+
+func TestValidateRecoveryEmailRequiresExternalAddress(t *testing.T) {
+	oldDomainsFile := domainsFile
+	oldUsersFile := usersFile
+	oldLocalBoxBase := localBoxBase
+	tmp := t.TempDir()
+	domainsFile = filepath.Join(tmp, "domains.conf")
+	usersFile = filepath.Join(tmp, "users.conf")
+	localBoxBase = filepath.Join(tmp, "localbox")
+	t.Cleanup(func() {
+		domainsFile = oldDomainsFile
+		usersFile = oldUsersFile
+		localBoxBase = oldLocalBoxBase
+	})
+	if err := saveDomains([]string{"example.co.za", "otherbox.co.za"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := validateRecoveryEmail("", "example.co.za", true); err == nil {
+		t.Fatal("expected empty recovery email to be rejected when required")
+	}
+	if _, err := validateRecoveryEmail("info@example.co.za", "example.co.za", true); err == nil {
+		t.Fatal("expected same-domain recovery email to be rejected")
+	}
+	if _, err := validateRecoveryEmail("person@otherbox.co.za", "example.co.za", true); err == nil {
+		t.Fatal("expected managed-domain recovery email to be rejected")
+	}
+	got, err := validateRecoveryEmail("Person@External.net", "example.co.za", true)
+	if err != nil {
+		t.Fatalf("expected external recovery email to be accepted: %v", err)
+	}
+	if got != "person@external.net" {
+		t.Fatalf("got %q, want normalized external email", got)
+	}
+}
