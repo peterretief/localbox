@@ -147,3 +147,45 @@ func TestRunResetPasswordRejectsInvalidInput(t *testing.T) {
 		t.Fatalf("code = %d, want 1", code)
 	}
 }
+
+func TestRunSetRecoveryEmail(t *testing.T) {
+	oldUsersFile := usersFile
+	oldDomainsFile := domainsFile
+	oldLocalBoxBase := localBoxBase
+	tmp := t.TempDir()
+	usersFile = filepath.Join(tmp, "users.conf")
+	domainsFile = filepath.Join(tmp, "domains.conf")
+	localBoxBase = filepath.Join(tmp, "localbox")
+	t.Cleanup(func() {
+		usersFile = oldUsersFile
+		domainsFile = oldDomainsFile
+		localBoxBase = oldLocalBoxBase
+	})
+	if err := saveDomains([]string{"example.co.za"}); err != nil {
+		t.Fatal(err)
+	}
+	hash, err := hashPasswordStrong("secret-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saveUsers([]User{{
+		Username: "info",
+		Domain:   "example.co.za",
+		Hash:     hash,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stderr bytes.Buffer
+	if code := runSetRecoveryEmail([]string{"info@example.co.za", "Owner@External.net"}, &stderr); code != 0 {
+		t.Fatalf("code = %d, want 0, stderr=%q", code, stderr.String())
+	}
+
+	users, err := loadUsers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(users) != 1 || users[0].RecoveryEmail != "owner@external.net" {
+		t.Fatalf("unexpected users: %#v", users)
+	}
+}
