@@ -16,3 +16,4 @@ setup_new_pi/localbox-firstboot.conf
 
 # Go
 *.test
+.gocache/

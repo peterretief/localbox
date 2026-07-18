@@ -3,6 +3,7 @@ package main
 import (
 	"html/template"
 	"net/http"
+	"net/url"
 )
 
 type DashboardLink struct {
@@ -32,6 +33,7 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	email := s.User + "@" + s.Domain
+	mailURL := "https://mail.localboxmail.co.za/#/login?username=" + url.QueryEscape(email)
 	data := DashboardData{
 		User:   s.User,
 		Domain: s.Domain,
@@ -40,7 +42,7 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 			{
 				Title:       "Mail",
 				Description: "Open ALPS webmail, contacts, and calendar.",
-				URL:         "https://mail.localboxmail.co.za/",
+				URL:         mailURL,
 				External:    true,
 			},
 			{
