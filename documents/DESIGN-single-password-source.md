@@ -124,6 +124,147 @@ same-password
 
 Dashboard links can open separate apps, but those apps should use the same credential source. If they keep separate browser sessions, users may still need to sign out in that app until SSO is implemented.
 
+## Single Entry Dashboard SSO
+
+The product entry point should be:
+
+```text
+https://localboxmail.co.za/login
+        |
+        v
+https://localboxmail.co.za/dashboard
+        |
+        +-- Mail
+        +-- Files
+        +-- Website
+        +-- Admin
+        +-- Password
+```
+
+Users should not choose between separate mail, files, and admin login pages. They log into LocalBox once, then the dashboard launches the correct app for that same mailbox.
+
+### Session Ownership
+
+LocalBox owns the browser session:
+
+```text
+localbox_session = signed/random LocalBox session token
+```
+
+The dashboard, password page, built-in inbox, and built-in files page already use this session.
+
+External apps should not ask the user to log in again. They should receive identity from LocalBox through a trusted local handoff.
+
+### Reverse Proxy Handoff
+
+nginx should route app URLs through LocalBox auth:
+
+```text
+/apps/mail/   -> LocalBox auth check -> ALPS
+/apps/files/  -> LocalBox auth check -> Filebrowser
+```
+
+After LocalBox validates `localbox_session`, nginx forwards trusted headers only on localhost/internal proxy paths:
+
+```text
+X-LocalBox-User: info
+X-LocalBox-Domain: localboxzen.co.za
+X-LocalBox-Mailbox: info@localboxzen.co.za
+X-LocalBox-Auth: signed short-lived assertion
+```
+
+The upstream app must reject these headers from public traffic. Only nginx on the Pi may set them.
+
+## App Strategy
+
+### Filebrowser
+
+Filebrowser already supports proxy auth. This is the easier integration.
+
+Target:
+
+```text
+LocalBox session -> nginx auth_request -> Filebrowser proxy auth
+```
+
+Filebrowser receives one trusted username:
+
+```text
+info@localboxzen.co.za
+```
+
+and scopes the user to:
+
+```text
+/mnt/data/localbox/files/info@localboxzen.co.za
+```
+
+No Filebrowser password prompt is needed.
+
+### ALPS
+
+ALPS is harder because it normally creates its own session by logging into IMAP with the user password.
+
+LocalBox cannot recover a password from `/etc/localbox/users.conf`, because it stores password hashes. That is correct and should not be changed.
+
+There are two sane ALPS SSO options:
+
+1. Add trusted proxy auth to ALPS for LocalBox.
+2. Use a Dovecot master-user credential so ALPS can open IMAP as the mailbox user without knowing the user's password.
+
+Preferred short-term design:
+
+```text
+LocalBox session
+  -> signed SSO assertion
+  -> ALPS accepts assertion from localhost/nginx only
+  -> ALPS opens mailbox through Dovecot master-user auth
+```
+
+This keeps user passwords one-way hashed, avoids storing plaintext user passwords, and still lets ALPS create a real mail session.
+
+Alternative:
+
+```text
+LocalBox session
+  -> ALPS local Maildir provider
+  -> no IMAP login
+```
+
+This may be cleaner later, but it is a larger ALPS change if contacts/calendar still depend on DAV/IMAP-related behavior.
+
+## SSO Implementation Phases
+
+### Phase 1: Make LocalBox The Only Public Login
+
+- keep `/login` and `/dashboard` as the public entry;
+- dashboard Mail links to an internal app path such as `/apps/mail/`;
+- dashboard Files links to `/apps/files/`;
+- direct app login pages should redirect back to `/login` where practical.
+
+### Phase 2: Filebrowser Proxy Auth
+
+- configure Filebrowser `auth.method=proxy`;
+- configure nginx to call LocalBox session validation before proxying;
+- pass `X-Remote-User: user@domain`;
+- set Filebrowser logout page to `/logout`;
+- disable independent password changes in Filebrowser.
+
+### Phase 3: ALPS LocalBox SSO
+
+- add an ALPS LocalBox SSO entrypoint;
+- validate a short-lived signed assertion from LocalBox;
+- create an ALPS session for the mailbox;
+- connect to Dovecot with master-user auth or a local trusted provider;
+- set normal ALPS session cookies so ALPS behaves normally after handoff.
+
+### Phase 4: Auth Drift Health
+
+- report LocalBox users missing from Dovecot;
+- report Dovecot users missing from LocalBox;
+- report external apps not configured for SSO/proxy auth;
+- avoid printing password hashes.
+
 ## Next Code Step
 
 Add a small `localbox-auth-check` command or mode to the Go binary:
