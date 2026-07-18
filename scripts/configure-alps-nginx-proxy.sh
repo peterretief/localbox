@@ -12,6 +12,10 @@ server {
 
     client_max_body_size 25m;
 
+    if (\$http_x_forwarded_proto = "http") {
+        return 301 https://\$host\$request_uri;
+    }
+
     location = /password/change {
         default_type application/json;
         add_header Cache-Control "no-store";
@@ -27,8 +31,8 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-Ssl on;
-        proxy_set_header Origin http://\$host;
-        proxy_set_header Referer http://\$host/;
+        proxy_set_header Origin https://\$host;
+        proxy_set_header Referer https://\$host/;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
     }
