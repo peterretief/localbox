@@ -43,7 +43,8 @@ var passwordResetLimiter = newResetRateLimiter()
 
 func forgotPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		renderForgotPassword(w, ForgotPasswordPageData{})
+		email := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("email")))
+		renderForgotPassword(w, ForgotPasswordPageData{Email: email})
 		return
 	}
 	if r.Method != http.MethodPost {

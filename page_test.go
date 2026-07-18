@@ -474,6 +474,36 @@ func TestPublicLoginPageDoesNotShowMailboxDomainOptions(t *testing.T) {
 	}
 }
 
+func TestPublicLoginPageShowsForgotPasswordLink(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://example.com/login?public=1", nil)
+	rr := httptest.NewRecorder()
+
+	loginHandler(rr, req)
+
+	body := rr.Body.String()
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected public login page, code=%d body=%q", rr.Code, body)
+	}
+	if !strings.Contains(body, `href="/forgot-password"`) {
+		t.Fatalf("expected forgot password link on public login page, got %s", body)
+	}
+}
+
+func TestForgotPasswordPagePrefillsEmailFromQuery(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://example.com/forgot-password?email=info%40example.com", nil)
+	rr := httptest.NewRecorder()
+
+	forgotPasswordHandler(rr, req)
+
+	body := rr.Body.String()
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected forgot password page, code=%d body=%q", rr.Code, body)
+	}
+	if !strings.Contains(body, `value="info@example.com"`) {
+		t.Fatalf("expected email prefilled, got %s", body)
+	}
+}
+
 func TestPublicUserRegistrationRequiresUniqueUsernameAndEmailPerDomain(t *testing.T) {
 	oldDB := orderDBFile
 	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")

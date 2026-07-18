@@ -46,7 +46,7 @@
             <button type="submit">Sign in</button>
         </form>
         {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
-        {{if not .Public}}<p class="link"><a href="/forgot-password">Forgot your password?</a></p>{{end}}
+        <p class="link"><a href="/forgot-password{{if .Username}}?email={{.Username | urlquery}}{{end}}">Forgot your password?</a></p>
         {{if not .Public}}<p class="link">Interested in LocalBox? <a href="{{.RegisterURL}}">Create an account</a></p>{{end}}
     </div>
 </body>
