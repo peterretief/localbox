@@ -6,7 +6,7 @@ import (
 )
 
 func ordersHandler(w http.ResponseWriter, r *http.Request) {
-	if s := requireBoxAdmin(w, r); s == nil {
+	if s := requireOrdersAdmin(w, r); s == nil {
 		return
 	}
 
@@ -35,6 +35,14 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 					err = provisionPaidDomainOrderWith(r.Context(), selectedID, provisioner)
 				}
 				data.Success = "Domain registered and Cloudflare routing created."
+			case "prepare_cloudflare":
+				provisioner, provisionErr := newRealDomainProvisioner()
+				if provisionErr != nil {
+					err = provisionErr
+				} else {
+					_, err = prepareCloudflareForDomainOrderWith(r.Context(), selectedID, provisioner)
+				}
+				data.Success = "Cloudflare zone, generated nameservers, DNS records, and tunnel routing prepared."
 			case "ready_for_registration":
 				err = markOrderReadyForRegistration(selectedID, r.FormValue("registrar_reference"))
 				data.Success = "Order marked ready for registration."

@@ -29,22 +29,14 @@ type FilesPageData struct {
 func filesHandler(w http.ResponseWriter, r *http.Request) {
 	s := getSession(r)
 	if s == nil {
-		http.Redirect(w, r, "/login?next=/files", http.StatusFound)
+		http.Redirect(w, r, "/login?next=/apps/files/", http.StatusFound)
 		return
 	}
-
-	switch r.Method {
-	case http.MethodGet:
-		renderFilesPage(w, s, "")
-	case http.MethodPost:
-		if err := saveUploadedFile(r, s); err != nil {
-			renderFilesPage(w, s, err.Error())
-			return
-		}
-		http.Redirect(w, r, "/files", http.StatusFound)
-	default:
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
+	http.Redirect(w, r, "/apps/files/", http.StatusFound)
 }
 
 func fileDownloadHandler(w http.ResponseWriter, r *http.Request) {

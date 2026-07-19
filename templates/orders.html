@@ -52,7 +52,7 @@
                 <h1>Orders</h1>
                 <div class="muted">Starter requests, payment links, and registration readiness</div>
             </div>
-            <div><a href="/dashboard">Dashboard</a> · <a href="/">Inbox</a> · <a href="/system">System</a> · <a href="/logout">Sign out</a></div>
+            <div><a href="/dashboard">Dashboard</a> · <a href="/apps/mail">Mail</a> · <a href="/system">System</a> · <a href="/logout">Sign out</a></div>
         </div>
 
         {{if .Success}}<div class="status">{{.Success}}</div>{{end}}
@@ -158,6 +158,20 @@
                     </form>
 
                     <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">
+                        <h3>Prepare Cloudflare</h3>
+                        <input type="hidden" name="action" value="prepare_cloudflare">
+                        <input type="hidden" name="order_id" value="{{.Current.ID}}">
+                        <input type="hidden" name="q" value="{{.Query}}">
+                        {{if .ShowProcessed}}<input type="hidden" name="show_processed" value="1">{{end}}
+                        {{if .ShowArchived}}<input type="hidden" name="show_archived" value="1">{{end}}
+                        <div class="row">
+                            <button class="secondary" type="submit" {{if and (ne .Current.Status "paid") (ne .Current.Status "provisioning") (ne .Current.Status "provisioning_failed") (ne .Current.Status "ready_for_registration")}}disabled{{end}}>Prepare Cloudflare</button>
+                        </div>
+                        <p class="muted">Creates the Cloudflare zone first, stores the generated nameservers, adds root/www tunnel DNS records, and updates the Cloudflare Tunnel route. This can run before Domains.co.za delegation is active.</p>
+                        {{if .Current.CloudflareNameservers}}<p class="dns-target">{{.Current.CloudflareNameservers}}</p>{{end}}
+                    </form>
+
+                    <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">
                         <h3>Register Domain</h3>
                         <input type="hidden" name="action" value="provision_domain">
                         <input type="hidden" name="order_id" value="{{.Current.ID}}">
@@ -165,9 +179,9 @@
                         {{if .ShowProcessed}}<input type="hidden" name="show_processed" value="1">{{end}}
                         {{if .ShowArchived}}<input type="hidden" name="show_archived" value="1">{{end}}
                         <div class="row">
-                            <button class="secondary" type="submit" {{if and (ne .Current.Status "paid") (ne .Current.Status "provisioning_failed")}}disabled{{end}}>{{if eq .Current.Status "provisioning_failed"}}Retry domain registration{{else}}Register domain{{end}}</button>
+                            <button class="secondary" type="submit" {{if and (ne .Current.Status "paid") (ne .Current.Status "provisioning_failed") (ne .Current.Status "ready_for_registration")}}disabled{{end}}>{{if eq .Current.Status "provisioning_failed"}}Retry registration{{else}}Register with Domains.co.za{{end}}</button>
                         </div>
-                        <p class="muted">Runs Domains.co.za registration, creates the Cloudflare zone, updates nameservers, and adds tunnel DNS records. Available after payment is verified.</p>
+                        <p class="muted">Registers through Domains.co.za using the generated Cloudflare nameservers, requests the nameserver update, then checks Cloudflare activation. If the registrar puts the domain on hold, retry this after the hold clears.</p>
                     </form>
 
                     <form method="POST" action="/orders?id={{.Current.ID}}{{.FilterSuffix}}" class="panel">

@@ -37,7 +37,7 @@
                 <h1>System Admin</h1>
                 <div class="muted">Domains and admin roles</div>
             </div>
-            <div><a href="/dashboard">Dashboard</a> · <a href="/">Inbox</a> · <a href="/orders">Orders</a> · <a href="/admin">Domain admin</a> · <a href="/logout">Sign out</a></div>
+            <div><a href="/dashboard">Dashboard</a> · <a href="/apps/mail">Mail</a>{{if .Access.CanOrders}} · <a href="/orders">Orders</a>{{end}}{{if .Access.CanDomainAdmin}} · <a href="/admin">Domain admin</a>{{end}} · <a href="/logout">Sign out</a></div>
         </div>
 
         {{if .Success}}<div class="status">{{.Success}}</div>{{end}}

@@ -13,6 +13,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := adminView(s.Domain)
+	data.Access = accessView(s)
 	if r.Method == http.MethodPost {
 		action := r.FormValue("action")
 		var err error
@@ -41,6 +42,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 		data.Users = fresh.Users
 		data.RegisteredUsers = fresh.RegisteredUsers
 		data.MailingList = fresh.MailingList
+		data.Access = accessView(s)
 	} else if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return

@@ -37,6 +37,36 @@ func isBoxAdmin(user, domain string) bool {
 	return admins[user+":"+domain]
 }
 
+func isOrdersAdmin(user, domain string) bool {
+	primary, err := primaryDomain()
+	if err != nil || primary == "" {
+		return false
+	}
+	domain = normalizeDomain(domain)
+	user = normalizeMailboxUser(user)
+	return domain == primary && isDomainAdmin(user, domain)
+}
+
+func primaryDomain() (string, error) {
+	data, err := os.ReadFile(domainsFile)
+	if err != nil && !os.IsNotExist(err) {
+		return "", err
+	}
+	if err == nil {
+		for _, line := range strings.Split(string(data), "\n") {
+			domain := normalizeDomain(line)
+			if safeDomain(domain) {
+				return domain, nil
+			}
+		}
+	}
+	fallback, err := firstConfiguredUser()
+	if err != nil {
+		return "", err
+	}
+	return normalizeDomain(fallback.Domain), nil
+}
+
 func loadRoleFile(path string) (map[string]bool, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -166,6 +196,19 @@ func requireBoxAdmin(w http.ResponseWriter, r *http.Request) *Session {
 		return nil
 	}
 	if !isBoxAdmin(s.User, s.Domain) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return nil
+	}
+	return s
+}
+
+func requireOrdersAdmin(w http.ResponseWriter, r *http.Request) *Session {
+	s := getSession(r)
+	if s == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return nil
+	}
+	if !isOrdersAdmin(s.User, s.Domain) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return nil
 	}

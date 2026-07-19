@@ -39,7 +39,7 @@
                 <h1>Domain Admin</h1>
                 <div class="domain">{{.Domain.Name}}</div>
             </div>
-            <div><a href="/dashboard">Dashboard</a> · <a href="/">Inbox</a> · <a href="/page">Home page</a> · <a href="/orders">Orders</a> · <a href="/system">System</a> · <a href="/logout">Sign out</a></div>
+            <div><a href="/dashboard">Dashboard</a> · <a href="/apps/mail">Mail</a> · <a href="/page">Home page</a>{{if .Access.CanOrders}} · <a href="/orders">Orders</a>{{end}}{{if .Access.CanBoxAdmin}} · <a href="/system">System</a>{{end}} · <a href="/logout">Sign out</a></div>
         </div>
 
         {{if .Success}}<div class="status">{{.Success}}</div>{{end}}

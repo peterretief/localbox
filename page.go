@@ -409,7 +409,7 @@ func loadSiteMenuMap(domain string) map[string]string {
 func loadSiteMenuItems(domain string) []SiteMenuItem {
 	data, err := os.ReadFile(siteMenuPath(domain))
 	if err != nil {
-		return defaultGeneratedMenuItems(domain, nil)
+		return nil
 	}
 
 	var items []SiteMenuItem
@@ -434,7 +434,7 @@ func loadSiteMenuItems(domain string) []SiteMenuItem {
 		items = append(items, SiteMenuItem{Name: name, Label: label})
 		seen[name] = true
 	}
-	return defaultGeneratedMenuItems(domain, items)
+	return items
 }
 
 func saveSiteMenuItems(domain string, items []SiteMenuItem) error {
@@ -477,6 +477,16 @@ func removeSiteMenuItem(domain, name string) error {
 	return saveSiteMenuItems(domain, kept)
 }
 
+func existingSiteMenuItems(domain string, items []SiteMenuItem) []SiteMenuItem {
+	var existing []SiteMenuItem
+	for _, item := range items {
+		if _, err := os.Stat(filepath.Join(domainSiteBase(domain), item.Name)); err == nil {
+			existing = append(existing, item)
+		}
+	}
+	return existing
+}
+
 func allowedMenuHTMLName(name string) bool {
 	return allowedUploadedHTMLName(name) && !isHomeHTMLName(name) && !reservedSiteHTMLName(name)
 }
@@ -499,18 +509,6 @@ func defaultMenuLabel(name string) string {
 		words[i] = strings.ToUpper(word[:1]) + word[1:]
 	}
 	return strings.Join(words, " ")
-}
-
-func defaultGeneratedMenuItems(domain string, items []SiteMenuItem) []SiteMenuItem {
-	if _, err := os.Stat(filepath.Join(domainSiteBase(domain), shoppingPageName)); err != nil {
-		return items
-	}
-	for _, item := range items {
-		if item.Name == shoppingPageName {
-			return items
-		}
-	}
-	return append(items, SiteMenuItem{Name: shoppingPageName, Label: "Shopping"})
 }
 
 func isGeneratedSiteHTMLName(name string) bool {
@@ -665,7 +663,7 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 
 func renderHomeHTML(domain, markdown string) []byte {
 	content := renderMarkdown(markdown)
-	menu := loadSiteMenuItems(domain)
+	menu := existingSiteMenuItems(domain, loadSiteMenuItems(domain))
 	return []byte(newContentPageComponentManager(content, menu).Render())
 }
 

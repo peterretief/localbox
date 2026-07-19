@@ -28,7 +28,7 @@
             {{if .Public}}<input type="hidden" name="public" value="1">{{end}}
 
             <label>Username</label>
-<input type="text" name="username" placeholder="peter" value="{{.Username}}" required autofocus>
+<input type="text" name="username" placeholder="{{if .Public}}dan@example.co.za{{else}}dan or dan@example.co.za{{end}}" value="{{.Username}}" required autofocus>
             {{if not .Public}}
             <label>Domain</label>
             {{if .Domains}}
@@ -47,7 +47,7 @@
         </form>
         {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
         <p class="link"><a href="/forgot-password{{if .Username}}?email={{.Username | urlquery}}{{end}}">Forgot your password?</a></p>
-        {{if not .Public}}<p class="link">Interested in LocalBox? <a href="{{.RegisterURL}}">Create an account</a></p>{{end}}
+        {{if and (not .Public) .CanRegister}}<p class="link">Interested in LocalBox? <a href="{{.RegisterURL}}">Create an account</a></p>{{end}}
     </div>
 </body>
 </html>

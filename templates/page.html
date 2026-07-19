@@ -71,7 +71,7 @@
     <div class="shell">
         <div class="top">
             <h1>{{if eq .Section "html"}}HTML Site{{else}}Markdown Site{{end}}</h1>
-            <div><a href="/dashboard">Dashboard</a> · <a href="/">Inbox</a> · <a href="/admin">Admin</a> · <a href="/logout">Sign out</a></div>
+            <div><a href="/dashboard">Dashboard</a> · <a href="/apps/mail">Mail</a> · <a href="/admin">Admin</a> · <a href="/logout">Sign out</a></div>
         </div>
         <p style="color:#777;margin-top:-10px;">{{.Domain}} · current mode: {{.Mode}}</p>
         <nav class="tabs" aria-label="Site editor sections">
@@ -98,6 +98,7 @@
                 <input type="hidden" name="action" value="upload">
                 <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" required>
                 <button type="submit">Upload</button>
+                <span class="help">JPG, PNG, GIF, or WebP up to 15 MB.</span>
                 {{if .ImageSuccess}}<span class="status">{{.ImageSuccess}}</span>{{end}}
                 {{if .ImageError}}<span class="error">{{.ImageError}}</span>{{end}}
             </form>

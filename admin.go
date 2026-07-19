@@ -25,6 +25,7 @@ type AdminView struct {
 	Users           []User
 	RegisteredUsers []publicUserProfile
 	MailingList     []mailingListEntry
+	Access          AccessView
 	Error           string
 	Success         string
 }
@@ -162,7 +163,7 @@ func ensureDefaultSite(domain string) error {
 		}
 	}
 
-	for _, name := range []string{"contact.html", "thankyou.html", "shopping.html"} {
+	for _, name := range []string{"contact.html", "thankyou.html"} {
 		if err := copySiteTemplateIfMissing(domain, name); err != nil {
 			return err
 		}

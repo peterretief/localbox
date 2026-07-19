@@ -20,6 +20,7 @@ type LoginPageData struct {
 	Domains     []string
 	Next        string
 	RegisterURL string
+	CanRegister bool
 	Public      bool
 }
 
@@ -32,13 +33,15 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			Domain:      lastLoginDomain(r),
 			Domains:     loginFormDomains(public),
 			Next:        next,
-			RegisterURL: registerURL(next),
+			RegisterURL: loginRegisterURL(r, next),
+			CanRegister: publicRegistrationAllowed(r),
 			Public:      public,
 		})
 		return
 	}
 
-	username := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
+	rawUsername := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
+	username := rawUsername
 	domain := strings.ToLower(strings.TrimSpace(r.FormValue("domain")))
 	password := r.FormValue("password")
 	next := safeRedirectPath(r.FormValue("next"))
@@ -46,50 +49,51 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if public && domain == "" {
 		domain = registrationDomain(r)
 	}
+	username, domain = normalizeLoginIdentity(username, domain)
 	if domain != "" {
 		rememberLoginDomain(w, domain)
 	}
 	if authenticate(username, domain, password) {
-		token := newSession(username, domain)
-		http.SetCookie(w, &http.Cookie{
-			Name:     cookieName,
-			Value:    token,
-			Path:     "/",
-			Expires:  time.Now().Add(24 * time.Hour),
-			HttpOnly: true,
-		})
 		if next == "" {
 			next = "/dashboard"
 		}
-		http.Redirect(w, r, next, http.StatusFound)
+		completeLogin(w, r, username, domain, "", next)
 		return
 	}
 	if ok, currency := authenticatePublicUserWithCurrency(username, domain, password); ok {
-		token := newSessionWithCurrency(username, domain, currency)
-		http.SetCookie(w, &http.Cookie{
-			Name:     cookieName,
-			Value:    token,
-			Path:     "/",
-			Expires:  time.Now().Add(24 * time.Hour),
-			HttpOnly: true,
-		})
 		if next == "" {
 			next = "/dashboard"
 		}
-		http.Redirect(w, r, next, http.StatusFound)
+		completeLogin(w, r, username, domain, currency, next)
 		return
 	}
 
 	tmpl := template.Must(template.ParseFiles("templates/login.html"))
 	tmpl.Execute(w, LoginPageData{
 		Error:       "Invalid credentials",
-		Username:    username,
+		Username:    rawUsername,
 		Domain:      domain,
 		Domains:     loginFormDomains(public),
 		Next:        next,
-		RegisterURL: registerURL(next),
+		RegisterURL: loginRegisterURL(r, next),
+		CanRegister: publicRegistrationAllowed(r),
 		Public:      public,
 	})
+}
+
+func normalizeLoginIdentity(username, domain string) (string, string) {
+	username = normalizeMailboxUser(username)
+	domain = normalizeDomain(domain)
+	local, mailDomain, ok := strings.Cut(username, "@")
+	if !ok {
+		return username, domain
+	}
+	local = normalizeMailboxUser(local)
+	mailDomain = normalizeDomain(mailDomain)
+	if !safeMailboxUser(local) || !safeDomain(mailDomain) {
+		return username, domain
+	}
+	return local, mailDomain
 }
 
 func publicLoginFlow(next string) bool {
@@ -99,6 +103,17 @@ func publicLoginFlow(next string) bool {
 
 func publicLoginRequest(r *http.Request, next string) bool {
 	return publicLoginFlow(next) || r.URL.Query().Get("public") == "1" || r.FormValue("public") == "1"
+}
+
+func completeLogin(w http.ResponseWriter, r *http.Request, username, domain, currency, next string) {
+	s := &Session{User: username, Domain: domain, Currency: currency}
+	if requestHost(r) == primaryLocalBoxHost && safeDomain(domain) && domain != primaryLocalBoxHost {
+		redirectWithSessionHandoff(w, r, s, next)
+		return
+	}
+	token := newSessionWithCurrency(username, domain, currency)
+	setSessionCookie(w, r, token)
+	http.Redirect(w, r, next, http.StatusFound)
 }
 
 func loginFormDomains(public bool) []string {
@@ -113,6 +128,21 @@ func registerURL(next string) string {
 		return "/register"
 	}
 	return "/register?next=" + url.QueryEscape(next)
+}
+
+func loginRegisterURL(r *http.Request, next string) string {
+	if !publicRegistrationAllowed(r) {
+		return ""
+	}
+	return registerURL(next)
+}
+
+func publicRegistrationAllowed(r *http.Request) bool {
+	return publicRegistrationAllowedForDomain(registrationDomain(r))
+}
+
+func publicRegistrationAllowedForDomain(domain string) bool {
+	return normalizeDomain(domain) == primaryLocalBoxHost
 }
 
 func loginURL(next string) string {
@@ -130,6 +160,10 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	domain := registrationDomain(r)
 	if formDomain := strings.ToLower(strings.TrimSpace(r.FormValue("domain"))); formDomain != "" {
 		domain = formDomain
+	}
+	if !publicRegistrationAllowedForDomain(domain) {
+		http.NotFound(w, r)
+		return
 	}
 	data := PublicRegisterData{
 		Currency: "ZAR",
@@ -513,25 +547,28 @@ func serveSiteHTMLFile(w http.ResponseWriter, r *http.Request, path string, s *S
 		return
 	}
 	if s != nil && registeredUserExists(s.User, s.Domain) {
-		data = injectPublicSessionBar(data, s, r.URL.RequestURI())
+		data = injectPublicSessionBar(data, s, r.URL.RequestURI(), publicRegistrationAllowed(r))
 		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 		w.Header().Set("Pragma", "no-cache")
 		w.Header().Set("Expires", "0")
 	} else {
-		data = injectPublicSessionBar(data, nil, r.URL.RequestURI())
+		data = injectPublicSessionBar(data, nil, r.URL.RequestURI(), publicRegistrationAllowed(r))
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)
 }
 
-func injectPublicSessionBar(data []byte, s *Session, next string) []byte {
+func injectPublicSessionBar(data []byte, s *Session, next string, canRegister bool) []byte {
 	next = safeRedirectPath(next)
 	if next == "" {
 		next = "/"
 	}
 	escapedNext := template.URLQueryEscaper(next)
-	content := `<a href="/register?next=` + escapedNext + `" style="color:#fff;text-decoration:underline;">Register</a><a href="/login?public=1&next=` + escapedNext + `" style="color:#fff;text-decoration:underline;">Sign in</a>`
+	content := `<a href="/login?public=1&next=` + escapedNext + `" style="color:#fff;text-decoration:underline;">Sign in</a>`
+	if canRegister {
+		content = `<a href="/register?next=` + escapedNext + `" style="color:#fff;text-decoration:underline;">Register</a>` + content
+	}
 	if s != nil && strings.TrimSpace(s.User) != "" {
 		label := strings.TrimSpace(s.User)
 		content = `<span>Logged in as ` + template.HTMLEscapeString(label) + `</span><a href="/dashboard" style="color:#fff;text-decoration:underline;">Dashboard</a><a href="/public/logout" style="color:#fff;text-decoration:underline;">Logout</a>`
@@ -602,14 +639,7 @@ func requestSiteDomain(r *http.Request) string {
 	if s := getSession(r); s != nil {
 		return s.Domain
 	}
-	host := strings.ToLower(strings.TrimSpace(r.Host))
-	if host == "" {
-		return ""
-	}
-	if h, _, ok := strings.Cut(host, ":"); ok {
-		host = h
-	}
-	return host
+	return requestHost(r)
 }
 
 type PasswordPageData struct {

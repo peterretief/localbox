@@ -157,7 +157,6 @@ for domain_dir in /mnt/data/localbox/domains/*; do
     mkdir -p "$site_dir/assets/images"
     [ -f "$site_dir/contact.html" ] || cp /etc/localbox/templates/contact.html "$site_dir/contact.html"
     [ -f "$site_dir/thankyou.html" ] || cp /etc/localbox/templates/thankyou.html "$site_dir/thankyou.html"
-    [ -f "$site_dir/shopping.html" ] || cp /etc/localbox/templates/shopping.html "$site_dir/shopping.html"
     if [ ! -f "$site_dir/index.html" ]; then
         cat > "$site_dir/index.html" << 'HTML'
 <!DOCTYPE html>
@@ -307,6 +306,60 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    location = /apps/mail {
+        proxy_pass http://127.0.0.1:8080/apps/mail;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /apps/files {
+        proxy_pass http://127.0.0.1:8080/apps/files;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /apps/files/ {
+        proxy_pass http://127.0.0.1:8080/apps/files/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /files {
+        proxy_pass http://127.0.0.1:8080/files;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /files/download {
+        proxy_pass http://127.0.0.1:8080/files/download;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /files/delete {
+        proxy_pass http://127.0.0.1:8080/files/delete;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location = /mail {
         proxy_pass http://127.0.0.1:8080/mail;
         proxy_set_header Host $host;
@@ -398,6 +451,7 @@ server {
     }
 
     location = /page {
+        client_max_body_size 25m;
         proxy_pass http://127.0.0.1:8080/page;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;
@@ -407,6 +461,7 @@ server {
     }
 
     location = /page/html {
+        client_max_body_size 25m;
         proxy_pass http://127.0.0.1:8080/page/html;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;
@@ -416,6 +471,7 @@ server {
     }
 
     location = /page/images {
+        client_max_body_size 25m;
         proxy_pass http://127.0.0.1:8080/page/images;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;

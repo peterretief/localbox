@@ -12,7 +12,7 @@ DB_PATH=${DB_PATH:-$DATA_DIR/filebrowser.db}
 AUTH_HOOK=${AUTH_HOOK:-/usr/local/bin/localbox-filebrowser-auth}
 LISTEN_ADDR=${LISTEN_ADDR:-127.0.0.1}
 LISTEN_PORT=${LISTEN_PORT:-8082}
-BASEURL=${BASEURL:-/portal}
+BASEURL=${BASEURL:-/apps/files}
 NGINX_CONF=${NGINX_CONF:-/etc/nginx/http.d/localbox-webdav.conf}
 SERVICE_NAME=${SERVICE_NAME:-filebrowser}
 
@@ -100,8 +100,9 @@ filebrowser config set \
     --address "$LISTEN_ADDR" \
     --port "$LISTEN_PORT" \
     --baseurl "$BASEURL" \
-    --auth.method hook \
-    --auth.command "$AUTH_HOOK" \
+    --auth.method proxy \
+    --auth.header X-Remote-User \
+    --auth.logoutPage /logout \
     --branding.name "LocalBox Files" \
     --commands "" >/dev/null
 
@@ -164,6 +165,6 @@ lbu add /usr/local/bin/filebrowser "$AUTH_HOOK" "$CONFIG_DIR" "$DATA_DIR" "/etc/
 lbu commit -d 2>/dev/null || true
 
 echo "Configured File Browser portal:"
-echo "  url:  https://files.localboxmail.co.za$BASEURL/"
+echo "  url:  https://localboxmail.co.za$BASEURL/"
 echo "  root: $FILES_ROOT"
-echo "  auth: Dovecot hook"
+echo "  auth: LocalBox proxy"

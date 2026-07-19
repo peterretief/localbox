@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const maxImageUploadBytes = 5 << 20
+const maxImageUploadBytes = 15 << 20
 
 var safeImageFilename = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
@@ -72,7 +72,7 @@ func saveSiteImage(domain string, file multipart.File, header *multipart.FileHea
 		return SiteImage{}, fmt.Errorf("only jpg, jpeg, png, gif, and webp images are allowed")
 	}
 	if header.Size > maxImageUploadBytes {
-		return SiteImage{}, fmt.Errorf("image must be 5 MB or smaller")
+		return SiteImage{}, fmt.Errorf("image must be 15 MB or smaller")
 	}
 
 	if err := os.MkdirAll(imageDir(domain), 0775); err != nil {
@@ -85,7 +85,7 @@ func saveSiteImage(domain string, file multipart.File, header *multipart.FileHea
 		return SiteImage{}, err
 	}
 	if len(data) > maxImageUploadBytes {
-		return SiteImage{}, fmt.Errorf("image must be 5 MB or smaller")
+		return SiteImage{}, fmt.Errorf("image must be 15 MB or smaller")
 	}
 	if !allowedImageContent(data) {
 		return SiteImage{}, fmt.Errorf("file content does not look like an allowed image")

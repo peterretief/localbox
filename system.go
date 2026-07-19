@@ -14,6 +14,7 @@ type SystemView struct {
 	Domains      []AdminDomain
 	DomainAdmins []RoleIdentity
 	BoxAdmins    []RoleIdentity
+	Access       AccessView
 	Error        string
 	Success      string
 }

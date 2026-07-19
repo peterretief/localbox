@@ -14,6 +14,7 @@ type fakeDomainProvisioner struct {
 	calls           []string
 	checkErr        error
 	zone            provisionedCloudflareZone
+	zoneErr         error
 	registerRef     string
 	registerErr     error
 	nameserversSeen []string
@@ -26,7 +27,7 @@ func (f *fakeDomainProvisioner) CheckDomainAvailable(ctx context.Context, domain
 
 func (f *fakeDomainProvisioner) CreateCloudflareZone(ctx context.Context, domain string) (provisionedCloudflareZone, error) {
 	f.calls = append(f.calls, "zone:"+domain)
-	return f.zone, nil
+	return f.zone, f.zoneErr
 }
 
 func (f *fakeDomainProvisioner) RegisterDomain(ctx context.Context, order *OrderDetail, nameservers []string) (string, error) {
@@ -91,9 +92,9 @@ func TestProvisionPaidDomainOrderWithFakesCompletesOrder(t *testing.T) {
 	wantCalls := strings.Join([]string{
 		"check:example.co.za",
 		"zone:example.co.za",
+		"tunnel:zone123:example.co.za",
 		"register:example.co.za",
 		"nameservers:example.co.za:sam.ns.cloudflare.com,marissa.ns.cloudflare.com",
-		"tunnel:zone123:example.co.za",
 		"activation:zone123",
 	}, "|")
 	if got := strings.Join(provisioner.calls, "|"); got != wantCalls {
@@ -112,6 +113,39 @@ func TestProvisionPaidDomainOrderWithFakesCompletesOrder(t *testing.T) {
 	}
 	if _, err := os.Stat(registrationCertificatePath("example.co.za")); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPrepareCloudflareForDomainOrderStoresGeneratedNameservers(t *testing.T) {
+	oldDB := orderDBFile
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	t.Cleanup(func() { orderDBFile = oldDB })
+	insertProvisioningTestOrder(t, "paid")
+
+	provisioner := &fakeDomainProvisioner{
+		zone: provisionedCloudflareZone{
+			ID:          "zone456",
+			NameServers: []string{"bella.ns.cloudflare.com", "nikon.ns.cloudflare.com"},
+		},
+	}
+
+	zone, err := prepareCloudflareForDomainOrderWith(context.Background(), "ord_test", provisioner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if zone.ID != "zone456" || strings.Join(zone.NameServers, ",") != "bella.ns.cloudflare.com,nikon.ns.cloudflare.com" {
+		t.Fatalf("unexpected zone: %#v", zone)
+	}
+	wantCalls := "zone:example.co.za|tunnel:zone456:example.co.za"
+	if got := strings.Join(provisioner.calls, "|"); got != wantCalls {
+		t.Fatalf("unexpected calls:\n got: %s\nwant: %s", got, wantCalls)
+	}
+	detail, err := loadOrderDetail("ord_test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail.Status != "ready_for_registration" || detail.CloudflareZoneID != "zone456" || detail.CloudflareNameservers != "bella.ns.cloudflare.com,nikon.ns.cloudflare.com" {
+		t.Fatalf("unexpected prepared order: %#v", detail)
 	}
 }
 
@@ -177,8 +211,8 @@ func TestProvisionPaidDomainOrderWithFakesResumesAfterRegistrarSuccess(t *testin
 	}
 
 	wantCalls := strings.Join([]string{
-		"nameservers:example.co.za:sam.ns.cloudflare.com,marissa.ns.cloudflare.com",
 		"tunnel:zone123:example.co.za",
+		"nameservers:example.co.za:sam.ns.cloudflare.com,marissa.ns.cloudflare.com",
 		"activation:zone123",
 	}, "|")
 	if got := strings.Join(provisioner.calls, "|"); got != wantCalls {

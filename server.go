@@ -14,6 +14,9 @@ func newServer() http.Handler {
 	mux.HandleFunc("/files", filesHandler)
 	mux.HandleFunc("/files/delete", fileDeleteHandler)
 	mux.HandleFunc("/files/download", fileDownloadHandler)
+	mux.HandleFunc("/apps/files", filesAppHandler)
+	mux.HandleFunc("/apps/files/", filesAppHandler)
+	mux.HandleFunc("/apps/mail", mailAppHandler)
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/ingest", ingestHandler)
 	mux.HandleFunc("/login", loginHandler)
@@ -38,5 +41,5 @@ func newServer() http.Handler {
 	mux.HandleFunc("/assets/", assetsHandler)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	mux.HandleFunc("/", rootHandler)
-	return mux
+	return canonicalHostMiddleware(mux)
 }

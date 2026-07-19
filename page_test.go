@@ -149,7 +149,7 @@ func TestSaveShoppingCartPageCreatesDomainScopedPage(t *testing.T) {
 	}
 }
 
-func TestGeneratedShoppingPageAppearsInMenuWithoutUploadRecord(t *testing.T) {
+func TestGeneratedShoppingPageDoesNotAppearInMenuByDefault(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()
 	t.Cleanup(func() { localBoxBase = oldBase })
@@ -167,13 +167,32 @@ func TestGeneratedShoppingPageAppearsInMenuWithoutUploadRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	pages := siteMenuPages(files)
-	if len(pages) != 1 || pages[0].Name != shoppingPageName || pages[0].MenuLabel != "Shopping" {
-		t.Fatalf("expected generated shopping page to be available in menu, got %#v", pages)
+	if len(pages) != 1 || pages[0].Name != shoppingPageName || pages[0].MenuLabel != "Shopping" || pages[0].InMenu {
+		t.Fatalf("expected generated shopping page to be available but off by default, got %#v", pages)
 	}
 
 	rendered := string(renderHomeHTML(domain, "# Welcome"))
-	if !strings.Contains(rendered, `<a href="/shopping.html">Shopping</a>`) {
-		t.Fatalf("expected homepage menu to include shopping link, got %s", rendered)
+	if strings.Contains(rendered, `<a href="/shopping.html">Shopping</a>`) {
+		t.Fatalf("expected homepage menu to omit default shopping link, got %s", rendered)
+	}
+}
+
+func TestRenderHomeHTMLOmitsStaleMenuItems(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := "example.com"
+	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(siteMenuPath(domain), []byte("shopping.html\tShopping\n"), 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	rendered := string(renderHomeHTML(domain, "# Welcome"))
+	if strings.Contains(rendered, "shopping.html") || strings.Contains(rendered, "Shopping") {
+		t.Fatalf("expected stale shopping menu item to be omitted, got %s", rendered)
 	}
 }
 
@@ -267,6 +286,34 @@ func TestMailRouteServesInboxForLoggedInUser(t *testing.T) {
 	}
 }
 
+func TestMailAppRedirectsToDomainWebmailHost(t *testing.T) {
+	oldSecretFile := localBoxSSOSecretFile
+	localBoxSSOSecretFile = filepath.Join(t.TempDir(), "sso-secret")
+	t.Cleanup(func() { localBoxSSOSecretFile = oldSecretFile })
+	if err := os.WriteFile(localBoxSSOSecretFile, []byte("test-secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/apps/mail", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("info", "example.com")})
+	rr := httptest.NewRecorder()
+
+	mailAppHandler(rr, req)
+
+	location := rr.Header().Get("Location")
+	if rr.Code != http.StatusFound || !strings.HasPrefix(location, "https://mail.example.com/localbox/sso?token=") {
+		t.Fatalf("expected domain webmail handoff, code=%d location=%q body=%q", rr.Code, location, rr.Body.String())
+	}
+}
+
+func TestLocalBoxWebmailBaseURLFallsBackForInvalidDomain(t *testing.T) {
+	t.Setenv("LOCALBOX_WEBMAIL_URL", "https://mail.localboxmail.co.za/")
+
+	if got := localBoxWebmailBaseURL("not a domain"); got != "https://mail.localboxmail.co.za" {
+		t.Fatalf("unexpected fallback webmail URL: %q", got)
+	}
+}
+
 func TestSiteHTMLPageShowsLoggedInPublicUser(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()
@@ -300,7 +347,7 @@ func TestSiteHTMLPageShowsLoggedInPublicUser(t *testing.T) {
 	}
 }
 
-func TestSiteHTMLPageShowsPublicAuthLinks(t *testing.T) {
+func TestSiteHTMLPageShowsPublicSignInWithoutRegisterOnCustomerDomain(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()
 	t.Cleanup(func() { localBoxBase = oldBase })
@@ -318,8 +365,31 @@ func TestSiteHTMLPageShowsPublicAuthLinks(t *testing.T) {
 	rootHandler(rr, req)
 
 	body := rr.Body.String()
-	if rr.Code != http.StatusOK || !strings.Contains(body, `href="/register?next=%2Fsoftware.html"`) || !strings.Contains(body, `href="/login?public=1&next=%2Fsoftware.html"`) || strings.Contains(body, "Logout") {
-		t.Fatalf("expected static page with public auth links, code=%d body=%q", rr.Code, body)
+	if rr.Code != http.StatusOK || strings.Contains(body, `href="/register?next=%2Fsoftware.html"`) || !strings.Contains(body, `href="/login?public=1&next=%2Fsoftware.html"`) || strings.Contains(body, "Logout") {
+		t.Fatalf("expected static customer page with sign-in only, code=%d body=%q", rr.Code, body)
+	}
+}
+
+func TestSiteHTMLPageShowsRegisterOnPrimaryDomain(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := primaryLocalBoxHost
+	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(domainSiteBase(domain), "software.html"), []byte("<!doctype html><html><body><h1>Software</h1></body></html>"), 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "http://"+primaryLocalBoxHost+"/software.html", nil)
+	rr := httptest.NewRecorder()
+	rootHandler(rr, req)
+
+	body := rr.Body.String()
+	if rr.Code != http.StatusOK || !strings.Contains(body, `href="/register?next=%2Fsoftware.html"`) || !strings.Contains(body, `href="/login?public=1&next=%2Fsoftware.html"`) {
+		t.Fatalf("expected primary domain page with register and sign-in links, code=%d body=%q", rr.Code, body)
 	}
 }
 
@@ -353,7 +423,7 @@ func TestIndexHTMLPageShowsLoggedInPublicUser(t *testing.T) {
 	}
 }
 
-func TestRegisterHandlerInfersDomainFromSiteHost(t *testing.T) {
+func TestRegisterHandlerAllowsPrimaryDomain(t *testing.T) {
 	oldDB := orderDBFile
 	oldSender := sendOrderNotificationEmail
 	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
@@ -368,7 +438,7 @@ func TestRegisterHandlerInfersDomainFromSiteHost(t *testing.T) {
 	}
 
 	form := strings.NewReader("next=%2Fshopping.html&full_name=Buyer+Example&email=buyer%40example.net&phone=%2B27821234567&address_line_1=1+Example+Street&address_line_2=Unit+4&city=Cape+Town&province=Western+Cape&postal_code=8001&country=ZA&username=buyer&currency=USD&password=secret-password&confirm_password=secret-password")
-	req := httptest.NewRequest("POST", "http://example.com/register", form)
+	req := httptest.NewRequest("POST", "http://"+primaryLocalBoxHost+"/register", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	registerHandler(rr, req)
@@ -377,10 +447,10 @@ func TestRegisterHandlerInfersDomainFromSiteHost(t *testing.T) {
 	if rr.Code != 200 || !strings.Contains(body, "You can then make purchases on this site") || !strings.Contains(body, ">Close</button>") || strings.Contains(body, `<form method="POST" action="/register">`) {
 		t.Fatalf("expected verification notice, code=%d body=%q", rr.Code, rr.Body.String())
 	}
-	if sent.To != "buyer@example.net" || sent.Subject != "Welcome to LocalBox" || !strings.Contains(sent.Body, "registered as a user for example.com") || !strings.Contains(sent.Body, "/register/verify?") || !strings.Contains(sent.HTMLBody, "<a href=") {
+	if sent.To != "buyer@example.net" || sent.Subject != "Welcome to LocalBox" || !strings.Contains(sent.Body, "registered as a user for "+primaryLocalBoxHost) || !strings.Contains(sent.Body, "/register/verify?") || !strings.Contains(sent.HTMLBody, "<a href=") {
 		t.Fatalf("expected verification email, got %#v", sent)
 	}
-	if !authenticatePublicUser("buyer", "example.com", "secret-password") {
+	if !authenticatePublicUser("buyer", primaryLocalBoxHost, "secret-password") {
 		t.Fatal("expected public user to be registered under request host domain")
 	}
 	db, err := openOrdersDB()
@@ -389,7 +459,7 @@ func TestRegisterHandlerInfersDomainFromSiteHost(t *testing.T) {
 	}
 	defer db.Close()
 	var currency, addressLine1, addressLine2, city, province, postalCode, country, physicalAddress string
-	if err := db.QueryRow(`SELECT currency, address_line_1, address_line_2, city, province, postal_code, country, physical_address FROM public_users WHERE domain = ? AND username = ?`, "example.com", "buyer").Scan(&currency, &addressLine1, &addressLine2, &city, &province, &postalCode, &country, &physicalAddress); err != nil {
+	if err := db.QueryRow(`SELECT currency, address_line_1, address_line_2, city, province, postal_code, country, physical_address FROM public_users WHERE domain = ? AND username = ?`, primaryLocalBoxHost, "buyer").Scan(&currency, &addressLine1, &addressLine2, &city, &province, &postalCode, &country, &physicalAddress); err != nil {
 		t.Fatal(err)
 	}
 	if currency != "USD" {
@@ -400,6 +470,19 @@ func TestRegisterHandlerInfersDomainFromSiteHost(t *testing.T) {
 	}
 	if physicalAddress != "1 Example Street, Unit 4, Cape Town, Western Cape, 8001, ZA" {
 		t.Fatalf("expected composed physical address, got %q", physicalAddress)
+	}
+}
+
+func TestRegisterHandlerRejectsCustomerDomainByDefault(t *testing.T) {
+	form := strings.NewReader("username=buyer&email=buyer%40example.net&password=secret-password&confirm_password=secret-password")
+	req := httptest.NewRequest("POST", "http://example.com/register", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	registerHandler(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected customer domain registration to be disabled, code=%d body=%q", rr.Code, rr.Body.String())
 	}
 }
 
@@ -453,6 +536,50 @@ func TestPublicLoginDoesNotRequirePostedDomain(t *testing.T) {
 
 	if rr.Code != 302 || rr.Header().Get("Location") != "/shopping.html" {
 		t.Fatalf("expected public login redirect without domain, code=%d location=%q body=%q", rr.Code, rr.Header().Get("Location"), rr.Body.String())
+	}
+}
+
+func TestPublicLoginAcceptsFullEmailUsername(t *testing.T) {
+	oldDB := orderDBFile
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	t.Cleanup(func() { orderDBFile = oldDB })
+
+	if err := registerPublicUser("example.com", "buyer", "buyer@example.net", "secret-password"); err != nil {
+		t.Fatal(err)
+	}
+	form := strings.NewReader("next=%2Fshopping.html&username=buyer%40example.com&password=secret-password")
+	req := httptest.NewRequest("POST", "http://example.com/login", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	loginHandler(rr, req)
+
+	if rr.Code != 302 || rr.Header().Get("Location") != "/shopping.html" {
+		t.Fatalf("expected public login redirect with full email, code=%d location=%q body=%q", rr.Code, rr.Header().Get("Location"), rr.Body.String())
+	}
+}
+
+func TestMailboxLoginAcceptsFullEmailUsername(t *testing.T) {
+	oldUsersFile := usersFile
+	usersFile = filepath.Join(t.TempDir(), "users.conf")
+	t.Cleanup(func() { usersFile = oldUsersFile })
+
+	hash, err := hashPasswordStrong("secret-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saveUsers([]User{{Username: "dan", Domain: "example.com", Hash: hash}}); err != nil {
+		t.Fatal(err)
+	}
+	form := strings.NewReader("username=dan%40example.com&domain=other.com&password=secret-password")
+	req := httptest.NewRequest("POST", "http://example.com/login", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	loginHandler(rr, req)
+
+	if rr.Code != 302 || rr.Header().Get("Location") != "/dashboard" {
+		t.Fatalf("expected mailbox login redirect with full email, code=%d location=%q body=%q", rr.Code, rr.Header().Get("Location"), rr.Body.String())
 	}
 }
 

@@ -161,6 +161,7 @@ output_log="/var/log/mail-ingest.log"
 error_log="/var/log/mail-ingest.log"
 export LOCALBOX_SECRET="$INGEST_SECRET"
 export LOCALBOX_BASE="/mnt/data/localbox"
+export LOCALBOX_WEBMAIL_URL="${LOCALBOX_WEBMAIL_URL:-https://mail.localboxmail.co.za}"
 depend() {
     need net
     after firewall
@@ -251,6 +252,60 @@ server {
 
     location = /dashboard {
         proxy_pass http://127.0.0.1:8080/dashboard;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /apps/mail {
+        proxy_pass http://127.0.0.1:8080/apps/mail;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /apps/files {
+        proxy_pass http://127.0.0.1:8080/apps/files;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /apps/files/ {
+        proxy_pass http://127.0.0.1:8080/apps/files/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /files {
+        proxy_pass http://127.0.0.1:8080/files;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /files/download {
+        proxy_pass http://127.0.0.1:8080/files/download;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /files/delete {
+        proxy_pass http://127.0.0.1:8080/files/delete;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;

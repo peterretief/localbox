@@ -3,7 +3,6 @@ package main
 import (
 	"html/template"
 	"net/http"
-	"net/url"
 )
 
 type DashboardLink struct {
@@ -33,7 +32,6 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	email := s.User + "@" + s.Domain
-	mailURL := "https://mail.localboxmail.co.za/#/login?username=" + url.QueryEscape(email)
 	data := DashboardData{
 		User:   s.User,
 		Domain: s.Domain,
@@ -42,19 +40,12 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 			{
 				Title:       "Mail",
 				Description: "Open ALPS webmail, contacts, and calendar.",
-				URL:         mailURL,
-				External:    true,
+				URL:         "/apps/mail",
 			},
 			{
 				Title:       "Files",
-				Description: "Upload, manage, and download files for this mailbox.",
-				URL:         "/files",
-			},
-			{
-				Title:       "WebDAV",
-				Description: "Open the standards-based WebDAV file endpoint.",
-				URL:         "https://files.localboxmail.co.za/",
-				External:    true,
+				Description: "Open the full file manager with sharing, previews, and folder tools.",
+				URL:         "/apps/files/",
 			},
 			{
 				Title:       "Password",
@@ -81,14 +72,18 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 	if isBoxAdmin(s.User, s.Domain) {
 		data.AdminLinks = append(data.AdminLinks,
 			DashboardLink{
-				Title:       "Orders",
-				Description: "Review LocalBox orders and customer requests.",
-				URL:         "/orders",
-			},
-			DashboardLink{
 				Title:       "System",
 				Description: "Manage domains, certificates, and box admin roles.",
 				URL:         "/system",
+			},
+		)
+	}
+	if isOrdersAdmin(s.User, s.Domain) {
+		data.AdminLinks = append(data.AdminLinks,
+			DashboardLink{
+				Title:       "Orders",
+				Description: "Review LocalBox orders and customer requests.",
+				URL:         "/orders",
 			},
 		)
 	}

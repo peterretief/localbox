@@ -20,6 +20,7 @@ var (
 	dovecotUsersFile       = "/etc/dovecot/localbox/users"
 	radicaleConfigFile     = "/etc/radicale/config"
 	radicaleUsersFile      = "/etc/radicale/users"
+	localBoxSSOSecretFile  = "/etc/localbox/sso-secret"
 	passwordResetTokenFile = "/etc/localbox/password-reset-tokens.conf"
 	securityLogFile        = "/var/localbox/security.log"
 	localBoxBase           = "/mnt/data/localbox"

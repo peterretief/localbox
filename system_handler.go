@@ -13,6 +13,7 @@ func systemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := systemView()
+	data.Access = accessView(s)
 	if r.Method == http.MethodPost {
 		action := r.FormValue("action")
 		var err error
@@ -49,6 +50,7 @@ func systemHandler(w http.ResponseWriter, r *http.Request) {
 		data.Domains = fresh.Domains
 		data.DomainAdmins = fresh.DomainAdmins
 		data.BoxAdmins = fresh.BoxAdmins
+		data.Access = accessView(s)
 	} else if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
