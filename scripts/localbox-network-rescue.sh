@@ -43,6 +43,15 @@ iface $iface inet dhcp
 EOF
 }
 
+persist_network_config() {
+    command -v lbu >/dev/null 2>&1 || return 0
+    if [ -f /etc/lbu/lbu.conf ]; then
+        sed -i 's/# LBU_MEDIA=.*/LBU_MEDIA=mmcblk0p1/;s/^LBU_MEDIA=.*/LBU_MEDIA=mmcblk0p1/' /etc/lbu/lbu.conf 2>/dev/null || true
+    fi
+    lbu add /etc/network/interfaces /etc/runlevels/default/networking 2>>"$LOG_FILE" || true
+    lbu commit -d 2>>"$LOG_FILE" || true
+}
+
 ifaces=""
 for _ in $(seq 1 20); do
     ifaces=$(candidate_ifaces)
@@ -78,6 +87,7 @@ printf '%s\n' "$ifaces" | while IFS= read -r iface; do
         log "requesting dhcp with udhcpc on $iface"
         udhcpc -i "$iface" -q -t 12 -T 4 2>>"$LOG_FILE" || true
     fi
+    persist_network_config
 done
 
 ip -4 addr show 2>>"$LOG_FILE" >> "$LOG_FILE" || true
