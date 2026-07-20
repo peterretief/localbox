@@ -92,8 +92,7 @@ description="LocalBox first boot provisioning"
 command="/usr/local/sbin/localbox-firstboot"
 command_background=false
 depend() {
-    need net
-    after chronyd
+    after networking localbox-network-rescue chronyd
 }
 EOF
 chmod +x "$WORK/etc/init.d/localbox-firstboot"
@@ -105,6 +104,7 @@ description="LocalBox network rescue DHCP fallback"
 command="/usr/local/sbin/localbox-network-rescue"
 command_background=false
 depend() {
+    provide net
     after networking
     before sshd localbox-firstboot
 }

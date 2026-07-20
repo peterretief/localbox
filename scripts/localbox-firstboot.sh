@@ -114,6 +114,7 @@ iface eth0 inet dhcp
 EOF
 rc-update add networking default 2>/dev/null || true
 rc-service networking restart 2>/dev/null || rc-service networking start 2>/dev/null || true
+/usr/local/sbin/localbox-network-rescue 2>/dev/null || true
 
 echo ">> Configuring repositories..."
 cat > /etc/apk/repositories << 'EOF'

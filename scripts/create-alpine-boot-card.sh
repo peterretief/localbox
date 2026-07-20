@@ -120,10 +120,10 @@ partition_for() {
 BOOT_PART=$(partition_for "$TARGET")
 MOUNT_DIR=$(mktemp -d /tmp/localbox-piboot.XXXXXX)
 cleanup() {
-    if mountpoint -q "$MOUNT_DIR"; then
+    if [ -n "${MOUNT_DIR:-}" ] && mountpoint -q "$MOUNT_DIR"; then
         sudo umount "$MOUNT_DIR"
     fi
-    rmdir "$MOUNT_DIR" 2>/dev/null || true
+    [ -z "${MOUNT_DIR:-}" ] || rmdir "$MOUNT_DIR" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -170,8 +170,25 @@ cp "$BASE_APKOVL" "$MOUNT_DIR/headless.apkovl.tar.gz"
 echo ">> Patching boot card..."
 BOOT_MOUNT="$MOUNT_DIR" FIRSTBOOT_CONFIG="$FIRSTBOOT_CONFIG" "$SCRIPT_DIR/prepare-pi-boot-card.sh"
 
+echo ">> Syncing writes..."
 sync
+echo ">> Unmounting boot partition..."
+sudo umount "$MOUNT_DIR"
+rmdir "$MOUNT_DIR" 2>/dev/null || true
+MOUNT_DIR=""
+
+if command -v udisksctl >/dev/null 2>&1; then
+    echo ">> Powering off $TARGET..."
+    if udisksctl power-off -b "$TARGET" >/dev/null 2>&1; then
+        echo "SD card reader powered off."
+    else
+        echo "Could not power off $TARGET automatically. The partition is unmounted; wait for activity to stop before removing it."
+    fi
+else
+    echo "udisksctl not found. The partition is unmounted; wait for activity to stop before removing the card."
+fi
+
 echo "Fresh Alpine boot card prepared."
 echo "Device:     $TARGET"
 echo "Partition:  $BOOT_PART"
-echo "Mount used: $MOUNT_DIR"
+echo "Remove the SD card and boot it in the Raspberry Pi."
