@@ -2,6 +2,8 @@
 set -eu
 
 LOG_FILE=${LOG_FILE:-/media/mmcblk0p1/localbox-network.log}
+RESCUE_IP=${RESCUE_IP:-192.168.0.250/24}
+RESCUE_GATEWAY=${RESCUE_GATEWAY:-192.168.0.1}
 if ! touch "$LOG_FILE" 2>/dev/null; then
     LOG_FILE=/tmp/localbox-network.log
     touch "$LOG_FILE" 2>/dev/null || true
@@ -52,6 +54,18 @@ persist_network_config() {
     lbu commit -d 2>>"$LOG_FILE" || true
 }
 
+ensure_static_rescue_ip() {
+    iface=$1
+    if ip -4 addr show dev "$iface" 2>>"$LOG_FILE" | grep -q 'inet '; then
+        log "ipv4 address already present on $iface"
+        return 0
+    fi
+    log "no dhcp lease on $iface; adding rescue ip $RESCUE_IP"
+    ip addr add "$RESCUE_IP" dev "$iface" 2>>"$LOG_FILE" || true
+    ip route show default 2>>"$LOG_FILE" | grep -q '^default ' || \
+        ip route add default via "$RESCUE_GATEWAY" dev "$iface" 2>>"$LOG_FILE" || true
+}
+
 ifaces=""
 for _ in $(seq 1 20); do
     ifaces=$(candidate_ifaces)
@@ -87,6 +101,7 @@ printf '%s\n' "$ifaces" | while IFS= read -r iface; do
         log "requesting dhcp with udhcpc on $iface"
         udhcpc -i "$iface" -q -t 12 -T 4 2>>"$LOG_FILE" || true
     fi
+    ensure_static_rescue_ip "$iface"
     persist_network_config
 done
 
