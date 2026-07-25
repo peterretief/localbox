@@ -261,13 +261,13 @@
                 <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('design-assistant-request').value)">Copy request</button>
                 {{if .AssistantDraftName}}
                 <form method="POST" action="/page/assistant">
-                    <input type="hidden" name="action" value="save_request_html">
+                    <input type="hidden" name="action" value="generate_html">
                     <input type="hidden" name="name" value="{{.AssistantDraftName}}">
-                    <button type="submit">Save as HTML file</button>
+                    <button type="submit">Generate HTML file</button>
                 </form>
                 {{end}}
             </div>
-            <p class="help" style="margin-top:14px;">Copy the request into an online AI website generator, save the generated file as <strong>index.html</strong>, then upload it from the HTML Site tab. Saving this request as HTML creates <strong>ai-website-request.html</strong> for reference only; it does not publish the homepage.</p>
+            <p class="help" style="margin-top:14px;">Copy the request into ChatGPT or another AI tool, or generate a local starter HTML page from the brief. Generated HTML is saved as <strong>ai-generated-page.html</strong> in the HTML Site files for review; it does not publish the homepage automatically.</p>
         </section>
         {{end}}
 
@@ -297,9 +297,9 @@
                                     <button type="submit">Preview</button>
                                 </form>
                                 <form method="POST" action="/page/assistant">
-                                    <input type="hidden" name="action" value="save_request_html">
+                                    <input type="hidden" name="action" value="generate_html">
                                     <input type="hidden" name="name" value="{{.Name}}">
-                                    <button type="submit">Save HTML</button>
+                                    <button type="submit">Generate HTML</button>
                                 </form>
                             </div>
                         </td>

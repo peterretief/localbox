@@ -53,32 +53,40 @@ func TestDesignDraftSaveLoad(t *testing.T) {
 	}
 }
 
-func TestSaveDesignRequestHTMLCreatesNonActiveHTMLFile(t *testing.T) {
+func TestSaveGeneratedDesignHTMLCreatesNonActiveHTMLFile(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()
 	t.Cleanup(func() { localBoxBase = oldBase })
 
 	domain := "example.co.za"
-	name, err := saveDesignRequestHTML(domain, "# Request\n\nCreate index.html")
+	request, err := generateLocalDesignDraft(domain, DesignAssistantRequest{
+		Brief: "Create a warm site for Example Clinic. Include appointments and follow-up care.",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if name != "ai-website-request.html" {
-		t.Fatalf("expected ai-website-request.html, got %q", name)
+	name, err := saveGeneratedDesignHTML(domain, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "ai-generated-page.html" {
+		t.Fatalf("expected ai-generated-page.html, got %q", name)
 	}
 	data, err := os.ReadFile(filepath.Join(domainSiteBase(domain), name))
 	if err != nil {
 		t.Fatal(err)
 	}
 	body := string(data)
-	if !strings.Contains(body, "AI Website Request") || !strings.Contains(body, "Create index.html") {
-		t.Fatalf("unexpected request html:\n%s", body)
+	for _, want := range []string{"<title>example.co.za</title>", "Example Clinic", `action="/contact"`, "Draft page for example.co.za"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("generated html missing %q:\n%s", want, body)
+		}
 	}
 	if _, err := os.Stat(homeHTMLPath(domain)); !os.IsNotExist(err) {
-		t.Fatalf("request html should not publish index.html, err=%v", err)
+		t.Fatalf("generated html should not publish index.html, err=%v", err)
 	}
 	if !isUploadedHTML(domain, name) {
-		t.Fatal("expected request html to be listed as uploaded html")
+		t.Fatal("expected generated html to be listed as uploaded html")
 	}
 }
 
