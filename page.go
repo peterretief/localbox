@@ -371,11 +371,6 @@ func publishHTMLNavigation(domain string) error {
 		return err
 	}
 	source := string(data)
-	lower := strings.ToLower(source)
-	closeNav := strings.Index(lower, "</nav>")
-	if closeNav == -1 {
-		return fmt.Errorf("active HTML homepage has no nav element")
-	}
 
 	var links []string
 	for _, item := range existingSiteMenuItems(domain, loadSiteMenuItems(domain)) {
@@ -389,12 +384,48 @@ func publishHTMLNavigation(domain string) error {
 		return saveSiteMode(domain, "html")
 	}
 
-	insert := "\n" + strings.Join(links, "\n") + "\n"
-	updated := source[:closeNav] + insert + source[closeNav:]
+	insertAt := firstHTMLClassClose(source, "nav-links")
+	if insertAt == -1 {
+		insertAt = strings.Index(strings.ToLower(source), "</nav>")
+	}
+	updated := ""
+	if insertAt >= 0 {
+		insert := "\n" + strings.Join(links, "\n") + "\n"
+		updated = source[:insertAt] + insert + source[insertAt:]
+	} else if bodyEnd := firstOpeningTagEnd(source, "body"); bodyEnd >= 0 {
+		insert := "\n<nav class=\"localbox-page-nav\" aria-label=\"Page navigation\">\n" + strings.Join(links, "\n") + "\n</nav>\n"
+		updated = source[:bodyEnd] + insert + source[bodyEnd:]
+	} else {
+		return fmt.Errorf("active HTML homepage has no place for navigation")
+	}
 	if _, err := backupHomeHTML(domain); err != nil {
 		return err
 	}
 	return publishHomeHTML(domain, []byte(updated))
+}
+
+func firstHTMLClassClose(source, className string) int {
+	pattern := regexp.MustCompile(`(?is)<([a-z0-9]+)\b[^>]*class\s*=\s*["'][^"']*` + regexp.QuoteMeta(className) + `[^"']*["'][^>]*>`)
+	match := pattern.FindStringSubmatchIndex(source)
+	if match == nil {
+		return -1
+	}
+	tag := strings.ToLower(source[match[2]:match[3]])
+	closeMarker := "</" + tag + ">"
+	close := strings.Index(strings.ToLower(source[match[1]:]), closeMarker)
+	if close == -1 {
+		return -1
+	}
+	return match[1] + close
+}
+
+func firstOpeningTagEnd(source, tag string) int {
+	pattern := regexp.MustCompile(`(?is)<` + regexp.QuoteMeta(tag) + `\b[^>]*>`)
+	match := pattern.FindStringIndex(source)
+	if match == nil {
+		return -1
+	}
+	return match[1]
 }
 
 func restoreSiteHTMLFile(domain, name string) error {

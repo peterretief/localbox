@@ -240,6 +240,8 @@
                     </div>
                     <div class="actions">
                         <button type="submit">Publish HTML navigation</button>
+                        {{if .UploadSuccess}}<span class="status">{{.UploadSuccess}}</span>{{end}}
+                        {{if .UploadError}}<span class="error">{{.UploadError}}</span>{{end}}
                     </div>
                 </form>
                 {{else}}

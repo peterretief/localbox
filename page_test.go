@@ -1030,7 +1030,7 @@ func TestPublishHTMLNavigationInsertsSelectedPageLinks(t *testing.T) {
 	if err := os.MkdirAll(site, 0775); err != nil {
 		t.Fatal(err)
 	}
-	home := `<!doctype html><html><body><header><nav><a href="/">Home</a></nav></header><main>Home</main></body></html>`
+	home := `<!doctype html><html><body><header><nav class="nav"><a href="/">Home</a><div class="nav-links"><a href="/contact.html">Contact</a></div></nav></header><main>Home</main></body></html>`
 	if err := os.WriteFile(homeHTMLPath(domain), []byte(home), 0664); err != nil {
 		t.Fatal(err)
 	}
@@ -1055,6 +1055,10 @@ func TestPublishHTMLNavigationInsertsSelectedPageLinks(t *testing.T) {
 	body := string(data)
 	if !strings.Contains(body, `<a href="/about.html">About us</a>`) {
 		t.Fatalf("expected about link in nav, got %s", body)
+	}
+	if !strings.Contains(body, `<a href="/about.html">About us</a>
+</div>`) {
+		t.Fatalf("expected about link inside nav-links container, got %s", body)
 	}
 	if loadSiteMode(domain) != "html" {
 		t.Fatal("expected HTML mode after publishing HTML navigation")
