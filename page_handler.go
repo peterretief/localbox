@@ -301,6 +301,11 @@ func pageAssistantHandler(w http.ResponseWriter, r *http.Request) {
 				data.AssistantError = "Could not publish draft."
 				break
 			}
+			if _, err := backupCurrentHomeMarkdown(s.Domain); err != nil {
+				data.AssistantError = "Could not back up the current homepage."
+				break
+			}
+			draft = stripDesignAssistantReviewNote(draft)
 			if err := saveHomePage(s.Domain, draft); err != nil {
 				data.AssistantError = "Could not publish draft."
 				break

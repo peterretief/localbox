@@ -59,6 +59,10 @@ func designAssistantDraftsPath(domain string) string {
 	return filepath.Join(domainSiteBase(domain), "drafts")
 }
 
+func designAssistantBackupsPath(domain string) string {
+	return filepath.Join(domainSiteBase(domain), "draft-backups")
+}
+
 func generateLocalDesignDraft(domain string, req DesignAssistantRequest) (string, error) {
 	if !designAssistantEnabled() {
 		return "", fmt.Errorf("design assistant is disabled")
@@ -163,6 +167,18 @@ func designAssistantLines(value string) []string {
 	return lines
 }
 
+func stripDesignAssistantReviewNote(content string) string {
+	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
+	var kept []string
+	for _, line := range lines {
+		if strings.Contains(line, "Draft generated locally for ") && strings.Contains(line, "Review before publishing") {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.TrimSpace(strings.Join(kept, "\n")) + "\n"
+}
+
 func saveDesignDraft(domain, content string) (string, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
@@ -184,6 +200,30 @@ func saveDesignDraft(domain, content string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("could not allocate draft name")
+}
+
+func backupCurrentHomeMarkdown(domain string) (string, error) {
+	current, err := loadHomeMarkdown(domain)
+	if err != nil {
+		return "", err
+	}
+	current = strings.TrimSpace(current)
+	if current == "" {
+		return "", nil
+	}
+	dir := designAssistantBackupsPath(domain)
+	if err := os.MkdirAll(dir, 0775); err != nil {
+		return "", err
+	}
+	now := time.Now().UTC()
+	for i := 0; i < 100; i++ {
+		name := "home-" + now.Add(time.Duration(i)*time.Second).Format("20060102T150405Z") + ".md"
+		path := filepath.Join(dir, name)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			return name, writeFileAtomic(path, []byte(current+"\n"), 0664)
+		}
+	}
+	return "", fmt.Errorf("could not allocate backup name")
 }
 
 func listDesignDrafts(domain string) ([]DesignDraft, error) {

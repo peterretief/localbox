@@ -64,6 +64,41 @@ func TestDesignDraftSaveLoadAndPublish(t *testing.T) {
 	}
 }
 
+func TestBackupCurrentHomeMarkdown(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := "example.co.za"
+	if err := saveHomePage(domain, "# Original\n\nKeep this"); err != nil {
+		t.Fatal(err)
+	}
+	name, err := backupCurrentHomeMarkdown(domain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name == "" {
+		t.Fatal("expected backup name")
+	}
+	backup, err := os.ReadFile(filepath.Join(designAssistantBackupsPath(domain), name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(backup), "Keep this") {
+		t.Fatalf("expected backup content, got %s", backup)
+	}
+}
+
+func TestStripDesignAssistantReviewNote(t *testing.T) {
+	content := stripDesignAssistantReviewNote("# Title\n\nBody\n\n_Draft generated locally for example.co.za. Review before publishing._\n")
+	if strings.Contains(content, "Draft generated locally") {
+		t.Fatalf("expected review note to be stripped, got %s", content)
+	}
+	if !strings.Contains(content, "Body") {
+		t.Fatalf("expected content to remain, got %s", content)
+	}
+}
+
 func TestPageAssistantHandlerGeneratesDraftWithoutPublishing(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()
