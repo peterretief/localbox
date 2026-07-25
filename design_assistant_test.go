@@ -17,7 +17,7 @@ func TestGenerateLocalDesignDraft(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"# AI Website Request for example.co.za", "ChatGPT", "single-file static HTML website", "narrow readable content column", "index.html", "Dave's Repairs", "fridges and washing machines", "Upload Instructions", "Upload HTML", "has not changed the live website"} {
+	for _, want := range []string{"# AI Website Request for example.co.za", "ChatGPT", "single-file static HTML website", "narrow readable content column", "index.html", "about.html", "Style continuity", "current homepage style", "Dave's Repairs", "fridges and washing machines", "Upload Instructions", "Upload HTML", "has not changed the live website"} {
 		if !strings.Contains(draft, want) {
 			t.Fatalf("request missing %q:\n%s", want, draft)
 		}

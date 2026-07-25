@@ -60,6 +60,7 @@ type PageEditorData struct {
 	UploadError        string
 	UploadSuccess      string
 	PastedHTML         string
+	PastedHTMLName     string
 }
 
 type SiteHTMLFile struct {
@@ -69,6 +70,8 @@ type SiteHTMLFile struct {
 	Homepage    bool
 	InMenu      bool
 	MenuLabel   string
+	Link        string
+	HTMLLink    string
 	Size        int64
 	DisplaySize string
 	Modified    string
@@ -332,6 +335,8 @@ func listSiteHTMLFiles(domain string) ([]SiteHTMLFile, error) {
 			Homepage:    isHomeHTMLName(entry.Name()),
 			InMenu:      inMenu,
 			MenuLabel:   menuLabel,
+			Link:        siteHTMLFileLink(entry.Name()),
+			HTMLLink:    siteHTMLFileHTMLLink(entry.Name()),
 			Size:        info.Size(),
 			DisplaySize: displaySize(info.Size()),
 			Modified:    info.ModTime().Format("2006-01-02 15:04"),
@@ -346,6 +351,18 @@ func listSiteHTMLFiles(domain string) ([]SiteHTMLFile, error) {
 	})
 
 	return files, nil
+}
+
+func siteHTMLFileLink(name string) string {
+	if name == "index.html" {
+		return "/"
+	}
+	return "/" + name
+}
+
+func siteHTMLFileHTMLLink(name string) string {
+	label := defaultMenuLabel(name)
+	return fmt.Sprintf(`<a href="%s">%s</a>`, siteHTMLFileLink(name), label)
 }
 
 func restoreSiteHTMLFile(domain, name string) error {

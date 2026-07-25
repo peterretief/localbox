@@ -917,6 +917,65 @@ func TestPageHTMLHandlerPublishesPastedHTML(t *testing.T) {
 	}
 }
 
+func TestPageHTMLHandlerSavesPastedHTMLPage(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+	oldUsers := usersFile
+	oldAdmins := adminsFile
+	usersFile = filepath.Join(t.TempDir(), "users.conf")
+	adminsFile = filepath.Join(t.TempDir(), "admins.conf")
+	t.Cleanup(func() {
+		usersFile = oldUsers
+		adminsFile = oldAdmins
+	})
+	if err := os.WriteFile(usersFile, []byte("admin:example.com:x\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(adminsFile, []byte("admin:example.com\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(domainSiteBase("example.com"), 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(homeHTMLPath("example.com"), []byte("active home"), 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	htmlBody := "<!doctype html><html><body><h1>About</h1></body></html>"
+	form := url.Values{}
+	form.Set("action", "paste_html")
+	form.Set("html_name", "about.html")
+	form.Set("html_body", htmlBody)
+	req := httptest.NewRequest(http.MethodPost, "https://example.com/page/html", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("admin", "example.com")})
+	rec := httptest.NewRecorder()
+
+	pageHTMLHandler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+	page, err := os.ReadFile(filepath.Join(domainSiteBase("example.com"), "about.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(page), "<h1>About</h1>") {
+		t.Fatalf("expected pasted page to be saved, got %s", string(page))
+	}
+	active, err := os.ReadFile(homeHTMLPath("example.com"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(active) != "active home" {
+		t.Fatalf("expected active homepage to stay unchanged, got %q", string(active))
+	}
+	if !isUploadedHTML("example.com", "about.html") {
+		t.Fatal("expected about.html to be recorded as uploaded HTML")
+	}
+}
+
 func TestPageHTMLHandlerLoadsPublishedHTMLIntoEditor(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()

@@ -195,10 +195,16 @@
             </form>
             <form method="POST" action="/page/html">
                 <input type="hidden" name="action" value="paste_html">
-                <p class="help">If an AI tool shows code instead of a download, copy the complete HTML and paste it here. You can also load the published homepage, add image snippets, and publish it again.</p>
+                <p class="help">If an AI tool shows code instead of a download, copy the complete HTML and paste it here. Use <strong>index.html</strong> for the homepage, or a safe name like <strong>about.html</strong> for another page.</p>
+                <div class="menu-row" style="max-width:620px;margin-bottom:10px;">
+                    <label>
+                        <span class="file-name">File name</span>
+                    </label>
+                    <input type="text" name="html_name" value="{{.PastedHTMLName}}" maxlength="80" placeholder="index.html">
+                </div>
                 <textarea name="html_body" spellcheck="false" placeholder="Paste the full index.html code here">{{.PastedHTML}}</textarea>
                 <div class="actions">
-                    <button type="submit">Publish HTML from editor</button>
+                    <button type="submit">Save HTML from editor</button>
                 </div>
             </form>
             <div class="upload">
@@ -246,6 +252,13 @@
                                 {{else}}
                                 <a href="/{{.Name}}" target="_blank" rel="noopener">Open</a>
                                 {{end}}
+                                <form method="POST" action="/page/html">
+                                    <input type="hidden" name="action" value="load_html_page">
+                                    <input type="hidden" name="name" value="{{.Name}}">
+                                    <button type="submit">Edit</button>
+                                </form>
+                                <button type="button" onclick="navigator.clipboard.writeText('{{.Link}}')">Copy link</button>
+                                <button type="button" onclick="navigator.clipboard.writeText('{{.HTMLLink}}')">Copy nav HTML</button>
                                 {{if not .Active}}
                                 <form method="POST" action="/page/html">
                                     <input type="hidden" name="action" value="delete_html">

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -107,6 +108,7 @@ func pageHTMLHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	data := newPageEditorData(s.Domain, content)
 	data.Section = "html"
+	data.PastedHTMLName = "index.html"
 
 	if r.Method != http.MethodPost {
 		tmpl := template.Must(template.ParseFiles("templates/page.html"))
@@ -143,26 +145,50 @@ func pageHTMLHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	case "paste_html":
 		htmlBody := strings.TrimSpace(r.FormValue("html_body"))
+		htmlName := strings.TrimSpace(r.FormValue("html_name"))
+		if htmlName == "" {
+			htmlName = "index.html"
+		}
+		data.PastedHTMLName = htmlName
 		data.PastedHTML = htmlBody
 		if htmlBody == "" {
 			data.UploadError = "Paste the generated HTML first."
 			break
 		}
-		name, err := saveUploadedHomeHTML(s.Domain, []byte(htmlBody+"\n"))
+		name, publishedHome, err := saveUploadedSiteHTML(s.Domain, htmlName, []byte(htmlBody+"\n"))
 		if err != nil {
 			data.UploadError = err.Error()
-		} else {
+		} else if publishedHome {
 			data.Mode = "html"
 			data.PastedHTML = ""
-			data.UploadSuccess = "Pasted HTML homepage published as " + name + "."
+			data.PastedHTMLName = "index.html"
+			data.UploadSuccess = "HTML homepage published as " + name + "."
+		} else {
+			data.PastedHTML = ""
+			data.UploadSuccess = "HTML page saved as " + name + ". Add it to the menu or copy its link into the homepage nav."
 		}
 	case "load_active_html":
 		body, err := os.ReadFile(homeHTMLPath(s.Domain))
 		if err != nil {
 			data.UploadError = "Could not load the published HTML homepage."
 		} else {
+			data.PastedHTMLName = "index.html"
 			data.PastedHTML = string(body)
 			data.UploadSuccess = "Published HTML loaded into the editor."
+		}
+	case "load_html_page":
+		name := cleanUploadedHTMLName(r.FormValue("name"))
+		if !allowedUploadedHTMLName(name) {
+			data.UploadError = "Could not load HTML page."
+			break
+		}
+		body, err := os.ReadFile(filepath.Join(domainSiteBase(s.Domain), name))
+		if err != nil {
+			data.UploadError = "Could not load HTML page."
+		} else {
+			data.PastedHTMLName = name
+			data.PastedHTML = string(body)
+			data.UploadSuccess = "Loaded " + name + " into the editor."
 		}
 	case "restore_html":
 		name := r.FormValue("name")
