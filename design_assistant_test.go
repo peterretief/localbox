@@ -24,6 +24,33 @@ func TestGenerateLocalDesignDraft(t *testing.T) {
 	}
 }
 
+func TestGenerateLocalDesignDraftIncludesHomepageStyleReference(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := "example.co.za"
+	if err := os.MkdirAll(domainSiteBase(domain), 0775); err != nil {
+		t.Fatal(err)
+	}
+	home := `<!doctype html><html><head><style>.brand{color:#123}.button{border-radius:8px}</style></head><body><header><nav><a href="/">Home</a><a href="/contact.html">Contact</a></nav></header><main><h1>Homepage copy</h1></main><footer>Footer style</footer></body></html>`
+	if err := os.WriteFile(homeHTMLPath(domain), []byte(home), 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	draft, err := generateLocalDesignDraft(domain, DesignAssistantRequest{
+		Brief: "Create an extra page called services.html.",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Current Homepage Style Reference", ".brand{color:#123}", "<nav>", "Footer style"} {
+		if !strings.Contains(draft, want) {
+			t.Fatalf("request missing style reference %q:\n%s", want, draft)
+		}
+	}
+}
+
 func TestDesignDraftSaveLoad(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()

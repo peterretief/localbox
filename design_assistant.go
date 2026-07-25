@@ -13,6 +13,7 @@ import (
 const (
 	designAssistantMaxField = 500
 	designAssistantMaxBrief = 4000
+	designDraftMaxBytes     = 30000
 )
 
 var designDraftNamePattern = regexp.MustCompile(`^draft-\d{8}T\d{6}Z\.md$`)
@@ -81,7 +82,12 @@ func generateLocalDesignDraft(domain string, req DesignAssistantRequest) (string
 	fmt.Fprintf(&b, "Style continuity for future page requests:\n\n")
 	fmt.Fprintf(&b, "- If this is an extra page for an existing site, match the current homepage style closely: colors, typography, button style, header/nav/footer, spacing, border radius, image treatment, and mobile layout.\n")
 	fmt.Fprintf(&b, "- Keep navigation consistent across pages. Use relative links such as `/`, `/about.html`, `/services.html`, and `/contact.html`.\n")
-	fmt.Fprintf(&b, "- If the current homepage HTML is pasted into the chat, treat it as the style source and create the new page in the same design language without copying unrelated text.\n\n")
+	fmt.Fprintf(&b, "- If a current homepage style reference is included below, treat it as the style source and create the new page in the same design language without copying unrelated text.\n\n")
+	if style := currentHomepageStyleReference(domain); style != "" {
+		fmt.Fprintf(&b, "## Current Homepage Style Reference\n\n")
+		fmt.Fprintf(&b, "Use this automatically included homepage excerpt to match the site's style. Do not copy its business text unless it belongs in shared navigation or footer.\n\n")
+		fmt.Fprintf(&b, "```html\n%s\n```\n\n", style)
+	}
 	fmt.Fprintf(&b, "Suggested visual direction if the brief does not specify one:\n\n")
 	fmt.Fprintf(&b, "- Use a calm, minimalist online-presence layout with a narrow readable content column, simple top navigation, strong first image or portrait area, short introduction, services/projects/work sections, contact links, generous spacing, subtle borders, mobile-first responsiveness, and optional light/dark theme controls.\n")
 	fmt.Fprintf(&b, "- Do not copy any named person's content, branding, code, external assets, analytics, framework output, or generated build paths.\n\n")
@@ -132,7 +138,7 @@ func saveDesignDraft(domain, content string) (string, error) {
 	if content == "" {
 		return "", fmt.Errorf("draft is empty")
 	}
-	if len(content) > 12000 {
+	if len(content) > designDraftMaxBytes {
 		return "", fmt.Errorf("draft is too large")
 	}
 	dir := designAssistantDraftsPath(domain)
@@ -148,6 +154,47 @@ func saveDesignDraft(domain, content string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("could not allocate draft name")
+}
+
+func currentHomepageStyleReference(domain string) string {
+	data, err := os.ReadFile(homeHTMLPath(domain))
+	if err != nil {
+		return ""
+	}
+	source := string(data)
+	var parts []string
+	for _, tag := range []string{"style", "header", "nav", "footer"} {
+		if section := firstHTMLSection(source, tag); section != "" {
+			parts = append(parts, section)
+		}
+	}
+	if len(parts) == 0 {
+		parts = append(parts, firstRunes(source, 5000))
+	}
+	return firstRunes(strings.Join(parts, "\n\n"), 9000)
+}
+
+func firstHTMLSection(source, tag string) string {
+	lower := strings.ToLower(source)
+	open := strings.Index(lower, "<"+tag)
+	if open == -1 {
+		return ""
+	}
+	closeMarker := "</" + tag + ">"
+	close := strings.Index(lower[open:], closeMarker)
+	if close == -1 {
+		return firstRunes(source[open:], 2500)
+	}
+	close += open + len(closeMarker)
+	return firstRunes(strings.TrimSpace(source[open:close]), 5000)
+}
+
+func firstRunes(value string, limit int) string {
+	runes := []rune(value)
+	if len(runes) <= limit {
+		return value
+	}
+	return string(runes[:limit]) + "\n..."
 }
 
 func listDesignDrafts(domain string) ([]DesignDraft, error) {
