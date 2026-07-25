@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -154,6 +155,14 @@ func pageHTMLHandler(w http.ResponseWriter, r *http.Request) {
 			data.Mode = "html"
 			data.PastedHTML = ""
 			data.UploadSuccess = "Pasted HTML homepage published as " + name + "."
+		}
+	case "load_active_html":
+		body, err := os.ReadFile(homeHTMLPath(s.Domain))
+		if err != nil {
+			data.UploadError = "Could not load the published HTML homepage."
+		} else {
+			data.PastedHTML = string(body)
+			data.UploadSuccess = "Published HTML loaded into the editor."
 		}
 	case "restore_html":
 		name := r.FormValue("name")

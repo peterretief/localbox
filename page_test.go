@@ -916,3 +916,47 @@ func TestPageHTMLHandlerPublishesPastedHTML(t *testing.T) {
 		t.Fatalf("expected pasted html to switch site mode")
 	}
 }
+
+func TestPageHTMLHandlerLoadsPublishedHTMLIntoEditor(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+	oldUsers := usersFile
+	oldAdmins := adminsFile
+	usersFile = filepath.Join(t.TempDir(), "users.conf")
+	adminsFile = filepath.Join(t.TempDir(), "admins.conf")
+	t.Cleanup(func() {
+		usersFile = oldUsers
+		adminsFile = oldAdmins
+	})
+	if err := os.WriteFile(usersFile, []byte("admin:example.com:x\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(adminsFile, []byte("admin:example.com\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(domainSiteBase("example.com"), 0775); err != nil {
+		t.Fatal(err)
+	}
+	htmlBody := "<!doctype html><html><body><h1>Published page</h1></body></html>"
+	if err := os.WriteFile(homeHTMLPath("example.com"), []byte(htmlBody), 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	form := url.Values{}
+	form.Set("action", "load_active_html")
+	req := httptest.NewRequest(http.MethodPost, "https://example.com/page/html", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("admin", "example.com")})
+	rec := httptest.NewRecorder()
+
+	pageHTMLHandler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Published HTML loaded into the editor.") || !strings.Contains(body, "&lt;h1&gt;Published page&lt;/h1&gt;") {
+		t.Fatalf("expected published HTML to be loaded into editor, got %s", body)
+	}
+}

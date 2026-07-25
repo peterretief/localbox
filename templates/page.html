@@ -195,13 +195,17 @@
             </form>
             <form method="POST" action="/page/html">
                 <input type="hidden" name="action" value="paste_html">
-                <p class="help">If an AI tool shows code instead of a download, copy the complete HTML and paste it here. LocalBox will save it as the active homepage.</p>
+                <p class="help">If an AI tool shows code instead of a download, copy the complete HTML and paste it here. You can also load the published homepage, add image snippets, and publish it again.</p>
                 <textarea name="html_body" spellcheck="false" placeholder="Paste the full index.html code here">{{.PastedHTML}}</textarea>
                 <div class="actions">
-                    <button type="submit">Publish pasted HTML</button>
+                    <button type="submit">Publish HTML from editor</button>
                 </div>
             </form>
             <div class="upload">
+                <form method="POST" action="/page/html">
+                    <input type="hidden" name="action" value="load_active_html">
+                    <button type="submit">Load published HTML</button>
+                </form>
                 <form method="POST" action="/page/html">
                     <input type="hidden" name="action" value="use_markdown">
                     <button type="submit">Publish Markdown</button>
