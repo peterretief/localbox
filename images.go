@@ -20,6 +20,7 @@ type SiteImage struct {
 	Name        string
 	Path        string
 	Markdown    string
+	HTML        string
 	Size        int64
 	DisplaySize string
 }
@@ -51,6 +52,7 @@ func listSiteImages(domain string) ([]SiteImage, error) {
 			Name:        entry.Name(),
 			Path:        path,
 			Markdown:    fmt.Sprintf("![%s](%s)", imageAlt(entry.Name()), path),
+			HTML:        fmt.Sprintf(`<img src="%s" alt="%s">`, path, imageAlt(entry.Name())),
 			Size:        info.Size(),
 			DisplaySize: displaySize(info.Size()),
 		})
@@ -100,6 +102,7 @@ func saveSiteImage(domain string, file multipart.File, header *multipart.FileHea
 		Name:        name,
 		Path:        "/assets/images/" + name,
 		Markdown:    fmt.Sprintf("![%s](/assets/images/%s)", imageAlt(name), name),
+		HTML:        fmt.Sprintf(`<img src="/assets/images/%s" alt="%s">`, name, imageAlt(name)),
 		Size:        int64(len(data)),
 		DisplaySize: displaySize(int64(len(data))),
 	}, nil

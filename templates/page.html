@@ -33,6 +33,11 @@
         .image-name { font-weight: bold; font-size: 0.9em; margin-top: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .image-size { color: #777; font-size: 0.82em; margin-top: 2px; }
         .snippet { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font: 12px/1.4 monospace; color: #333; }
+        .snippet-row { margin-top: 10px; }
+        .snippet-row label { display: block; color: #555; font-size: 0.76em; font-weight: bold; text-transform: uppercase; }
+        .snippet-copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+        .snippet-copy .snippet { margin-top: 4px; }
+        .snippet-copy button { padding: 8px 10px; margin-top: 4px; }
         .image-actions { margin-top: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
         .empty { color: #777; padding: 12px 0; }
         .file-table { width: 100%; border-collapse: collapse; margin-top: 18px; }
@@ -111,7 +116,27 @@
                     <img src="{{.Path}}" alt="{{.Name}}" loading="lazy">
                     <div class="image-name">{{.Name}}</div>
                     <div class="image-size">{{.DisplaySize}}</div>
-                    <input class="snippet" readonly value="{{.Markdown}}" onclick="this.select()">
+                    <div class="snippet-row">
+                        <label>Image URL</label>
+                        <div class="snippet-copy">
+                            <input id="image-url-{{.Name}}" class="snippet" readonly value="{{.Path}}" onclick="this.select()">
+                            <button type="button" onclick="copyField('image-url-{{.Name}}')">Copy</button>
+                        </div>
+                    </div>
+                    <div class="snippet-row">
+                        <label>HTML</label>
+                        <div class="snippet-copy">
+                            <input id="image-html-{{.Name}}" class="snippet" readonly value="{{.HTML}}" onclick="this.select()">
+                            <button type="button" onclick="copyField('image-html-{{.Name}}')">Copy</button>
+                        </div>
+                    </div>
+                    <div class="snippet-row">
+                        <label>Markdown</label>
+                        <div class="snippet-copy">
+                            <input id="image-md-{{.Name}}" class="snippet" readonly value="{{.Markdown}}" onclick="this.select()">
+                            <button type="button" onclick="copyField('image-md-{{.Name}}')">Copy</button>
+                        </div>
+                    </div>
                     <div class="image-actions">
                         <a href="{{.Path}}" target="_blank">Open</a>
                         <form method="POST" action="/page/images">
@@ -321,5 +346,13 @@
         </section>
         {{end}}
     </div>
+    <script>
+        function copyField(id) {
+            const field = document.getElementById(id);
+            if (!field) return;
+            field.select();
+            navigator.clipboard.writeText(field.value);
+        }
+    </script>
 </body>
 </html>
