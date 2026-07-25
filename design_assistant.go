@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"html"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -147,133 +146,6 @@ func saveDesignDraft(domain, content string) (string, error) {
 	return "", fmt.Errorf("could not allocate draft name")
 }
 
-func saveGeneratedDesignHTML(domain, request string) (string, error) {
-	request = strings.TrimSpace(request)
-	if request == "" {
-		return "", fmt.Errorf("request is empty")
-	}
-	name, _, err := saveUploadedSiteHTML(domain, "ai-generated-page.html", []byte(renderGeneratedDesignHTML(domain, request)))
-	return name, err
-}
-
-func renderGeneratedDesignHTML(domain, request string) string {
-	brief := designBriefFromRequest(request)
-	if brief == "" {
-		brief = request
-	}
-	escapedDomain := html.EscapeString(domain)
-	escapedBrief := html.EscapeString(brief)
-	paragraphs := designBriefParagraphs(brief)
-	if len(paragraphs) == 0 {
-		paragraphs = []string{"Tell visitors who you are, what you do, and how to contact you."}
-	}
-	var body strings.Builder
-	for _, paragraph := range paragraphs {
-		fmt.Fprintf(&body, "<p>%s</p>\n", html.EscapeString(paragraph))
-	}
-	return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>` + escapedDomain + `</title>
-<style>
-:root{color-scheme:light dark;--bg:#f7f5f0;--ink:#1f2933;--muted:#667085;--card:#fff;--line:#dedbd2;--accent:#007c89}
-@media(prefers-color-scheme:dark){:root{--bg:#111827;--ink:#f9fafb;--muted:#c6ccd5;--card:#172033;--line:#2c374a;--accent:#65d6e6}}
-*{box-sizing:border-box}
-body{font-family:Inter,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.65}
-a{color:var(--accent)}
-.wrap{max-width:820px;margin:0 auto;padding:0 22px}
-header{padding:28px 0 18px}
-nav{display:flex;justify-content:space-between;gap:18px;align-items:center;border-bottom:1px solid var(--line);padding-bottom:16px}
-.brand{font-weight:800;color:var(--ink);text-decoration:none}
-.links{display:flex;gap:14px;flex-wrap:wrap}
-.links a{color:var(--muted);text-decoration:none}
-.hero{padding:54px 0 30px}
-.eyebrow{color:var(--accent);font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:13px;margin:0 0 12px}
-h1{font-size:clamp(34px,7vw,58px);line-height:1.02;margin:0 0 18px;letter-spacing:0}
-.intro{font-size:20px;color:var(--muted);max-width:690px}
-section{padding:24px 0}
-.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:26px}
-h2{font-size:22px;margin:0 0 14px}
-.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
-.button{display:inline-flex;align-items:center;min-height:42px;padding:0 16px;border-radius:7px;background:var(--accent);color:#fff;text-decoration:none;font-weight:800}
-.button.secondary{background:transparent;color:var(--accent);border:1px solid var(--accent)}
-form{display:grid;gap:12px;margin-top:18px}
-label{display:grid;gap:6px;font-weight:700}
-input,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
-textarea{min-height:130px}
-footer{color:var(--muted);font-size:14px;padding:34px 0}
-</style>
-</head>
-<body>
-<header class="wrap">
-<nav>
-<a class="brand" href="/">` + escapedDomain + `</a>
-<div class="links"><a href="#about">About</a><a href="#contact">Contact</a></div>
-</nav>
-</header>
-<main class="wrap">
-<section class="hero">
-<p class="eyebrow">Online presence</p>
-<h1>` + escapedDomain + `</h1>
-<p class="intro">A simple, trustworthy website draft generated from your LocalBox design brief.</p>
-<div class="actions"><a class="button" href="/contact.html">Contact us</a><a class="button secondary" href="#about">Learn more</a></div>
-</section>
-<section id="about">
-<div class="card">
-<h2>About</h2>
-` + body.String() + `
-</div>
-</section>
-<section id="contact">
-<div class="card">
-<h2>Contact</h2>
-<p>Use this form for questions, bookings, or quote requests.</p>
-<form method="POST" action="/contact">
-<label>Name<input name="name" autocomplete="name"></label>
-<label>Email<input name="email" type="email" autocomplete="email"></label>
-<label>Phone<input name="phone" autocomplete="tel"></label>
-<label>Message<textarea name="message">` + escapedBrief + `</textarea></label>
-<button class="button" type="submit">Send message</button>
-</form>
-</div>
-</section>
-</main>
-<footer class="wrap">Draft page for ` + escapedDomain + `. Review and edit before publishing.</footer>
-</body>
-</html>
-`
-}
-
-func designBriefFromRequest(request string) string {
-	marker := "from this brief:\n\n"
-	start := strings.Index(request, marker)
-	if start == -1 {
-		return ""
-	}
-	start += len(marker)
-	end := strings.Index(request[start:], "\n\nRequirements:")
-	if end == -1 {
-		return strings.TrimSpace(request[start:])
-	}
-	return strings.TrimSpace(request[start : start+end])
-}
-
-func designBriefParagraphs(brief string) []string {
-	var paragraphs []string
-	for _, line := range strings.Split(brief, "\n") {
-		line = cleanDesignAssistantText(line)
-		if line != "" {
-			paragraphs = append(paragraphs, line)
-		}
-		if len(paragraphs) >= 5 {
-			break
-		}
-	}
-	return paragraphs
-}
-
 func listDesignDrafts(domain string) ([]DesignDraft, error) {
 	entries, err := os.ReadDir(designAssistantDraftsPath(domain))
 	if os.IsNotExist(err) {
@@ -301,6 +173,13 @@ func listDesignDrafts(domain string) ([]DesignDraft, error) {
 		return drafts[i].Name > drafts[j].Name
 	})
 	return drafts, nil
+}
+
+func deleteDesignDraft(domain, name string) error {
+	if !designDraftNamePattern.MatchString(name) {
+		return fmt.Errorf("invalid draft")
+	}
+	return os.Remove(filepath.Join(designAssistantDraftsPath(domain), name))
 }
 
 func loadDesignDraft(domain, name string) (string, error) {

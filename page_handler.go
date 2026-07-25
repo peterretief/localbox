@@ -266,22 +266,13 @@ func pageAssistantHandler(w http.ResponseWriter, r *http.Request) {
 			data.AssistantDraftName = name
 			data.AssistantPreview = template.HTML(renderMarkdown(draft))
 			data.AssistantSuccess = "Request loaded."
-		case "generate_html":
+		case "delete_draft":
 			name := r.FormValue("name")
-			draft, err := loadDesignDraft(s.Domain, name)
-			if err != nil {
-				data.AssistantError = "Could not open request."
+			if err := deleteDesignDraft(s.Domain, name); err != nil {
+				data.AssistantError = "Could not delete request."
 				break
 			}
-			htmlName, err := saveGeneratedDesignHTML(s.Domain, draft)
-			if err != nil {
-				data.AssistantError = "Could not generate HTML file."
-				break
-			}
-			data.AssistantDraft = draft
-			data.AssistantDraftName = name
-			data.AssistantPreview = template.HTML(renderMarkdown(draft))
-			data.AssistantSuccess = "Generated " + htmlName + " in HTML Site files. Open the HTML Site tab to review or publish it."
+			data.AssistantSuccess = "Request deleted."
 		default:
 			data.AssistantError = "Unknown assistant action."
 		}

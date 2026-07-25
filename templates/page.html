@@ -261,13 +261,13 @@
                 <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('design-assistant-request').value)">Copy request</button>
                 {{if .AssistantDraftName}}
                 <form method="POST" action="/page/assistant">
-                    <input type="hidden" name="action" value="generate_html">
+                    <input type="hidden" name="action" value="delete_draft">
                     <input type="hidden" name="name" value="{{.AssistantDraftName}}">
-                    <button type="submit">Generate HTML file</button>
+                    <button class="danger" type="submit">Delete request</button>
                 </form>
                 {{end}}
             </div>
-            <p class="help" style="margin-top:14px;">Copy the request into ChatGPT or another AI tool, or generate a local starter HTML page from the brief. Generated HTML is saved as <strong>ai-generated-page.html</strong> in the HTML Site files for review; it does not publish the homepage automatically.</p>
+            <p class="help" style="margin-top:14px;">Copy the request into ChatGPT or another AI tool, ask it for <strong>index.html</strong>, then upload the generated file from the HTML Site tab.</p>
         </section>
         {{end}}
 
@@ -297,9 +297,9 @@
                                     <button type="submit">Preview</button>
                                 </form>
                                 <form method="POST" action="/page/assistant">
-                                    <input type="hidden" name="action" value="generate_html">
+                                    <input type="hidden" name="action" value="delete_draft">
                                     <input type="hidden" name="name" value="{{.Name}}">
-                                    <button type="submit">Generate HTML</button>
+                                    <button class="danger" type="submit">Delete</button>
                                 </form>
                             </div>
                         </td>

@@ -53,40 +53,21 @@ func TestDesignDraftSaveLoad(t *testing.T) {
 	}
 }
 
-func TestSaveGeneratedDesignHTMLCreatesNonActiveHTMLFile(t *testing.T) {
+func TestDeleteDesignDraft(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()
 	t.Cleanup(func() { localBoxBase = oldBase })
 
 	domain := "example.co.za"
-	request, err := generateLocalDesignDraft(domain, DesignAssistantRequest{
-		Brief: "Create a warm site for Example Clinic. Include appointments and follow-up care.",
-	})
+	name, err := saveDesignDraft(domain, "# Draft\n\nHello")
 	if err != nil {
 		t.Fatal(err)
 	}
-	name, err := saveGeneratedDesignHTML(domain, request)
-	if err != nil {
+	if err := deleteDesignDraft(domain, name); err != nil {
 		t.Fatal(err)
 	}
-	if name != "ai-generated-page.html" {
-		t.Fatalf("expected ai-generated-page.html, got %q", name)
-	}
-	data, err := os.ReadFile(filepath.Join(domainSiteBase(domain), name))
-	if err != nil {
-		t.Fatal(err)
-	}
-	body := string(data)
-	for _, want := range []string{"<title>example.co.za</title>", "Example Clinic", `action="/contact"`, "Draft page for example.co.za"} {
-		if !strings.Contains(body, want) {
-			t.Fatalf("generated html missing %q:\n%s", want, body)
-		}
-	}
-	if _, err := os.Stat(homeHTMLPath(domain)); !os.IsNotExist(err) {
-		t.Fatalf("generated html should not publish index.html, err=%v", err)
-	}
-	if !isUploadedHTML(domain, name) {
-		t.Fatal("expected generated html to be listed as uploaded html")
+	if _, err := loadDesignDraft(domain, name); !os.IsNotExist(err) {
+		t.Fatalf("expected deleted request to be gone, err=%v", err)
 	}
 }
 
