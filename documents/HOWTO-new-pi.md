@@ -96,7 +96,7 @@ sudo umount /mnt/piboot
 This script:
 
 - backs up the existing `*.apkovl.tar.gz`;
-- adds persistent DHCP for `eth0` and `end0`;
+- adds persistent DHCP for `eth0`, `end0`, and optional `wlan0`;
 - enables `networking`, `sshd`, `chronyd`, and `localbox-firstboot`;
 - installs `/usr/local/sbin/localbox-firstboot` into the Alpine overlay;
 - copies `localbox-firstboot.conf` onto the boot partition when provided.

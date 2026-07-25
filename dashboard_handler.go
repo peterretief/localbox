@@ -31,27 +31,32 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !userExists(s.User, s.Domain) {
+		http.Redirect(w, r, "/order/login", http.StatusFound)
+		return
+	}
+
 	email := s.User + "@" + s.Domain
 	data := DashboardData{
 		User:   s.User,
 		Domain: s.Domain,
 		Email:  email,
-		Links: []DashboardLink{
-			{
-				Title:       "Mail",
-				Description: "Open ALPS webmail, contacts, and calendar.",
-				URL:         "/apps/mail",
-			},
-			{
-				Title:       "Files",
-				Description: "Open the full file manager with sharing, previews, and folder tools.",
-				URL:         "/apps/files/",
-			},
-			{
-				Title:       "Password",
-				Description: "Change your LocalBox mailbox password.",
-				URL:         "/password",
-			},
+	}
+	data.Links = []DashboardLink{
+		{
+			Title:       "Mail",
+			Description: "Open ALPS webmail, contacts, and calendar.",
+			URL:         "/apps/mail",
+		},
+		{
+			Title:       "Files",
+			Description: "Open the full file manager with sharing, previews, and folder tools.",
+			URL:         "/apps/files/",
+		},
+		{
+			Title:       "Password",
+			Description: "Change your LocalBox mailbox password.",
+			URL:         "/password",
 		},
 	}
 

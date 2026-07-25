@@ -7,6 +7,12 @@ hostname=localbox-a
 # ssh_authorized_key=ssh-ed25519 AAAA... peter@devmachine
 # root_password=temporary-console-password
 
+# Optional initial Wi-Fi bootstrap. Leave unset for ethernet-only boot.
+# Ethernet uses DHCP by default on eth0 and end0.
+# wifi_country=ZA
+# wifi_ssid=Your WiFi Name
+# wifi_password=Your WiFi Password
+
 # Optional Headscale/Tailscale join.
 headscale_login_server=https://headscale.example.com
 tailscale_authkey=tskey-auth-example

@@ -205,6 +205,17 @@ hello@example.co.za
 
 Important: do not assume Brevo is verified immediately. The worker may need to poll or leave the order in `waiting_brevo_verification`.
 
+Blocked-contact check:
+
+- Dashboard: `https://app.brevo.com/transactional/email/settings/blocked-contacts`
+- API list endpoint: `GET /v3/smtp/blockedContacts`
+- API unblock endpoint, after manual confirmation: `DELETE /v3/smtp/blockedContacts/{email}`
+- MCP read tool: `mcp__brevo.transac_templates_get_transac_blocked_contacts`
+- MCP unblock tool, after manual confirmation: `mcp__brevo.transac_templates_delete_smtp_blocked_c_0c55a96a337f`
+- Dev-machine helper: `scripts/brevo-check-blocked-contact.sh email@example.co.za`
+
+Before debugging LocalBox/Cloudflare inbound delivery, check whether the test sender or recipient was blocked by Brevo. A Brevo hard bounce can stop the message before it ever reaches Cloudflare Email Routing or the Pi. On 2026-07-22 the Brevo MCP showed `someone@localboxmail.co.za` blocked by `hardBounce` at `2026-07-18T08:51:04Z`.
+
 ## Step 6: Inbound Email Receiving
 
 Choose one clear inbound path per domain.

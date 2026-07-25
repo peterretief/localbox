@@ -36,6 +36,8 @@ headscale_login_server=
 tailscale_authkey=
 ingest_secret=
 cloudflare_tunnel_token=
+wifi_ssid=
+wifi_password=
 
 read_firstboot_config() {
     while IFS= read -r line || [ -n "$line" ]; do
@@ -62,6 +64,8 @@ read_firstboot_config() {
             tailscale_authkey) tailscale_authkey=$value ;;
             ingest_secret) ingest_secret=$value ;;
             cloudflare_tunnel_token) cloudflare_tunnel_token=$value ;;
+            wifi_ssid) wifi_ssid=$value ;;
+            wifi_password) wifi_password=$value ;;
         esac
     done < "$CONFIG_TMP"
 }
@@ -111,7 +115,19 @@ iface lo inet loopback
 
 auto eth0
 iface eth0 inet dhcp
+
+auto end0
+iface end0 inet dhcp
 EOF
+if [ -n "${wifi_ssid:-}" ] && [ -n "${wifi_password:-}" ]; then
+    cat >> /etc/network/interfaces << 'EOF'
+
+auto wlan0
+iface wlan0 inet dhcp
+    pre-up wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf || true
+    post-down killall wpa_supplicant || true
+EOF
+fi
 rc-update add networking default 2>/dev/null || true
 rc-service networking restart 2>/dev/null || rc-service networking start 2>/dev/null || true
 /usr/local/sbin/localbox-network-rescue 2>/dev/null || true
@@ -229,6 +245,7 @@ persist_if_exists /etc/hostname
 persist_if_exists /etc/ssh/sshd_config.d/10-localbox-hardening.conf
 persist_if_exists /root/.ssh/authorized_keys
 persist_if_exists /etc/network/interfaces
+persist_if_exists /etc/wpa_supplicant
 persist_if_exists /etc/runlevels/default/networking
 persist_if_exists /etc/apk/repositories
 persist_if_exists /etc/apk/world

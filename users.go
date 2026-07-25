@@ -131,6 +131,22 @@ func authenticate(username, domain, password string) bool {
 	return false
 }
 
+func mailboxExists(username, domain string) bool {
+	username = normalizeMailboxUser(username)
+	domain = normalizeDomain(domain)
+	users, err := loadUsers()
+	if err != nil {
+		log.Printf("error loading users: %v", err)
+		return false
+	}
+	for _, user := range users {
+		if user.Username == username && user.Domain == domain {
+			return true
+		}
+	}
+	return false
+}
+
 func changePassword(username, domain, currentPassword, newPassword string) error {
 	users, err := loadUsers()
 	if err != nil {
@@ -148,7 +164,10 @@ func changePassword(username, domain, currentPassword, newPassword string) error
 		if err := setPasswordHashAt(users, i, newPassword); err != nil {
 			return err
 		}
-		return syncExternalMailboxPassword(username, domain, newPassword)
+		if err := syncExternalMailboxPassword(username, domain, newPassword); err != nil {
+			return err
+		}
+		return syncMailboxSystem()
 	}
 
 	return fmt.Errorf("user not found")
@@ -260,6 +279,26 @@ func syncExternalMailboxPassword(username, domain, password string) error {
 		return nil
 	}
 	return syncRadicalePassword(username, domain, password)
+}
+
+func syncMailboxSystem() error {
+	helper := "/usr/local/sbin/localbox-sync-mailmaps"
+	if _, err := os.Stat(helper); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	cmd := exec.Command(helper)
+	if os.Geteuid() != 0 {
+		cmd = exec.Command("sudo", "-n", helper)
+	}
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("could not sync LocalBox mail maps: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+	return nil
 }
 
 func radicaleUsesDovecotAuth() bool {

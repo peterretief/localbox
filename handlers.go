@@ -62,7 +62,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if ok, currency := authenticatePublicUserWithCurrency(username, domain, password); ok {
 		if next == "" {
-			next = "/dashboard"
+			next = "/order/login"
 		}
 		completeLogin(w, r, username, domain, currency, next)
 		return
@@ -571,7 +571,11 @@ func injectPublicSessionBar(data []byte, s *Session, next string, canRegister bo
 	}
 	if s != nil && strings.TrimSpace(s.User) != "" {
 		label := strings.TrimSpace(s.User)
-		content = `<span>Logged in as ` + template.HTMLEscapeString(label) + `</span><a href="/dashboard" style="color:#fff;text-decoration:underline;">Dashboard</a><a href="/public/logout" style="color:#fff;text-decoration:underline;">Logout</a>`
+		if userExists(s.User, s.Domain) {
+			content = `<span>Logged in as ` + template.HTMLEscapeString(label) + `</span><a href="/dashboard" style="color:#fff;text-decoration:underline;">Dashboard</a><a href="/public/logout" style="color:#fff;text-decoration:underline;">Logout</a>`
+		} else {
+			content = `<span>Logged in as ` + template.HTMLEscapeString(label) + `</span><a href="/order/login" style="color:#fff;text-decoration:underline;">Orders</a><a href="/public/logout" style="color:#fff;text-decoration:underline;">Logout</a>`
+		}
 	}
 	bar := `<div class="localbox-session-bar" style="box-sizing:border-box;width:100%;background:#1a1a2e;color:#fff;padding:10px 18px;font:14px Arial,sans-serif;display:flex;gap:14px;align-items:center;justify-content:flex-end;position:relative;z-index:9999;">` + content + `</div>`
 	htmlText := string(data)
@@ -648,9 +652,8 @@ type PasswordPageData struct {
 }
 
 func passwordHandler(w http.ResponseWriter, r *http.Request) {
-	s := getSession(r)
+	s := requireMailboxSession(w, r)
 	if s == nil {
-		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
 
@@ -687,9 +690,8 @@ func passwordHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func inboxHandler(w http.ResponseWriter, r *http.Request) {
-	s := getSession(r)
+	s := requireMailboxSession(w, r)
 	if s == nil {
-		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
 	if r.Method == http.MethodPost {
@@ -759,7 +761,8 @@ func inboxHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func mailHandler(w http.ResponseWriter, r *http.Request) {
-	if getSession(r) == nil {
+	s := getSession(r)
+	if s == nil {
 		next := "/mail"
 		if r.URL.RawQuery != "" {
 			next += "?" + r.URL.RawQuery
@@ -767,13 +770,16 @@ func mailHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login?next="+url.QueryEscape(next), http.StatusFound)
 		return
 	}
+	if !userExists(s.User, s.Domain) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
 	inboxHandler(w, r)
 }
 
 func composeHandler(w http.ResponseWriter, r *http.Request) {
-	s := getSession(r)
+	s := requireMailboxSession(w, r)
 	if s == nil {
-		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
 
@@ -845,9 +851,8 @@ func composeAttachment(r *http.Request) (*OutgoingAttachment, error) {
 }
 
 func messageHandler(w http.ResponseWriter, r *http.Request) {
-	s := getSession(r)
+	s := requireMailboxSession(w, r)
 	if s == nil {
-		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
 
@@ -901,9 +906,8 @@ func messageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func messageActionHandler(w http.ResponseWriter, r *http.Request) {
-	s := getSession(r)
+	s := requireMailboxSession(w, r)
 	if s == nil {
-		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
 	if r.Method != http.MethodPost {

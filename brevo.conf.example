@@ -1,0 +1,6 @@
+# Copy to ./brevo.conf on the development machine.
+# Keep this file private; it contains Brevo credentials.
+
+enabled=false
+api_url=https://api.brevo.com/v3
+password=your-brevo-api-key

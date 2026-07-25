@@ -6,9 +6,8 @@ import (
 )
 
 func certificateHandler(w http.ResponseWriter, r *http.Request) {
-	s := getSession(r)
+	s := requireMailboxSession(w, r)
 	if s == nil {
-		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
 	if r.Method != http.MethodGet {

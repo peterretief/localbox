@@ -1,15 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"regexp"
 )
 
 const (
-	listenAddr = ":8080"
-	secret     = "220961"
-	cookieName = "localbox_session"
+	listenAddr          = ":8080"
+	defaultIngestSecret = "220961"
+	cookieName          = "localbox_session"
 )
 
 var (
@@ -28,6 +29,8 @@ var (
 	paystackConfigFile     = "/etc/localbox/paystack.conf"
 	domainsCoZaConfigFile  = "/etc/localbox/domainscoza.conf"
 	cloudflareConfigFile   = "/etc/localbox/cloudflare.conf"
+	ingestSecretFile       = "/etc/localbox/secret"
+	ingestSecret           = defaultIngestSecret
 	safeLabel              = regexp.MustCompile(`^[a-z0-9._-]+$`)
 )
 
@@ -38,5 +41,12 @@ func applyRuntimeConfig() {
 	}
 	if dbFile := os.Getenv("LOCALBOX_ORDER_DB"); dbFile != "" {
 		orderDBFile = dbFile
+	}
+	if secret := os.Getenv("LOCALBOX_SECRET"); secret != "" {
+		ingestSecret = secret
+	} else if data, err := os.ReadFile(ingestSecretFile); err == nil {
+		if secret := string(bytes.TrimSpace(data)); secret != "" {
+			ingestSecret = secret
+		}
 	}
 }

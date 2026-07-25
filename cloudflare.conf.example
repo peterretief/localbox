@@ -7,6 +7,11 @@ api_url=https://api.cloudflare.com/client/v4
 account_id=your-cloudflare-account-id
 api_token=your-cloudflare-api-token
 
+# Optional: use a separate token just for Email Routing rules if your main
+# automation token cannot update /email/routing/rules/catch_all.
+# It needs Zone > Email Routing Rules > Edit for the target zone.
+# email_routing_api_token=your-email-routing-rules-token
+
 # Fixed Cloudflare Tunnel target for this Raspberry Pi. Every domain hosted on
 # this Pi can point root and www CNAME records at the same target.
 tunnel_target=3cd2a620-951b-4299-bdb6-25de4e74b6bd.cfargotunnel.com

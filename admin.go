@@ -286,7 +286,10 @@ func addMailboxWithRecoveryOption(username, domain, password, recoveryEmail stri
 	if err := ensureRegistrationCertificateForUsers(domain, users, time.Now()); err != nil {
 		return err
 	}
-	return ensureMailboxDirs(domain, username)
+	if err := ensureMailboxDirs(domain, username); err != nil {
+		return err
+	}
+	return syncMailboxSystem()
 }
 
 func updateMailboxRecoveryEmail(username, domain, recoveryEmail string) error {
@@ -307,7 +310,10 @@ func updateMailboxRecoveryEmail(username, domain, recoveryEmail string) error {
 	for i, user := range users {
 		if user.Username == username && user.Domain == domain {
 			users[i].RecoveryEmail = recoveryEmail
-			return saveUsers(users)
+			if err := saveUsers(users); err != nil {
+				return err
+			}
+			return syncMailboxSystem()
 		}
 	}
 	return fmt.Errorf("mailbox not found")
@@ -332,7 +338,10 @@ func resetMailboxPassword(username, domain, password string) error {
 			if err := setPasswordHashAt(users, i, password); err != nil {
 				return err
 			}
-			return syncExternalMailboxPassword(username, domain, password)
+			if err := syncExternalMailboxPassword(username, domain, password); err != nil {
+				return err
+			}
+			return syncMailboxSystem()
 		}
 	}
 	return fmt.Errorf("mailbox not found")
@@ -377,7 +386,10 @@ func archiveMailbox(username, domain string) error {
 	if err := saveUsers(kept); err != nil {
 		return err
 	}
-	return archivePath(mailboxBase(domain, username))
+	if err := archivePath(mailboxBase(domain, username)); err != nil {
+		return err
+	}
+	return syncMailboxSystem()
 }
 
 func archivePath(path string) error {

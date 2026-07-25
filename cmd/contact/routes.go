@@ -5,6 +5,7 @@ import "net/http"
 func routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/contact", contactHandler)
+	mux.HandleFunc("/contact.html", contactHandler)
 	mux.HandleFunc("/waitlist", waitlistHandler)
 	mux.HandleFunc("/order", orderHandler)
 	mux.HandleFunc("/order/login", orderLoginHandler)

@@ -1,0 +1,22 @@
+# Outbound SMTP relay for LocalBox apps and ALPS/Postfix.
+# Copy to smtp.conf and fill in the Brevo SMTP credentials.
+#
+# Brevo SMTP server:
+#   host=smtp-relay.brevo.com
+#   port=587
+#
+# Use the Brevo SMTP login and SMTP key/password, not the Brevo REST API key
+# unless Brevo explicitly shows the same value in SMTP settings.
+
+enabled=true
+host=smtp-relay.brevo.com
+port=587
+username=
+password=
+from_name=LocalBox
+from=admin@example.co.za
+
+# Optional: external address used by contact-service test-smtp/contact forms.
+# If omitted and the recipient is local, contact-service deliberately skips
+# external relay delivery.
+# to=owner@example.com

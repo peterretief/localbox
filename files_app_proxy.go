@@ -8,9 +8,8 @@ import (
 )
 
 func filesAppHandler(w http.ResponseWriter, r *http.Request) {
-	s := getSession(r)
+	s := requireMailboxSession(w, r)
 	if s == nil {
-		http.Redirect(w, r, "/login?next=/apps/files/", http.StatusFound)
 		return
 	}
 

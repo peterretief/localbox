@@ -68,6 +68,8 @@ Use whole disk devices for destructive operations, for example `/dev/sdf`, not `
 
 For a clean rebuild from the Alpine Raspberry Pi tarball, use this path. It erases the SD card, creates a fresh FAT32 boot partition, extracts Alpine, seeds the LocalBox headless overlay, and injects DHCP, SSH, and first boot in one run.
 
+Wired networking is DHCP by default on both `eth0` and `end0`, covering old and new Raspberry Pi interface naming. If Wi-Fi credentials are set in `localbox-firstboot.conf`, `wlan0` is also configured for DHCP.
+
 ```sh
 ./setup.sh inventory
 sudo CONFIRM_BOOT_DEVICE=/dev/sdX \

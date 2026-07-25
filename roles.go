@@ -165,6 +165,19 @@ func userExists(username, domain string) bool {
 	return false
 }
 
+func requireMailboxSession(w http.ResponseWriter, r *http.Request) *Session {
+	s := getSession(r)
+	if s == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return nil
+	}
+	if !userExists(s.User, s.Domain) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return nil
+	}
+	return s
+}
+
 func firstConfiguredUser() (RoleIdentity, error) {
 	users, err := loadUsers()
 	if err != nil {

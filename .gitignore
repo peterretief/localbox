@@ -11,9 +11,14 @@ images/*.sha256
 # Sensitive
 settings.conf
 cloudflare.conf
+brevo.conf
+smtp.conf
 setup_new_pi/domain.conf
 setup_new_pi/localbox-firstboot.conf
 
 # Go
 *.test
 .gocache/
+
+# Editor leftovers
+*.swp

@@ -392,6 +392,11 @@
             font-weight: 400;
             cursor: pointer;
         }
+        .option-card:has(input:checked) {
+            border-color: #00a0c0;
+            background: #eef9fc;
+            box-shadow: inset 0 0 0 1px #00a0c0;
+        }
         .option-card strong {
             display: block;
             margin-bottom: 4px;
@@ -401,6 +406,40 @@
             width: 18px;
             min-height: 18px;
             margin-top: 2px;
+        }
+        .selected-option-note {
+            margin-top: 10px;
+            color: #4f5a54;
+            font-size: 14px;
+        }
+        .quote-panel {
+            display: none;
+            margin-top: 14px;
+            padding: 16px;
+            border: 1px solid #dfe3dc;
+            border-radius: 8px;
+            background: #f8fbf9;
+        }
+        .quote-panel.open {
+            display: block;
+        }
+        .quote-panel h4 {
+            margin: 0 0 10px;
+            font-size: 16px;
+            color: #22312c;
+        }
+        .quote-form {
+            display: grid;
+            gap: 10px;
+        }
+        .quote-form .forms {
+            margin: 0;
+        }
+        .quote-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
         }
         .waitlist-form {
             display: grid;
@@ -552,7 +591,7 @@
                         <button type="submit">Check</button>
                     </form>
                     <fieldset class="option-choice" data-package-options>
-                        <legend>After paying for the domain, choose the LocalBox option you want</legend>
+                        <legend>Step 2: after the domain is paid and registered, choose the LocalBox option you want</legend>
                         <div class="option-grid">
                             <label class="option-card">
                                 <input type="radio" name="package_option" value="hosted-domain-email" checked>
@@ -568,9 +607,36 @@
                             </label>
                         </div>
                     </fieldset>
+                    <p class="selected-option-note" data-selected-package>Selected: We host the domain and email</p>
+                    <div class="quote-actions">
+                        <button type="button" data-quote-toggle>Ask for quote</button>
+                    </div>
+                    <div class="quote-panel" data-quote-panel>
+                        <h4>Ask for a LocalBox quote</h4>
+                        <p class="fine">We will try to answer any questions you may have. LocalBox is about people first, then the technology that helps them.</p>
+                        <form class="quote-form" method="POST" action="/contact" data-quote-form>
+                            <input type="text" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+                            <input type="hidden" name="subject" value="LocalBox quote request" data-quote-subject>
+                            <div class="forms">
+                                <label>Name
+                                    <input type="text" name="name" autocomplete="name" required>
+                                </label>
+                                <label>Email address
+                                    <input type="email" name="email" autocomplete="email" required>
+                                </label>
+                            </div>
+                            <label>Domain or project
+                                <input type="text" name="quote_domain" data-quote-domain placeholder="example.co.za">
+                            </label>
+                            <label>Message
+                                <textarea name="message" data-quote-message required></textarea>
+                            </label>
+                            <button type="submit">Send quote request</button>
+                        </form>
+                    </div>
                     <div class="result" data-domain-result aria-live="polite"></div>
-                    <p style="margin-top:14px;">For .co.za domains, the current estimate is R150 for domain registration including DNS setup. We hope to add more domain types soon.</p>
-                    <p class="fine">No domain is registered until the responsible contact confirms the request and payment route.</p>
+                    <p style="margin-top:14px;">Step 1 is the domain: for .co.za domains, the current estimate is R150 for domain registration including DNS setup. Once the domain is paid and registered, the hosted email, hosted Raspberry Pi, and full Raspberry Pi package options can be added or quoted.</p>
+                    <p class="fine">No LocalBox hosting or Raspberry Pi setup starts until the domain registration step is confirmed.</p>
                 </article>
             </div>
         </section>
@@ -579,7 +645,7 @@
             <div class="wrap">
                 <div class="section-head">
                     <h2>How it works</h2>
-                    <p>Choose the LocalBox option that fits, complete the domain order, then LocalBox provisions the domain, routing, first mailbox, and handover steps in order.</p>
+                    <p>Start by paying for and registering the domain. After that, choose the LocalBox option that fits and LocalBox provisions the routing, first mailbox, hosting, Pi setup, and handover steps in order.</p>
                 </div>
                 <div class="flow">
                     <div class="step">
@@ -588,7 +654,7 @@
                     </div>
                     <div class="step">
                         <strong>2. Choose an option</strong>
-                        Pick hosted domain and email, a LocalBox-hosted Raspberry Pi, or the full prepared Raspberry Pi package.
+                        After the domain is paid and registered, pick hosted domain and email, a LocalBox-hosted Raspberry Pi, or the full prepared Raspberry Pi package.
                     </div>
                     <div class="step">
                         <strong>3. Register and provision</strong>
@@ -701,7 +767,7 @@
             <div class="wrap">
                 <div class="section-head">
                     <h2>Contact LocalBox Mail</h2>
-                    <p>Use this for questions from an artist, NGO, school, company, practice, local project, or support contact.</p>
+                    <p>Use this for questions from an artist, NGO, school, company, practice, local project, or support contact. We will try to answer any questions you may have; LocalBox is about people first.</p>
                 </div>
                 <article class="panel">
                     <form method="POST" action="/contact">
@@ -737,12 +803,72 @@
         (function(){
             const form = document.querySelector("[data-domain-lookup]");
             const result = document.querySelector("[data-domain-result]");
+            const optionNote = document.querySelector("[data-selected-package]");
+            const quoteToggle = document.querySelector("[data-quote-toggle]");
+            const quotePanel = document.querySelector("[data-quote-panel]");
+            const quoteForm = document.querySelector("[data-quote-form]");
+            const quoteDomain = document.querySelector("[data-quote-domain]");
+            const quoteMessage = document.querySelector("[data-quote-message]");
+            const quoteSubject = document.querySelector("[data-quote-subject]");
+            const packageLabels = {
+                "hosted-domain-email": "We host the domain and email",
+                "hosted-pi": "We host your Raspberry Pi",
+                "full-pi": "Full Raspberry Pi package"
+            };
             if(!form || !result){
                 return;
             }
             function selectedPackageOption(){
                 const selected = document.querySelector("input[name='package_option']:checked");
                 return selected ? selected.value : "hosted-domain-email";
+            }
+            function selectedPackageLabel(){
+                return packageLabels[selectedPackageOption()] || packageLabels["hosted-domain-email"];
+            }
+            function paymentStartURL(domain){
+                return "/payment/start?domain=" + encodeURIComponent(domain) + "&option=" + encodeURIComponent(selectedPackageOption());
+            }
+            function requestedDomain(){
+                const input = form.querySelector("input[name='name']");
+                const raw = input ? cleanName(input.value) : "";
+                if(!raw){
+                    return "";
+                }
+                if(raw.indexOf(".") >= 0){
+                    return raw;
+                }
+                return raw + ".co.za";
+            }
+            function quoteText(){
+                const domain = quoteDomain && quoteDomain.value.trim() ? quoteDomain.value.trim() : requestedDomain();
+                return [
+                    "Please send me a quote for: " + selectedPackageLabel(),
+                    domain ? "Domain/project: " + domain : "Domain/project: ",
+                    "",
+                    "Notes:"
+                ].join("\n");
+            }
+            function updateQuoteFields(force){
+                if(quoteSubject){
+                    quoteSubject.value = "LocalBox quote request - " + selectedPackageLabel();
+                }
+                if(quoteDomain && !quoteDomain.value.trim()){
+                    quoteDomain.value = requestedDomain();
+                }
+                if(quoteMessage && (force || !quoteMessage.value.trim() || quoteMessage.dataset.autoQuote === "1")){
+                    quoteMessage.value = quoteText();
+                    quoteMessage.dataset.autoQuote = "1";
+                }
+            }
+            function updatePackageUI(){
+                if(optionNote){
+                    optionNote.textContent = "Selected: " + selectedPackageLabel();
+                }
+                document.querySelectorAll("[data-payment-domain]").forEach(link => {
+                    link.href = paymentStartURL(link.getAttribute("data-payment-domain") || "");
+                    link.textContent = "Register now - " + selectedPackageLabel();
+                });
+                updateQuoteFields(false);
             }
             function cleanName(value){
                 value = String(value || "").trim().toLowerCase();
@@ -791,8 +917,9 @@
                         actions.className = "result-actions";
                         const link = document.createElement("a");
                         link.className = "result-action";
-                        link.href = "/payment/start?domain=" + encodeURIComponent(item.domain) + "&option=" + encodeURIComponent(selectedPackageOption());
-                        link.textContent = "Register now";
+                        link.setAttribute("data-payment-domain", item.domain);
+                        link.href = paymentStartURL(item.domain);
+                        link.textContent = "Register now - " + selectedPackageLabel();
                         actions.appendChild(link);
                         row.appendChild(actions);
                     }
@@ -806,6 +933,39 @@
                     result.appendChild(errors);
                 }
             }
+            document.querySelectorAll("input[name='package_option']").forEach(input => {
+                input.addEventListener("change", updatePackageUI);
+            });
+            if(quoteToggle && quotePanel){
+                quoteToggle.addEventListener("click", function(){
+                    quotePanel.classList.toggle("open");
+                    updateQuoteFields(true);
+                    if(quotePanel.classList.contains("open")){
+                        const email = quotePanel.querySelector("input[name='email']");
+                        if(email){
+                            email.focus();
+                        }
+                    }
+                });
+            }
+            if(quoteMessage){
+                quoteMessage.addEventListener("input", function(){
+                    quoteMessage.dataset.autoQuote = "0";
+                });
+            }
+            if(quoteDomain){
+                quoteDomain.addEventListener("input", function(){
+                    if(quoteMessage && quoteMessage.dataset.autoQuote === "1"){
+                        quoteMessage.value = quoteText();
+                    }
+                });
+            }
+            if(quoteForm){
+                quoteForm.addEventListener("submit", function(){
+                    updateQuoteFields(false);
+                });
+            }
+            updatePackageUI();
             form.addEventListener("submit", function(event){
                 event.preventDefault();
                 const params = new URLSearchParams(new FormData(form));

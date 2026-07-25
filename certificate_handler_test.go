@@ -3,6 +3,8 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -26,6 +28,12 @@ func TestCertificateHandlerServesSessionDomainCertificate(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()
 	t.Cleanup(func() { localBoxBase = oldBase })
+	oldUsersFile := usersFile
+	usersFile = filepath.Join(t.TempDir(), "users.conf")
+	t.Cleanup(func() { usersFile = oldUsersFile })
+	if err := os.WriteFile(usersFile, []byte("info:example.co.za:hash\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := saveRegistrationCertificate("example.co.za", "info", time.Date(2026, 7, 8, 10, 30, 0, 0, time.UTC)); err != nil {
 		t.Fatal(err)

@@ -14,9 +14,8 @@ import (
 )
 
 func attachmentHandler(w http.ResponseWriter, r *http.Request) {
-	s := getSession(r)
+	s := requireMailboxSession(w, r)
 	if s == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 

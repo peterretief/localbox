@@ -24,9 +24,8 @@ type localBoxSSOAssertion struct {
 }
 
 func mailAppHandler(w http.ResponseWriter, r *http.Request) {
-	s := getSession(r)
+	s := requireMailboxSession(w, r)
 	if s == nil {
-		http.Redirect(w, r, "/login?next=/apps/mail", http.StatusFound)
 		return
 	}
 	if r.Method != http.MethodGet {

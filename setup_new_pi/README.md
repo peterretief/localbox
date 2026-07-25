@@ -40,6 +40,8 @@ Prepare an Alpine boot card after mounting the boot partition at `/mnt/piboot`:
 BOOT_MOUNT=/mnt/piboot FIRSTBOOT_CONFIG=./localbox-firstboot.conf ./setup.sh prepare-boot
 ```
 
+The prepared Pi uses DHCP by default on wired Ethernet interface names `eth0` and `end0`. If Wi-Fi credentials are set in `localbox-firstboot.conf`, `wlan0` is also configured for DHCP.
+
 Create or update the Cloudflare Worker and Email Routing rules from the dev machine:
 
 ```sh

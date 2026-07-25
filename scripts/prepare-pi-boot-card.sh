@@ -7,6 +7,24 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 FIRSTBOOT_SCRIPT=${FIRSTBOOT_SCRIPT:-"$SCRIPT_DIR/localbox-firstboot.sh"}
 NETWORK_RESCUE_SCRIPT=${NETWORK_RESCUE_SCRIPT:-"$SCRIPT_DIR/localbox-network-rescue.sh"}
 
+config_value() {
+    key=$1
+    file=$2
+    [ -f "$file" ] || return 0
+    awk -F= -v key="$key" '
+        $0 ~ "^[[:space:]]*#" { next }
+        $1 == key {
+            sub(/^[^=]*=/, "")
+            print
+            exit
+        }
+    ' "$file"
+}
+
+wpa_escape() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
 if [ ! -d "$BOOT_MOUNT" ]; then
     echo "Usage: BOOT_MOUNT=/mnt/piboot FIRSTBOOT_CONFIG=/path/localbox-firstboot.conf $0"
     echo "ERROR: boot mount does not exist: $BOOT_MOUNT"
@@ -55,13 +73,21 @@ echo ">> Extracting overlay..."
 tar -xzf "$APKOVL" -C "$WORK"
 
 echo ">> Adding persistent DHCP networking..."
-mkdir -p "$WORK/etc/network" "$WORK/etc/runlevels/default" "$WORK/etc/ssh/sshd_config.d"
+mkdir -p "$WORK/etc/network" "$WORK/etc/runlevels/default" "$WORK/etc/ssh/sshd_config.d" "$WORK/etc/wpa_supplicant"
 cat > "$WORK/etc/network/interfaces" << 'EOF'
 auto lo
 iface lo inet loopback
 
 auto eth0
 iface eth0 inet dhcp
+
+auto end0
+iface end0 inet dhcp
+
+auto wlan0
+iface wlan0 inet dhcp
+    pre-up wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf || true
+    post-down killall wpa_supplicant || true
 EOF
 cat > "$BOOT_MOUNT/interfaces" << 'EOF'
 auto lo
@@ -69,6 +95,14 @@ iface lo inet loopback
 
 auto eth0
 iface eth0 inet dhcp
+
+auto end0
+iface end0 inet dhcp
+
+auto wlan0
+iface wlan0 inet dhcp
+    pre-up wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf || true
+    post-down killall wpa_supplicant || true
 EOF
 ln -sfn ../../init.d/networking "$WORK/etc/runlevels/default/networking"
 ln -sfn ../../init.d/sshd "$WORK/etc/runlevels/default/sshd"
@@ -78,6 +112,27 @@ PermitEmptyPasswords no
 PubkeyAuthentication yes
 PermitRootLogin prohibit-password
 EOF
+
+if [ -n "$FIRSTBOOT_CONFIG" ] && [ -f "$FIRSTBOOT_CONFIG" ]; then
+    wifi_ssid=$(config_value wifi_ssid "$FIRSTBOOT_CONFIG")
+    wifi_password=$(config_value wifi_password "$FIRSTBOOT_CONFIG")
+    wifi_country=$(config_value wifi_country "$FIRSTBOOT_CONFIG")
+    wifi_country=${wifi_country:-ZA}
+    if [ -n "$wifi_ssid" ] && [ -n "$wifi_password" ]; then
+        echo ">> Adding Wi-Fi bootstrap config for SSID: $wifi_ssid"
+        cat > "$BOOT_MOUNT/wpa_supplicant.conf" << EOF
+country=$wifi_country
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+
+network={
+    ssid="$(wpa_escape "$wifi_ssid")"
+    psk="$(wpa_escape "$wifi_password")"
+}
+EOF
+        cp "$BOOT_MOUNT/wpa_supplicant.conf" "$WORK/etc/wpa_supplicant/wpa_supplicant.conf"
+    fi
+fi
 
 echo ">> Installing LocalBox first-boot script into overlay..."
 mkdir -p "$WORK/usr/local/sbin" "$WORK/etc/init.d"

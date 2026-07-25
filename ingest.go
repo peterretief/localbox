@@ -24,7 +24,7 @@ func ingestHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if r.Header.Get("X-Ingest-Secret") != secret {
+	if r.Header.Get("X-Ingest-Secret") != ingestSecret {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -50,6 +50,10 @@ func ingestHandler(w http.ResponseWriter, r *http.Request) {
 	user, domain := parts[0], parts[1]
 	if !safeLabel.MatchString(user) || !safeLabel.MatchString(domain) {
 		http.Error(w, "Invalid address characters", http.StatusBadRequest)
+		return
+	}
+	if !mailboxExists(user, domain) {
+		http.Error(w, "Unknown mailbox", http.StatusNotFound)
 		return
 	}
 

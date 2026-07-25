@@ -14,6 +14,7 @@ func TestFilesRouteRedirectsToFilebrowser(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()
 	t.Cleanup(func() { localBoxBase = oldBase })
+	withTestUsersFile(t, "info:localboxzen.co.za:hash\n")
 
 	token := newSession("info", "localboxzen.co.za")
 	req := httptest.NewRequest(http.MethodGet, "/files", nil)
@@ -27,6 +28,28 @@ func TestFilesRouteRedirectsToFilebrowser(t *testing.T) {
 	}
 	if got := rec.Header().Get("Location"); got != "/apps/files/" {
 		t.Fatalf("Location = %q, want /apps/files/", got)
+	}
+}
+
+func TestPublicUserCannotOpenFiles(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+	withTestUsersFile(t, "")
+	withTestOrderDB(t)
+
+	if err := registerPublicUserProfile("localboxmail.co.za", "buyer", "buyer@example.net", "Buyer Example", "+27 82 123 4567", "1 Example Street", "secret-password", "ZAR"); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/files", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("buyer", "localboxmail.co.za")})
+	rec := httptest.NewRecorder()
+
+	filesHandler(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
 	}
 }
 
@@ -44,6 +67,23 @@ func TestCleanUserFileNameRejectsPathTraversal(t *testing.T) {
 	if cleaned != "report.pdf" {
 		t.Fatalf("cleaned = %q, want report.pdf", cleaned)
 	}
+}
+
+func withTestUsersFile(t *testing.T, content string) {
+	t.Helper()
+	oldUsersFile := usersFile
+	usersFile = filepath.Join(t.TempDir(), "users.conf")
+	t.Cleanup(func() { usersFile = oldUsersFile })
+	if err := os.WriteFile(usersFile, []byte(content), 0640); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func withTestOrderDB(t *testing.T) {
+	t.Helper()
+	oldDB := orderDBFile
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	t.Cleanup(func() { orderDBFile = oldDB })
 }
 
 func TestListUserFilesSortsByName(t *testing.T) {

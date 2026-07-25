@@ -264,6 +264,9 @@ func TestMailRouteServesInboxForLoggedInUser(t *testing.T) {
 	t.Cleanup(func() { usersFile = oldUsersFile })
 
 	domain := "example.com"
+	if err := os.WriteFile(usersFile, []byte("info:example.com:hash\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
 	if err := ensureMailboxDirs(domain, "info"); err != nil {
 		t.Fatal(err)
 	}
@@ -291,6 +294,12 @@ func TestMailAppRedirectsToDomainWebmailHost(t *testing.T) {
 	localBoxSSOSecretFile = filepath.Join(t.TempDir(), "sso-secret")
 	t.Cleanup(func() { localBoxSSOSecretFile = oldSecretFile })
 	if err := os.WriteFile(localBoxSSOSecretFile, []byte("test-secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	oldUsersFile := usersFile
+	usersFile = filepath.Join(t.TempDir(), "users.conf")
+	t.Cleanup(func() { usersFile = oldUsersFile })
+	if err := os.WriteFile(usersFile, []byte("info:example.com:hash\n"), 0640); err != nil {
 		t.Fatal(err)
 	}
 

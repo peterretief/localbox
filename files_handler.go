@@ -27,9 +27,8 @@ type FilesPageData struct {
 }
 
 func filesHandler(w http.ResponseWriter, r *http.Request) {
-	s := getSession(r)
+	s := requireMailboxSession(w, r)
 	if s == nil {
-		http.Redirect(w, r, "/login?next=/apps/files/", http.StatusFound)
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
@@ -40,9 +39,8 @@ func filesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func fileDownloadHandler(w http.ResponseWriter, r *http.Request) {
-	s := getSession(r)
+	s := requireMailboxSession(w, r)
 	if s == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if r.Method != http.MethodGet {
@@ -65,9 +63,8 @@ func fileDownloadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func fileDeleteHandler(w http.ResponseWriter, r *http.Request) {
-	s := getSession(r)
+	s := requireMailboxSession(w, r)
 	if s == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if r.Method != http.MethodPost {
