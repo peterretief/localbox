@@ -278,43 +278,23 @@ func pageAssistantHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			name, err := saveDesignDraft(s.Domain, draft)
 			if err != nil {
-				data.AssistantError = "Generated draft, but could not save it."
+				data.AssistantError = "Generated request, but could not save it."
 				data.AssistantDraft = draft
 				data.AssistantPreview = template.HTML(renderMarkdown(draft))
 				break
 			}
-			data.AssistantSuccess = "Draft saved as " + name + ". Review it before publishing."
+			data.AssistantSuccess = "Request saved as " + name + ". Copy it into an online AI website generator."
 			data.AssistantDraft = draft
 			data.AssistantPreview = template.HTML(renderMarkdown(draft))
 		case "preview_draft":
 			draft, err := loadDesignDraft(s.Domain, r.FormValue("name"))
 			if err != nil {
-				data.AssistantError = "Could not open draft."
+				data.AssistantError = "Could not open request."
 				break
 			}
 			data.AssistantDraft = draft
 			data.AssistantPreview = template.HTML(renderMarkdown(draft))
-			data.AssistantSuccess = "Draft loaded for review."
-		case "publish_draft":
-			draft, err := loadDesignDraft(s.Domain, r.FormValue("name"))
-			if err != nil {
-				data.AssistantError = "Could not publish draft."
-				break
-			}
-			if _, err := backupCurrentHomeMarkdown(s.Domain); err != nil {
-				data.AssistantError = "Could not back up the current homepage."
-				break
-			}
-			draft = stripDesignAssistantReviewNote(draft)
-			if err := saveHomePage(s.Domain, draft); err != nil {
-				data.AssistantError = "Could not publish draft."
-				break
-			}
-			data = newPageEditorData(s.Domain, draft)
-			data.Section = "assistant"
-			data.AssistantDraft = draft
-			data.AssistantPreview = template.HTML(renderMarkdown(draft))
-			data.AssistantSuccess = "Draft published to the Markdown homepage."
+			data.AssistantSuccess = "Request loaded."
 		default:
 			data.AssistantError = "Unknown assistant action."
 		}

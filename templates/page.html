@@ -275,7 +275,7 @@
         {{if eq .Section "assistant"}}
         <section class="images">
             <h2>Design Assistant</h2>
-            <p class="help">Create a draft from a short brief. Drafts are saved for review and are not published until you explicitly publish one.</p>
+            <p class="help">Create a copyable request for an online AI website generator. Requests are saved for review and cannot publish or change the active site.</p>
             <p class="help"><strong>Provider:</strong> {{.AssistantProvider}}. {{.AssistantBilling}}</p>
             <form method="POST" action="/page/assistant">
                 <input type="hidden" name="action" value="generate">
@@ -308,7 +308,7 @@
                     </label>
                 </div>
                 <div class="actions">
-                    <button type="submit">Generate draft</button>
+                    <button type="submit">Generate request</button>
                     {{if .AssistantSuccess}}<span class="status">{{.AssistantSuccess}}</span>{{end}}
                     {{if .AssistantError}}<span class="error">{{.AssistantError}}</span>{{end}}
                 </div>
@@ -317,22 +317,22 @@
 
         {{if .AssistantDraft}}
         <section class="images">
-            <h2>Draft Preview</h2>
+            <h2>Website Request</h2>
             <div class="editor">
                 <textarea readonly>{{.AssistantDraft}}</textarea>
                 <div class="preview">{{.AssistantPreview}}</div>
             </div>
-            <p class="help" style="margin-top:14px;">Review the draft carefully before publishing. Publishing replaces the Markdown homepage, but HTML uploads are not deleted.</p>
+            <p class="help" style="margin-top:14px;">Copy the request into an online AI website generator, save the generated file as <strong>index.html</strong>, then upload it from the HTML Site tab.</p>
         </section>
         {{end}}
 
         <section class="images">
-            <h2>Saved Drafts</h2>
+            <h2>Saved Requests</h2>
             {{if .DesignDrafts}}
             <table class="file-table">
                 <thead>
                     <tr>
-                        <th>Draft</th>
+                        <th>Request</th>
                         <th>Created</th>
                         <th>Size</th>
                         <th>Actions</th>
@@ -351,11 +351,6 @@
                                     <input type="hidden" name="name" value="{{.Name}}">
                                     <button type="submit">Preview</button>
                                 </form>
-                                <form method="POST" action="/page/assistant">
-                                    <input type="hidden" name="action" value="publish_draft">
-                                    <input type="hidden" name="name" value="{{.Name}}">
-                                    <button type="submit">Publish</button>
-                                </form>
                             </div>
                         </td>
                     </tr>
@@ -363,7 +358,7 @@
                 </tbody>
             </table>
             {{else}}
-            <div class="empty">No assistant drafts yet.</div>
+            <div class="empty">No assistant requests yet.</div>
             {{end}}
         </section>
         {{end}}

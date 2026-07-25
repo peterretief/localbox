@@ -50,17 +50,13 @@ func designAssistantProviderName() string {
 
 func designAssistantBillingNote() string {
 	if designAssistantProviderName() == "local template" {
-		return "No external AI provider is called in this mode, so generating drafts costs nothing."
+		return "No external AI provider is called here, so generating requests costs nothing."
 	}
 	return "Disabled."
 }
 
 func designAssistantDraftsPath(domain string) string {
 	return filepath.Join(domainSiteBase(domain), "drafts")
-}
-
-func designAssistantBackupsPath(domain string) string {
-	return filepath.Join(domainSiteBase(domain), "draft-backups")
 }
 
 func generateLocalDesignDraft(domain string, req DesignAssistantRequest) (string, error) {
@@ -93,27 +89,49 @@ func generateLocalDesignDraft(domain string, req DesignAssistantRequest) (string
 		location = "our community"
 	}
 
+	goal := req.Goal
+	if goal == "" {
+		goal = "Create a complete static homepage"
+	}
+
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", req.BusinessName)
-	fmt.Fprintf(&b, "%s helps people in %s with %s. We keep the process clear, practical, and people first.\n\n", req.BusinessName, location, strings.ToLower(req.BusinessType))
-	fmt.Fprintf(&b, "## How We Can Help\n\n")
+	fmt.Fprintf(&b, "# AI Website Request for %s\n\n", req.BusinessName)
+	fmt.Fprintf(&b, "Copy the request below into an online AI website generator. Ask it to return one complete static HTML file named `index.html`.\n\n")
+	fmt.Fprintf(&b, "## Request\n\n")
+	fmt.Fprintf(&b, "Create a polished, responsive, single-file static HTML website for `%s`.\n\n", req.BusinessName)
+	fmt.Fprintf(&b, "Goal: %s.\n\n", goal)
+	fmt.Fprintf(&b, "Business type: %s.\n\n", req.BusinessType)
+	fmt.Fprintf(&b, "Location/community: %s.\n\n", location)
+	if req.Tone != "" {
+		fmt.Fprintf(&b, "Tone: %s.\n\n", req.Tone)
+	}
+	fmt.Fprintf(&b, "Primary call to action: %s.\n\n", callToAction)
+	fmt.Fprintf(&b, "Contact details or instruction: %s.\n\n", contact)
+	fmt.Fprintf(&b, "Services/products to include:\n\n")
 	for _, service := range services {
 		fmt.Fprintf(&b, "- %s\n", service)
 	}
-	fmt.Fprintf(&b, "\n## What To Expect\n\n")
-	fmt.Fprintf(&b, "We will listen first, answer questions in plain language, and help you choose the next step that makes sense for you.\n\n")
-	if req.Tone != "" {
-		fmt.Fprintf(&b, "This page should feel %s while staying easy to read.\n\n", strings.ToLower(req.Tone))
-	}
-	fmt.Fprintf(&b, "## %s\n\n", callToAction)
-	fmt.Fprintf(&b, "%s\n\n", contact)
-	fmt.Fprintf(&b, "[Contact us](/contact.html)\n\n")
-	fmt.Fprintf(&b, "_Draft generated locally for %s. Review before publishing._\n", domain)
+	fmt.Fprintf(&b, "\nRequirements:\n\n")
+	fmt.Fprintf(&b, "- Return only one complete `index.html` file.\n")
+	fmt.Fprintf(&b, "- Put all CSS inside the HTML file in a `<style>` block.\n")
+	fmt.Fprintf(&b, "- Do not require a build step, package manager, framework, database, server code, or external JavaScript.\n")
+	fmt.Fprintf(&b, "- Use semantic HTML, good mobile layout, readable contrast, and accessible form labels.\n")
+	fmt.Fprintf(&b, "- Include a clear hero section, service/product sections, trust/help text, and a final call to action.\n")
+	fmt.Fprintf(&b, "- Add a visible link to `/contact.html` for contact or quote requests.\n")
+	fmt.Fprintf(&b, "- If you include a contact form, set `method=\"POST\" action=\"/contact\"` and use fields named `name`, `email`, `phone`, and `message`.\n")
+	fmt.Fprintf(&b, "- Do not include analytics, tracking pixels, third-party scripts, or payment code.\n")
+	fmt.Fprintf(&b, "- Use relative links only. Do not link to admin, email, files, or private LocalBox pages.\n")
+	fmt.Fprintf(&b, "- Make the page feel trustworthy and people-first, not like a generic advert.\n\n")
+	fmt.Fprintf(&b, "## Upload Instructions\n\n")
+	fmt.Fprintf(&b, "1. Save the generated file as `index.html` on your computer.\n")
+	fmt.Fprintf(&b, "2. In LocalBox, open `Dashboard` -> `Home page` -> `HTML site`.\n")
+	fmt.Fprintf(&b, "3. Use `Upload HTML`, choose `index.html`, and upload it.\n")
+	fmt.Fprintf(&b, "4. LocalBox will publish `index.html` as the active homepage.\n")
+	fmt.Fprintf(&b, "5. Click `View active page` and check the public site.\n")
+	fmt.Fprintf(&b, "6. If it looks wrong, upload a corrected `index.html`; the previous homepage remains listed in HTML pages when available.\n\n")
+	fmt.Fprintf(&b, "_This request was generated locally by LocalBox for %s. It has not changed the live website._\n", domain)
 
 	content := b.String()
-	if len(content) > designAssistantMaxBrief {
-		content = content[:designAssistantMaxBrief]
-	}
 	return content, nil
 }
 
@@ -167,18 +185,6 @@ func designAssistantLines(value string) []string {
 	return lines
 }
 
-func stripDesignAssistantReviewNote(content string) string {
-	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
-	var kept []string
-	for _, line := range lines {
-		if strings.Contains(line, "Draft generated locally for ") && strings.Contains(line, "Review before publishing") {
-			continue
-		}
-		kept = append(kept, line)
-	}
-	return strings.TrimSpace(strings.Join(kept, "\n")) + "\n"
-}
-
 func saveDesignDraft(domain, content string) (string, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
@@ -200,30 +206,6 @@ func saveDesignDraft(domain, content string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("could not allocate draft name")
-}
-
-func backupCurrentHomeMarkdown(domain string) (string, error) {
-	current, err := loadHomeMarkdown(domain)
-	if err != nil {
-		return "", err
-	}
-	current = strings.TrimSpace(current)
-	if current == "" {
-		return "", nil
-	}
-	dir := designAssistantBackupsPath(domain)
-	if err := os.MkdirAll(dir, 0775); err != nil {
-		return "", err
-	}
-	now := time.Now().UTC()
-	for i := 0; i < 100; i++ {
-		name := "home-" + now.Add(time.Duration(i)*time.Second).Format("20060102T150405Z") + ".md"
-		path := filepath.Join(dir, name)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			return name, writeFileAtomic(path, []byte(current+"\n"), 0664)
-		}
-	}
-	return "", fmt.Errorf("could not allocate backup name")
 }
 
 func listDesignDrafts(domain string) ([]DesignDraft, error) {

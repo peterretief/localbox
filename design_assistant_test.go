@@ -21,14 +21,14 @@ func TestGenerateLocalDesignDraft(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"# Dave's Repairs", "Fridge repairs", "Washing machine repairs", "[Contact us](/contact.html)", "generated locally"} {
+	for _, want := range []string{"# AI Website Request for Dave's Repairs", "single-file static HTML website", "index.html", "Fridge repairs", "Washing machine repairs", "Upload Instructions", "Upload HTML", "has not changed the live website"} {
 		if !strings.Contains(draft, want) {
-			t.Fatalf("draft missing %q:\n%s", want, draft)
+			t.Fatalf("request missing %q:\n%s", want, draft)
 		}
 	}
 }
 
-func TestDesignDraftSaveLoadAndPublish(t *testing.T) {
+func TestDesignDraftSaveLoad(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()
 	t.Cleanup(func() { localBoxBase = oldBase })
@@ -52,50 +52,8 @@ func TestDesignDraftSaveLoadAndPublish(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := saveHomePage(domain, content); err != nil {
-		t.Fatal(err)
-	}
-	published, err := os.ReadFile(homeMarkdownPath(domain))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(published), "Hello") {
-		t.Fatalf("expected published markdown, got %s", published)
-	}
-}
-
-func TestBackupCurrentHomeMarkdown(t *testing.T) {
-	oldBase := localBoxBase
-	localBoxBase = t.TempDir()
-	t.Cleanup(func() { localBoxBase = oldBase })
-
-	domain := "example.co.za"
-	if err := saveHomePage(domain, "# Original\n\nKeep this"); err != nil {
-		t.Fatal(err)
-	}
-	name, err := backupCurrentHomeMarkdown(domain)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name == "" {
-		t.Fatal("expected backup name")
-	}
-	backup, err := os.ReadFile(filepath.Join(designAssistantBackupsPath(domain), name))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(backup), "Keep this") {
-		t.Fatalf("expected backup content, got %s", backup)
-	}
-}
-
-func TestStripDesignAssistantReviewNote(t *testing.T) {
-	content := stripDesignAssistantReviewNote("# Title\n\nBody\n\n_Draft generated locally for example.co.za. Review before publishing._\n")
-	if strings.Contains(content, "Draft generated locally") {
-		t.Fatalf("expected review note to be stripped, got %s", content)
-	}
-	if !strings.Contains(content, "Body") {
-		t.Fatalf("expected content to remain, got %s", content)
+	if !strings.Contains(content, "Hello") {
+		t.Fatalf("expected saved request content, got %s", content)
 	}
 }
 
@@ -135,8 +93,8 @@ func TestPageAssistantHandlerGeneratesDraftWithoutPublishing(t *testing.T) {
 		t.Fatalf("expected OK, got %d: %s", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Draft saved as") || !strings.Contains(body, "Example Clinic") {
-		t.Fatalf("expected generated draft response, got %s", body)
+	if !strings.Contains(body, "Request saved as") || !strings.Contains(body, "Example Clinic") || strings.Contains(body, "Publish</button>") {
+		t.Fatalf("expected generated request response without publish action, got %s", body)
 	}
 	if _, err := os.Stat(homeMarkdownPath("example.co.za")); !os.IsNotExist(err) {
 		t.Fatalf("generate should not publish markdown, err=%v", err)
