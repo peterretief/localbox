@@ -1019,3 +1019,102 @@ func TestPageHTMLHandlerLoadsPublishedHTMLIntoEditor(t *testing.T) {
 		t.Fatalf("expected published HTML to be loaded into editor, got %s", body)
 	}
 }
+
+func TestPublishHTMLNavigationInsertsSelectedPageLinks(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := "example.com"
+	site := domainSiteBase(domain)
+	if err := os.MkdirAll(site, 0775); err != nil {
+		t.Fatal(err)
+	}
+	home := `<!doctype html><html><body><header><nav><a href="/">Home</a></nav></header><main>Home</main></body></html>`
+	if err := os.WriteFile(homeHTMLPath(domain), []byte(home), 0664); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "about.html"), []byte("about"), 0664); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordUploadedHTML(domain, "about.html"); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveSiteMenuItems(domain, []SiteMenuItem{{Name: "about.html", Label: "About us"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := publishHTMLNavigation(domain); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(homeHTMLPath(domain))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(data)
+	if !strings.Contains(body, `<a href="/about.html">About us</a>`) {
+		t.Fatalf("expected about link in nav, got %s", body)
+	}
+	if loadSiteMode(domain) != "html" {
+		t.Fatal("expected HTML mode after publishing HTML navigation")
+	}
+}
+
+func TestPageHTMLHandlerPublishesHTMLNavigation(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+	oldUsers := usersFile
+	oldAdmins := adminsFile
+	usersFile = filepath.Join(t.TempDir(), "users.conf")
+	adminsFile = filepath.Join(t.TempDir(), "admins.conf")
+	t.Cleanup(func() {
+		usersFile = oldUsers
+		adminsFile = oldAdmins
+	})
+	if err := os.WriteFile(usersFile, []byte("admin:example.com:x\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(adminsFile, []byte("admin:example.com\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	site := domainSiteBase("example.com")
+	if err := os.MkdirAll(site, 0775); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(homeHTMLPath("example.com"), []byte(`<!doctype html><html><body><nav><a href="/">Home</a></nav></body></html>`), 0664); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "services.html"), []byte("services"), 0664); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordUploadedHTML("example.com", "services.html"); err != nil {
+		t.Fatal(err)
+	}
+
+	form := url.Values{}
+	form.Set("action", "save_html_menu")
+	form.Add("menu", "services.html")
+	form.Set("label_services.html", "Services")
+	req := httptest.NewRequest(http.MethodPost, "https://example.com/page/html", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("admin", "example.com")})
+	rec := httptest.NewRecorder()
+
+	pageHTMLHandler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+	data, err := os.ReadFile(homeHTMLPath("example.com"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `<a href="/services.html">Services</a>`) {
+		t.Fatalf("expected services link in active homepage, got %s", string(data))
+	}
+	if !strings.Contains(rec.Body.String(), "HTML navigation published.") {
+		t.Fatalf("expected success message, got %s", rec.Body.String())
+	}
+}

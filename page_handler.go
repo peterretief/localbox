@@ -212,20 +212,7 @@ func pageHTMLHandler(w http.ResponseWriter, r *http.Request) {
 			data.UploadError = "Could not read HTML pages."
 			break
 		}
-		selected := map[string]bool{}
-		for _, name := range r.Form["menu"] {
-			selected[name] = true
-		}
-		var items []SiteMenuItem
-		for _, file := range siteMenuPages(files) {
-			if !selected[file.Name] {
-				continue
-			}
-			items = append(items, SiteMenuItem{
-				Name:  file.Name,
-				Label: r.FormValue("label_" + file.Name),
-			})
-		}
+		items := menuItemsFromForm(files, r)
 		if err := saveSiteMenuItems(s.Domain, items); err != nil {
 			data.UploadError = "Could not save menu."
 		} else {
@@ -237,6 +224,22 @@ func pageHTMLHandler(w http.ResponseWriter, r *http.Request) {
 				data.Mode = "markdown"
 			}
 			data.UploadSuccess = "Menu saved."
+		}
+	case "save_html_menu":
+		files, err := listSiteHTMLFiles(s.Domain)
+		if err != nil {
+			data.UploadError = "Could not read HTML pages."
+			break
+		}
+		if err := saveSiteMenuItems(s.Domain, menuItemsFromForm(files, r)); err != nil {
+			data.UploadError = "Could not save menu."
+			break
+		}
+		if err := publishHTMLNavigation(s.Domain); err != nil {
+			data.UploadError = "Menu saved, but could not publish it into the HTML homepage."
+		} else {
+			data.Mode = "html"
+			data.UploadSuccess = "HTML navigation published."
 		}
 	case "create_shopping":
 		data.UploadError = "Shopping pages are not available in this LocalBox setup."
@@ -355,6 +358,24 @@ func newPageEditorData(domain, content string) PageEditorData {
 		AssistantProvider: designAssistantProviderName(),
 		AssistantBilling:  designAssistantBillingNote(),
 	}
+}
+
+func menuItemsFromForm(files []SiteHTMLFile, r *http.Request) []SiteMenuItem {
+	selected := map[string]bool{}
+	for _, name := range r.Form["menu"] {
+		selected[name] = true
+	}
+	var items []SiteMenuItem
+	for _, file := range siteMenuPages(files) {
+		if !selected[file.Name] {
+			continue
+		}
+		items = append(items, SiteMenuItem{
+			Name:  file.Name,
+			Label: r.FormValue("label_" + file.Name),
+		})
+	}
+	return items
 }
 
 func catalogProductsFromForm(r *http.Request) []cartProduct {

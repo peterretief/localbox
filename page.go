@@ -365,6 +365,38 @@ func siteHTMLFileHTMLLink(name string) string {
 	return fmt.Sprintf(`<a href="%s">%s</a>`, siteHTMLFileLink(name), label)
 }
 
+func publishHTMLNavigation(domain string) error {
+	data, err := os.ReadFile(homeHTMLPath(domain))
+	if err != nil {
+		return err
+	}
+	source := string(data)
+	lower := strings.ToLower(source)
+	closeNav := strings.Index(lower, "</nav>")
+	if closeNav == -1 {
+		return fmt.Errorf("active HTML homepage has no nav element")
+	}
+
+	var links []string
+	for _, item := range existingSiteMenuItems(domain, loadSiteMenuItems(domain)) {
+		href := siteHTMLFileLink(item.Name)
+		if strings.Contains(source, `href="`+href+`"`) || strings.Contains(source, `href='`+href+`'`) {
+			continue
+		}
+		links = append(links, fmt.Sprintf(`<a href="%s">%s</a>`, html.EscapeString(href), html.EscapeString(item.Label)))
+	}
+	if len(links) == 0 {
+		return saveSiteMode(domain, "html")
+	}
+
+	insert := "\n" + strings.Join(links, "\n") + "\n"
+	updated := source[:closeNav] + insert + source[closeNav:]
+	if _, err := backupHomeHTML(domain); err != nil {
+		return err
+	}
+	return publishHomeHTML(domain, []byte(updated))
+}
+
 func restoreSiteHTMLFile(domain, name string) error {
 	if !isHomeHTMLName(name) {
 		return fmt.Errorf("invalid HTML file")

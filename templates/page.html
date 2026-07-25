@@ -221,6 +221,31 @@
                     <button type="submit">Publish HTML</button>
                 </form>
             </div>
+            <section class="menu-editor">
+                <h2>HTML Navigation</h2>
+                <p class="help">Choose extra HTML pages to add to the active homepage navigation. LocalBox inserts missing links into the first nav area in the published homepage.</p>
+                {{if .MenuPages}}
+                <form method="POST" action="/page/html">
+                    <input type="hidden" name="action" value="save_html_menu">
+                    <div class="menu-list">
+                        {{range .MenuPages}}
+                        <div class="menu-row">
+                            <label>
+                                <input type="checkbox" name="menu" value="{{.Name}}" {{if .InMenu}}checked{{end}}>
+                                <span class="file-name">{{.Name}}</span>
+                            </label>
+                            <input type="text" name="label_{{.Name}}" value="{{.MenuLabel}}" maxlength="48" placeholder="Menu label">
+                        </div>
+                        {{end}}
+                    </div>
+                    <div class="actions">
+                        <button type="submit">Publish HTML navigation</button>
+                    </div>
+                </form>
+                {{else}}
+                <div class="empty">Save an extra HTML page, such as about.html, before publishing navigation links.</div>
+                {{end}}
+            </section>
             {{if .HTMLFiles}}
             <table class="file-table">
                 <thead>
