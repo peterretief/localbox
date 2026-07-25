@@ -59,6 +59,7 @@ type PageEditorData struct {
 	ImageSuccess       string
 	UploadError        string
 	UploadSuccess      string
+	PastedHTML         string
 }
 
 type SiteHTMLFile struct {

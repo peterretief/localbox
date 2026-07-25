@@ -168,6 +168,14 @@
                 {{if .UploadSuccess}}<span class="status">{{.UploadSuccess}}</span>{{end}}
                 {{if .UploadError}}<span class="error">{{.UploadError}}</span>{{end}}
             </form>
+            <form method="POST" action="/page/html">
+                <input type="hidden" name="action" value="paste_html">
+                <p class="help">If an AI tool shows code instead of a download, copy the complete HTML and paste it here. LocalBox will save it as the active homepage.</p>
+                <textarea name="html_body" spellcheck="false" placeholder="Paste the full index.html code here">{{.PastedHTML}}</textarea>
+                <div class="actions">
+                    <button type="submit">Publish pasted HTML</button>
+                </div>
+            </form>
             <div class="upload">
                 <form method="POST" action="/page/html">
                     <input type="hidden" name="action" value="use_markdown">

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 func pageHandler(w http.ResponseWriter, r *http.Request) {
@@ -138,6 +139,21 @@ func pageHTMLHandler(w http.ResponseWriter, r *http.Request) {
 			data.UploadSuccess = "HTML homepage uploaded and published as " + name + "."
 		} else {
 			data.UploadSuccess = "Uploaded site page " + name + "."
+		}
+	case "paste_html":
+		htmlBody := strings.TrimSpace(r.FormValue("html_body"))
+		data.PastedHTML = htmlBody
+		if htmlBody == "" {
+			data.UploadError = "Paste the generated HTML first."
+			break
+		}
+		name, err := saveUploadedHomeHTML(s.Domain, []byte(htmlBody+"\n"))
+		if err != nil {
+			data.UploadError = err.Error()
+		} else {
+			data.Mode = "html"
+			data.PastedHTML = ""
+			data.UploadSuccess = "Pasted HTML homepage published as " + name + "."
 		}
 	case "restore_html":
 		name := r.FormValue("name")

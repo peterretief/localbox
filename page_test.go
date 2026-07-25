@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -868,5 +869,50 @@ func TestSaveUploadedHomeHTMLStoresVersionAndPublishesActiveCopy(t *testing.T) {
 	}
 	if loadSiteMode(domain) != "html" {
 		t.Fatalf("expected html mode after upload")
+	}
+}
+
+func TestPageHTMLHandlerPublishesPastedHTML(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+	oldUsers := usersFile
+	oldAdmins := adminsFile
+	usersFile = filepath.Join(t.TempDir(), "users.conf")
+	adminsFile = filepath.Join(t.TempDir(), "admins.conf")
+	t.Cleanup(func() {
+		usersFile = oldUsers
+		adminsFile = oldAdmins
+	})
+	if err := os.WriteFile(usersFile, []byte("admin:example.com:x\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(adminsFile, []byte("admin:example.com\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
+
+	htmlBody := "<!doctype html><html><body><h1>AI page</h1></body></html>"
+	form := url.Values{}
+	form.Set("action", "paste_html")
+	form.Set("html_body", htmlBody)
+	req := httptest.NewRequest(http.MethodPost, "https://example.com/page/html", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("admin", "example.com")})
+	rec := httptest.NewRecorder()
+
+	pageHTMLHandler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+	active, err := os.ReadFile(homeHTMLPath("example.com"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(active), "<h1>AI page</h1>") {
+		t.Fatalf("expected pasted html to be active, got %s", string(active))
+	}
+	if loadSiteMode("example.com") != "html" {
+		t.Fatalf("expected pasted html to switch site mode")
 	}
 }
