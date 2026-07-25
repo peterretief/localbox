@@ -245,19 +245,101 @@ func pageHTMLHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
+func pageAssistantHandler(w http.ResponseWriter, r *http.Request) {
+	s := requireDomainAdmin(w, r)
+	if s == nil {
+		return
+	}
+
+	content, err := loadHomeMarkdown(s.Domain)
+	if err != nil {
+		http.Error(w, "Could not read page content", http.StatusInternalServerError)
+		return
+	}
+	data := newPageEditorData(s.Domain, content)
+	data.Section = "assistant"
+
+	if r.Method == http.MethodPost {
+		switch r.FormValue("action") {
+		case "generate":
+			draft, err := generateLocalDesignDraft(s.Domain, DesignAssistantRequest{
+				Goal:         r.FormValue("goal"),
+				BusinessName: r.FormValue("business_name"),
+				BusinessType: r.FormValue("business_type"),
+				Location:     r.FormValue("location"),
+				Services:     r.FormValue("services"),
+				Tone:         r.FormValue("tone"),
+				Contact:      r.FormValue("contact"),
+				CallToAction: r.FormValue("call_to_action"),
+			})
+			if err != nil {
+				data.AssistantError = err.Error()
+				break
+			}
+			name, err := saveDesignDraft(s.Domain, draft)
+			if err != nil {
+				data.AssistantError = "Generated draft, but could not save it."
+				data.AssistantDraft = draft
+				data.AssistantPreview = template.HTML(renderMarkdown(draft))
+				break
+			}
+			data.AssistantSuccess = "Draft saved as " + name + ". Review it before publishing."
+			data.AssistantDraft = draft
+			data.AssistantPreview = template.HTML(renderMarkdown(draft))
+		case "preview_draft":
+			draft, err := loadDesignDraft(s.Domain, r.FormValue("name"))
+			if err != nil {
+				data.AssistantError = "Could not open draft."
+				break
+			}
+			data.AssistantDraft = draft
+			data.AssistantPreview = template.HTML(renderMarkdown(draft))
+			data.AssistantSuccess = "Draft loaded for review."
+		case "publish_draft":
+			draft, err := loadDesignDraft(s.Domain, r.FormValue("name"))
+			if err != nil {
+				data.AssistantError = "Could not publish draft."
+				break
+			}
+			if err := saveHomePage(s.Domain, draft); err != nil {
+				data.AssistantError = "Could not publish draft."
+				break
+			}
+			data = newPageEditorData(s.Domain, draft)
+			data.Section = "assistant"
+			data.AssistantDraft = draft
+			data.AssistantPreview = template.HTML(renderMarkdown(draft))
+			data.AssistantSuccess = "Draft published to the Markdown homepage."
+		default:
+			data.AssistantError = "Unknown assistant action."
+		}
+	} else if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	data.DesignDrafts, _ = listDesignDrafts(s.Domain)
+	tmpl := template.Must(template.ParseFiles("templates/page.html"))
+	tmpl.Execute(w, data)
+}
+
 func newPageEditorData(domain, content string) PageEditorData {
 	images, _ := listSiteImages(domain)
 	htmlFiles, _ := listSiteHTMLFiles(domain)
+	designDrafts, _ := listDesignDrafts(domain)
 	return PageEditorData{
-		Content:     content,
-		Preview:     template.HTML(renderMarkdown(content)),
-		Images:      images,
-		HTMLFiles:   htmlFiles,
-		MenuPages:   siteMenuPages(htmlFiles),
-		CatalogRows: catalogEditorRows(domain),
-		Domain:      domain,
-		Mode:        loadSiteMode(domain),
-		Section:     "markdown",
+		Content:           content,
+		Preview:           template.HTML(renderMarkdown(content)),
+		Images:            images,
+		HTMLFiles:         htmlFiles,
+		MenuPages:         siteMenuPages(htmlFiles),
+		CatalogRows:       catalogEditorRows(domain),
+		DesignDrafts:      designDrafts,
+		Domain:            domain,
+		Mode:              loadSiteMode(domain),
+		Section:           "markdown",
+		AssistantProvider: designAssistantProviderName(),
+		AssistantBilling:  designAssistantBillingNote(),
 	}
 }
 

@@ -26,6 +26,7 @@ func newServer() http.Handler {
 	mux.HandleFunc("/message/action", messageActionHandler)
 	mux.HandleFunc("/orders", ordersHandler)
 	mux.HandleFunc("/page", pageHandler)
+	mux.HandleFunc("/page/assistant", pageAssistantHandler)
 	mux.HandleFunc("/page/html", pageHTMLHandler)
 	mux.HandleFunc("/page/images", pageImagesHandler)
 	mux.HandleFunc("/payment/start", paymentStartHandler)

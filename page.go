@@ -36,21 +36,28 @@ type inlineToken struct {
 }
 
 type PageEditorData struct {
-	Content       string
-	Preview       template.HTML
-	Images        []SiteImage
-	HTMLFiles     []SiteHTMLFile
-	MenuPages     []SiteHTMLFile
-	CatalogRows   []CatalogEditorRow
-	Domain        string
-	Mode          string
-	Section       string
-	Error         string
-	Success       string
-	ImageError    string
-	ImageSuccess  string
-	UploadError   string
-	UploadSuccess string
+	Content           string
+	Preview           template.HTML
+	Images            []SiteImage
+	HTMLFiles         []SiteHTMLFile
+	MenuPages         []SiteHTMLFile
+	CatalogRows       []CatalogEditorRow
+	DesignDrafts      []DesignDraft
+	Domain            string
+	Mode              string
+	Section           string
+	AssistantProvider string
+	AssistantBilling  string
+	AssistantDraft    string
+	AssistantPreview  template.HTML
+	AssistantError    string
+	AssistantSuccess  string
+	Error             string
+	Success           string
+	ImageError        string
+	ImageSuccess      string
+	UploadError       string
+	UploadSuccess     string
 }
 
 type SiteHTMLFile struct {

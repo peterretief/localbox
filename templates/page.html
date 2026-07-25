@@ -70,13 +70,14 @@
 <body>
     <div class="shell">
         <div class="top">
-            <h1>{{if eq .Section "html"}}HTML Site{{else}}Markdown Site{{end}}</h1>
+            <h1>{{if eq .Section "html"}}HTML Site{{else if eq .Section "assistant"}}Design Assistant{{else}}Markdown Site{{end}}</h1>
             <div><a href="https://{{.Domain}}/" target="_blank" rel="noopener">View active page</a> · <a href="/dashboard">Dashboard</a> · <a href="/apps/mail">Mail</a> · <a href="/admin">Admin</a> · <a href="/logout">Sign out</a></div>
         </div>
         <p style="color:#777;margin-top:-10px;">{{.Domain}} · current mode: {{.Mode}}</p>
         <nav class="tabs" aria-label="Site editor sections">
             <a class="tab {{if eq .Section "markdown"}}active{{end}}" href="/page">Markdown site</a>
             <a class="tab {{if eq .Section "html"}}active{{end}}" href="/page/html">HTML site</a>
+            <a class="tab {{if eq .Section "assistant"}}active{{end}}" href="/page/assistant">Design Assistant</a>
         </nav>
 
         {{if eq .Section "markdown"}}
@@ -268,6 +269,102 @@
                     </div>
                 </form>
             </div>
+        </section>
+        {{end}}
+
+        {{if eq .Section "assistant"}}
+        <section class="images">
+            <h2>Design Assistant</h2>
+            <p class="help">Create a draft from a short brief. Drafts are saved for review and are not published until you explicitly publish one.</p>
+            <p class="help"><strong>Provider:</strong> {{.AssistantProvider}}. {{.AssistantBilling}}</p>
+            <form method="POST" action="/page/assistant">
+                <input type="hidden" name="action" value="generate">
+                <div class="catalog-rows">
+                    <div class="catalog-row" style="grid-template-columns: repeat(2, minmax(0,1fr));">
+                        <label>Goal
+                            <input name="goal" maxlength="500" value="Create homepage" placeholder="Create homepage">
+                        </label>
+                        <label>Business name
+                            <input name="business_name" maxlength="500" value="{{.Domain}}" required>
+                        </label>
+                        <label>Business type
+                            <input name="business_type" maxlength="500" placeholder="Clinic, food delivery, repair service" required>
+                        </label>
+                        <label>Location
+                            <input name="location" maxlength="500" placeholder="Town, area, or community">
+                        </label>
+                        <label>Tone
+                            <input name="tone" maxlength="500" placeholder="Warm, professional, practical">
+                        </label>
+                        <label>Call to action
+                            <input name="call_to_action" maxlength="500" placeholder="Ask for a quote">
+                        </label>
+                    </div>
+                    <label style="display:grid;gap:6px;color:#555;font-size:.86em;font-weight:bold;text-transform:uppercase;">Services or products
+                        <textarea name="services" style="min-height:150px;" placeholder="One service or product per line"></textarea>
+                    </label>
+                    <label style="display:grid;gap:6px;color:#555;font-size:.86em;font-weight:bold;text-transform:uppercase;">Contact details
+                        <input name="contact" maxlength="500" style="width:100%;padding:10px;border:1px solid #d8d8d8;border-radius:5px;" placeholder="Email, phone, or contact instruction">
+                    </label>
+                </div>
+                <div class="actions">
+                    <button type="submit">Generate draft</button>
+                    {{if .AssistantSuccess}}<span class="status">{{.AssistantSuccess}}</span>{{end}}
+                    {{if .AssistantError}}<span class="error">{{.AssistantError}}</span>{{end}}
+                </div>
+            </form>
+        </section>
+
+        {{if .AssistantDraft}}
+        <section class="images">
+            <h2>Draft Preview</h2>
+            <div class="editor">
+                <textarea readonly>{{.AssistantDraft}}</textarea>
+                <div class="preview">{{.AssistantPreview}}</div>
+            </div>
+            <p class="help" style="margin-top:14px;">Review the draft carefully before publishing. Publishing replaces the Markdown homepage, but HTML uploads are not deleted.</p>
+        </section>
+        {{end}}
+
+        <section class="images">
+            <h2>Saved Drafts</h2>
+            {{if .DesignDrafts}}
+            <table class="file-table">
+                <thead>
+                    <tr>
+                        <th>Draft</th>
+                        <th>Created</th>
+                        <th>Size</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .DesignDrafts}}
+                    <tr>
+                        <td class="file-name">{{.Name}}</td>
+                        <td>{{.Created}}</td>
+                        <td>{{.DisplaySize}}</td>
+                        <td>
+                            <div class="file-actions">
+                                <form method="POST" action="/page/assistant">
+                                    <input type="hidden" name="action" value="preview_draft">
+                                    <input type="hidden" name="name" value="{{.Name}}">
+                                    <button type="submit">Preview</button>
+                                </form>
+                                <form method="POST" action="/page/assistant">
+                                    <input type="hidden" name="action" value="publish_draft">
+                                    <input type="hidden" name="name" value="{{.Name}}">
+                                    <button type="submit">Publish</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            {{else}}
+            <div class="empty">No assistant drafts yet.</div>
+            {{end}}
         </section>
         {{end}}
     </div>
