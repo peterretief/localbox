@@ -177,10 +177,6 @@
                     <input type="hidden" name="action" value="use_html">
                     <button type="submit">Publish HTML</button>
                 </form>
-                <form method="POST" action="/page/html">
-                    <input type="hidden" name="action" value="create_shopping">
-                    <button type="submit">Create shopping page</button>
-                </form>
             </div>
             {{if .HTMLFiles}}
             <table class="file-table">
@@ -231,44 +227,6 @@
             {{else}}
             <div class="empty">No HTML homepage uploaded yet.</div>
             {{end}}
-
-            <div class="catalog-editor">
-                <h2>Shopping Items</h2>
-                <p class="help">These items are saved in the SQL database for {{.Domain}} only. Use category <strong>Add-on</strong> to move an item into the add-ons section. Clear a row name to remove it.</p>
-                <form method="POST" action="/page/html">
-                    <input type="hidden" name="action" value="save_catalog">
-                    <input type="hidden" name="catalog_count" value="{{len .CatalogRows}}">
-                    <div class="catalog-rows">
-                        {{range .CatalogRows}}
-                        <div class="catalog-row">
-                            <input type="hidden" name="catalog_{{.Index}}_id" value="{{.Product.ID}}">
-                            <label>Name
-                                <input name="catalog_{{.Index}}_name" value="{{.Product.Name}}" maxlength="120" placeholder="Item name">
-                            </label>
-                            <label>Description
-                                <input name="catalog_{{.Index}}_description" value="{{.Product.Description}}" maxlength="320" placeholder="Short description">
-                            </label>
-                            <label>Price
-                                <input name="catalog_{{.Index}}_price" value="{{.Product.Price}}" maxlength="80" placeholder="Quoted">
-                            </label>
-                            <label>Category
-                                <input name="catalog_{{.Index}}_category" value="{{.Product.Category}}" maxlength="48" placeholder="Core">
-                            </label>
-                            <label>Image URL
-                                <input name="catalog_{{.Index}}_image" value="{{.Product.Image}}" maxlength="512" placeholder="/assets/images/item.jpg">
-                            </label>
-                            <label class="featured-option">
-                                <input type="checkbox" name="catalog_{{.Index}}_featured" value="1" {{if .Product.Featured}}checked{{end}}>
-                                Featured
-                            </label>
-                        </div>
-                        {{end}}
-                    </div>
-                    <div class="actions">
-                        <button type="submit">Save shopping items</button>
-                    </div>
-                </form>
-            </div>
         </section>
         {{end}}
 

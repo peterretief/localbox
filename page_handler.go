@@ -188,34 +188,9 @@ func pageHTMLHandler(w http.ResponseWriter, r *http.Request) {
 			data.UploadSuccess = "Menu saved."
 		}
 	case "create_shopping":
-		if err := saveShoppingCartPage(s.Domain); err != nil {
-			data.UploadError = "Could not create shopping page."
-		} else {
-			if loadSiteMode(s.Domain) == "markdown" {
-				if err := saveHomePage(s.Domain, content); err != nil {
-					data.UploadError = "Shopping page created, but the homepage could not be republished."
-					break
-				}
-				data.Mode = "markdown"
-			}
-			data.UploadSuccess = "Shopping page created as shopping.html and added to the menu."
-		}
+		data.UploadError = "Shopping pages are not available in this LocalBox setup."
 	case "save_catalog":
-		catalog := catalogProductsFromForm(r)
-		if err := saveSiteCatalog(s.Domain, catalog); err != nil {
-			data.UploadError = "Could not save shopping items."
-		} else if err := saveShoppingCartPage(s.Domain); err != nil {
-			data.UploadError = "Shopping items saved, but shopping.html could not be regenerated."
-		} else {
-			if loadSiteMode(s.Domain) == "markdown" {
-				if err := saveHomePage(s.Domain, content); err != nil {
-					data.UploadError = "Shopping items saved, but the homepage could not be republished."
-					break
-				}
-				data.Mode = "markdown"
-			}
-			data.UploadSuccess = "Shopping items saved for " + s.Domain + "."
-		}
+		data.UploadError = "Shopping items are not available in this LocalBox setup."
 	case "use_html":
 		name, err := restoreLatestSiteHTMLBackup(s.Domain)
 		if err != nil {
