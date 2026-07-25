@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"html"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -144,6 +145,48 @@ func saveDesignDraft(domain, content string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("could not allocate draft name")
+}
+
+func saveDesignRequestHTML(domain, request string) (string, error) {
+	request = strings.TrimSpace(request)
+	if request == "" {
+		return "", fmt.Errorf("request is empty")
+	}
+	name, _, err := saveUploadedSiteHTML(domain, "ai-website-request.html", []byte(renderDesignRequestHTML(domain, request)))
+	return name, err
+}
+
+func renderDesignRequestHTML(domain, request string) string {
+	escapedDomain := html.EscapeString(domain)
+	escapedRequest := html.EscapeString(request)
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Website Request - ` + escapedDomain + `</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#f5f5f5;color:#1a1a2e;line-height:1.6}
+main{max-width:860px;margin:40px auto;padding:0 20px}
+article{background:#fff;border:1px solid #e2e2e2;border-radius:8px;padding:28px}
+h1{font-size:1.6rem;margin:0 0 10px}
+p{color:#555}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f8fafc;border:1px solid #dde3ea;border-radius:6px;padding:18px;font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+a{color:#0086a8}
+</style>
+</head>
+<body>
+<main>
+<article>
+<h1>AI Website Request</h1>
+<p>Copy this request into ChatGPT or another web page AI designer. Save the generated result as <strong>index.html</strong>, then upload it from LocalBox under <strong>Home page -> HTML site</strong>.</p>
+<pre>` + escapedRequest + `</pre>
+<p><a href="/">Back to site</a></p>
+</article>
+</main>
+</body>
+</html>
+`
 }
 
 func listDesignDrafts(domain string) ([]DesignDraft, error) {

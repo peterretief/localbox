@@ -53,6 +53,35 @@ func TestDesignDraftSaveLoad(t *testing.T) {
 	}
 }
 
+func TestSaveDesignRequestHTMLCreatesNonActiveHTMLFile(t *testing.T) {
+	oldBase := localBoxBase
+	localBoxBase = t.TempDir()
+	t.Cleanup(func() { localBoxBase = oldBase })
+
+	domain := "example.co.za"
+	name, err := saveDesignRequestHTML(domain, "# Request\n\nCreate index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "ai-website-request.html" {
+		t.Fatalf("expected ai-website-request.html, got %q", name)
+	}
+	data, err := os.ReadFile(filepath.Join(domainSiteBase(domain), name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(data)
+	if !strings.Contains(body, "AI Website Request") || !strings.Contains(body, "Create index.html") {
+		t.Fatalf("unexpected request html:\n%s", body)
+	}
+	if _, err := os.Stat(homeHTMLPath(domain)); !os.IsNotExist(err) {
+		t.Fatalf("request html should not publish index.html, err=%v", err)
+	}
+	if !isUploadedHTML(domain, name) {
+		t.Fatal("expected request html to be listed as uploaded html")
+	}
+}
+
 func TestPageAssistantHandlerGeneratesDraftWithoutPublishing(t *testing.T) {
 	oldBase := localBoxBase
 	localBoxBase = t.TempDir()

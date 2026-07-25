@@ -253,16 +253,35 @@ func pageAssistantHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			data.AssistantSuccess = "Request saved as " + name + ". Copy it into an online AI website generator."
 			data.AssistantDraft = draft
+			data.AssistantDraftName = name
 			data.AssistantPreview = template.HTML(renderMarkdown(draft))
 		case "preview_draft":
-			draft, err := loadDesignDraft(s.Domain, r.FormValue("name"))
+			name := r.FormValue("name")
+			draft, err := loadDesignDraft(s.Domain, name)
 			if err != nil {
 				data.AssistantError = "Could not open request."
 				break
 			}
 			data.AssistantDraft = draft
+			data.AssistantDraftName = name
 			data.AssistantPreview = template.HTML(renderMarkdown(draft))
 			data.AssistantSuccess = "Request loaded."
+		case "save_request_html":
+			name := r.FormValue("name")
+			draft, err := loadDesignDraft(s.Domain, name)
+			if err != nil {
+				data.AssistantError = "Could not open request."
+				break
+			}
+			htmlName, err := saveDesignRequestHTML(s.Domain, draft)
+			if err != nil {
+				data.AssistantError = "Could not save HTML file."
+				break
+			}
+			data.AssistantDraft = draft
+			data.AssistantDraftName = name
+			data.AssistantPreview = template.HTML(renderMarkdown(draft))
+			data.AssistantSuccess = "Saved " + htmlName + " in HTML Site files."
 		default:
 			data.AssistantError = "Unknown assistant action."
 		}
