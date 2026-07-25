@@ -15,13 +15,14 @@ func TestGenerateLocalDesignDraft(t *testing.T) {
 		BusinessName: "Dave's Repairs",
 		BusinessType: "Appliance repairs",
 		Location:     "Cape Town",
+		Style:        "online-presence",
 		Services:     "Fridge repairs\nWashing machine repairs",
 		Contact:      "Email dave@example.co.za",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"# AI Website Request for Dave's Repairs", "single-file static HTML website", "index.html", "Fridge repairs", "Washing machine repairs", "Upload Instructions", "Upload HTML", "has not changed the live website"} {
+	for _, want := range []string{"# AI Website Request for Dave's Repairs", "single-file static HTML website", "online-presence", "narrow readable content column", "index.html", "Fridge repairs", "Washing machine repairs", "Upload Instructions", "Upload HTML", "has not changed the live website"} {
 		if !strings.Contains(draft, want) {
 			t.Fatalf("request missing %q:\n%s", want, draft)
 		}

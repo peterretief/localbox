@@ -264,6 +264,7 @@ func pageAssistantHandler(w http.ResponseWriter, r *http.Request) {
 		case "generate":
 			draft, err := generateLocalDesignDraft(s.Domain, DesignAssistantRequest{
 				Goal:         r.FormValue("goal"),
+				Style:        r.FormValue("style"),
 				BusinessName: r.FormValue("business_name"),
 				BusinessType: r.FormValue("business_type"),
 				Location:     r.FormValue("location"),

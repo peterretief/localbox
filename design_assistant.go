@@ -19,6 +19,7 @@ var designDraftNamePattern = regexp.MustCompile(`^draft-\d{8}T\d{6}Z\.md$`)
 
 type DesignAssistantRequest struct {
 	Goal         string
+	Style        string
 	BusinessName string
 	BusinessType string
 	Location     string
@@ -93,6 +94,7 @@ func generateLocalDesignDraft(domain string, req DesignAssistantRequest) (string
 	if goal == "" {
 		goal = "Create a complete static homepage"
 	}
+	style := designAssistantStyleBrief(req.Style)
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "# AI Website Request for %s\n\n", req.BusinessName)
@@ -104,6 +106,9 @@ func generateLocalDesignDraft(domain string, req DesignAssistantRequest) (string
 	fmt.Fprintf(&b, "Location/community: %s.\n\n", location)
 	if req.Tone != "" {
 		fmt.Fprintf(&b, "Tone: %s.\n\n", req.Tone)
+	}
+	if style != "" {
+		fmt.Fprintf(&b, "Visual direction: %s\n\n", style)
 	}
 	fmt.Fprintf(&b, "Primary call to action: %s.\n\n", callToAction)
 	fmt.Fprintf(&b, "Contact details or instruction: %s.\n\n", contact)
@@ -137,6 +142,7 @@ func generateLocalDesignDraft(domain string, req DesignAssistantRequest) (string
 
 func cleanDesignAssistantRequest(req DesignAssistantRequest) DesignAssistantRequest {
 	req.Goal = cleanDesignAssistantText(req.Goal)
+	req.Style = cleanDesignAssistantText(req.Style)
 	req.BusinessName = cleanDesignAssistantText(req.BusinessName)
 	req.BusinessType = cleanDesignAssistantText(req.BusinessType)
 	req.Location = cleanDesignAssistantText(req.Location)
@@ -145,6 +151,15 @@ func cleanDesignAssistantRequest(req DesignAssistantRequest) DesignAssistantRequ
 	req.Contact = cleanDesignAssistantText(req.Contact)
 	req.CallToAction = cleanDesignAssistantText(req.CallToAction)
 	return req
+}
+
+func designAssistantStyleBrief(style string) string {
+	switch strings.ToLower(strings.TrimSpace(style)) {
+	case "online-presence":
+		return "Use a calm, minimalist online-presence layout: narrow readable content column, simple top navigation, strong first image or portrait area, short introduction, services/projects/work sections, contact links, generous spacing, subtle borders, mobile-first responsiveness, and optional light/dark theme controls. Do not copy any named person's content, branding, code, external assets, analytics, framework output, or generated build paths."
+	default:
+		return ""
+	}
 }
 
 func cleanDesignAssistantText(value string) string {
