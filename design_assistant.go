@@ -12,21 +12,13 @@ import (
 
 const (
 	designAssistantMaxField = 500
-	designAssistantMaxBrief = 2400
+	designAssistantMaxBrief = 4000
 )
 
 var designDraftNamePattern = regexp.MustCompile(`^draft-\d{8}T\d{6}Z\.md$`)
 
 type DesignAssistantRequest struct {
-	Goal         string
-	Style        string
-	BusinessName string
-	BusinessType string
-	Location     string
-	Services     string
-	Tone         string
-	Contact      string
-	CallToAction string
+	Brief string
 }
 
 type DesignDraft struct {
@@ -65,57 +57,16 @@ func generateLocalDesignDraft(domain string, req DesignAssistantRequest) (string
 		return "", fmt.Errorf("design assistant is disabled")
 	}
 	req = cleanDesignAssistantRequest(req)
-	if req.BusinessName == "" {
-		return "", fmt.Errorf("business name is required")
+	if req.Brief == "" {
+		return "", fmt.Errorf("describe the website you want")
 	}
-	if req.BusinessType == "" {
-		return "", fmt.Errorf("business type is required")
-	}
-
-	services := designAssistantLines(req.Services)
-	if len(services) == 0 {
-		services = []string{"A clear description of your main service", "A simple way for visitors to ask questions", "Helpful follow-up from the team"}
-	}
-
-	contact := req.Contact
-	if contact == "" {
-		contact = "Contact us through the form on this website."
-	}
-	callToAction := req.CallToAction
-	if callToAction == "" {
-		callToAction = "Ask for a quote"
-	}
-	location := req.Location
-	if location == "" {
-		location = "our community"
-	}
-
-	goal := req.Goal
-	if goal == "" {
-		goal = "Create a complete static homepage"
-	}
-	style := designAssistantStyleBrief(req.Style)
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "# AI Website Request for %s\n\n", req.BusinessName)
-	fmt.Fprintf(&b, "Copy the request below into an online AI website generator. Ask it to return one complete static HTML file named `index.html`.\n\n")
+	fmt.Fprintf(&b, "# AI Website Request for %s\n\n", domain)
+	fmt.Fprintf(&b, "Copy the request below into ChatGPT or another web page AI designer. Ask it to return one complete static HTML file named `index.html`.\n\n")
 	fmt.Fprintf(&b, "## Request\n\n")
-	fmt.Fprintf(&b, "Create a polished, responsive, single-file static HTML website for `%s`.\n\n", req.BusinessName)
-	fmt.Fprintf(&b, "Goal: %s.\n\n", goal)
-	fmt.Fprintf(&b, "Business type: %s.\n\n", req.BusinessType)
-	fmt.Fprintf(&b, "Location/community: %s.\n\n", location)
-	if req.Tone != "" {
-		fmt.Fprintf(&b, "Tone: %s.\n\n", req.Tone)
-	}
-	if style != "" {
-		fmt.Fprintf(&b, "Visual direction: %s\n\n", style)
-	}
-	fmt.Fprintf(&b, "Primary call to action: %s.\n\n", callToAction)
-	fmt.Fprintf(&b, "Contact details or instruction: %s.\n\n", contact)
-	fmt.Fprintf(&b, "Services/products to include:\n\n")
-	for _, service := range services {
-		fmt.Fprintf(&b, "- %s\n", service)
-	}
+	fmt.Fprintf(&b, "Create a polished, responsive, single-file static HTML website for `%s` from this brief:\n\n", domain)
+	fmt.Fprintf(&b, "%s\n\n", req.Brief)
 	fmt.Fprintf(&b, "\nRequirements:\n\n")
 	fmt.Fprintf(&b, "- Return only one complete `index.html` file.\n")
 	fmt.Fprintf(&b, "- Put all CSS inside the HTML file in a `<style>` block.\n")
@@ -127,6 +78,9 @@ func generateLocalDesignDraft(domain string, req DesignAssistantRequest) (string
 	fmt.Fprintf(&b, "- Do not include analytics, tracking pixels, third-party scripts, or payment code.\n")
 	fmt.Fprintf(&b, "- Use relative links only. Do not link to admin, email, files, or private LocalBox pages.\n")
 	fmt.Fprintf(&b, "- Make the page feel trustworthy and people-first, not like a generic advert.\n\n")
+	fmt.Fprintf(&b, "Suggested visual direction if the brief does not specify one:\n\n")
+	fmt.Fprintf(&b, "- Use a calm, minimalist online-presence layout with a narrow readable content column, simple top navigation, strong first image or portrait area, short introduction, services/projects/work sections, contact links, generous spacing, subtle borders, mobile-first responsiveness, and optional light/dark theme controls.\n")
+	fmt.Fprintf(&b, "- Do not copy any named person's content, branding, code, external assets, analytics, framework output, or generated build paths.\n\n")
 	fmt.Fprintf(&b, "## Upload Instructions\n\n")
 	fmt.Fprintf(&b, "1. Save the generated file as `index.html` on your computer.\n")
 	fmt.Fprintf(&b, "2. In LocalBox, open `Dashboard` -> `Home page` -> `HTML site`.\n")
@@ -141,25 +95,8 @@ func generateLocalDesignDraft(domain string, req DesignAssistantRequest) (string
 }
 
 func cleanDesignAssistantRequest(req DesignAssistantRequest) DesignAssistantRequest {
-	req.Goal = cleanDesignAssistantText(req.Goal)
-	req.Style = cleanDesignAssistantText(req.Style)
-	req.BusinessName = cleanDesignAssistantText(req.BusinessName)
-	req.BusinessType = cleanDesignAssistantText(req.BusinessType)
-	req.Location = cleanDesignAssistantText(req.Location)
-	req.Services = cleanDesignAssistantMultiline(req.Services)
-	req.Tone = cleanDesignAssistantText(req.Tone)
-	req.Contact = cleanDesignAssistantText(req.Contact)
-	req.CallToAction = cleanDesignAssistantText(req.CallToAction)
+	req.Brief = cleanDesignAssistantMultiline(req.Brief)
 	return req
-}
-
-func designAssistantStyleBrief(style string) string {
-	switch strings.ToLower(strings.TrimSpace(style)) {
-	case "online-presence":
-		return "Use a calm, minimalist online-presence layout: narrow readable content column, simple top navigation, strong first image or portrait area, short introduction, services/projects/work sections, contact links, generous spacing, subtle borders, mobile-first responsiveness, and optional light/dark theme controls. Do not copy any named person's content, branding, code, external assets, analytics, framework output, or generated build paths."
-	default:
-		return ""
-	}
 }
 
 func cleanDesignAssistantText(value string) string {
@@ -184,20 +121,6 @@ func cleanDesignAssistantMultiline(value string) string {
 		value = strings.TrimSpace(value[:designAssistantMaxBrief])
 	}
 	return value
-}
-
-func designAssistantLines(value string) []string {
-	var lines []string
-	for _, line := range strings.Split(value, "\n") {
-		line = cleanDesignAssistantText(line)
-		if line != "" {
-			lines = append(lines, line)
-		}
-		if len(lines) >= 8 {
-			break
-		}
-	}
-	return lines
 }
 
 func saveDesignDraft(domain, content string) (string, error) {

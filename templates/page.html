@@ -238,37 +238,8 @@
             <form method="POST" action="/page/assistant">
                 <input type="hidden" name="action" value="generate">
                 <div class="catalog-rows">
-                    <div class="catalog-row" style="grid-template-columns: repeat(2, minmax(0,1fr));">
-                        <label>Goal
-                            <input name="goal" maxlength="500" value="Create homepage" placeholder="Create homepage">
-                        </label>
-                        <label>Style
-                            <select name="style" style="width:100%;padding:9px 10px;border:1px solid #d8d8d8;border-radius:5px;font-size:.92em;">
-                                <option value="online-presence">Simple online presence</option>
-                                <option value="">General business page</option>
-                            </select>
-                        </label>
-                        <label>Business name
-                            <input name="business_name" maxlength="500" value="{{.Domain}}" required>
-                        </label>
-                        <label>Business type
-                            <input name="business_type" maxlength="500" placeholder="Clinic, food delivery, repair service" required>
-                        </label>
-                        <label>Location
-                            <input name="location" maxlength="500" placeholder="Town, area, or community">
-                        </label>
-                        <label>Tone
-                            <input name="tone" maxlength="500" placeholder="Warm, professional, practical">
-                        </label>
-                        <label>Call to action
-                            <input name="call_to_action" maxlength="500" placeholder="Ask for a quote">
-                        </label>
-                    </div>
-                    <label style="display:grid;gap:6px;color:#555;font-size:.86em;font-weight:bold;text-transform:uppercase;">Services or products
-                        <textarea name="services" style="min-height:150px;" placeholder="One service or product per line"></textarea>
-                    </label>
-                    <label style="display:grid;gap:6px;color:#555;font-size:.86em;font-weight:bold;text-transform:uppercase;">Contact details
-                        <input name="contact" maxlength="500" style="width:100%;padding:10px;border:1px solid #d8d8d8;border-radius:5px;" placeholder="Email, phone, or contact instruction">
+                    <label style="display:grid;gap:6px;color:#555;font-size:.86em;font-weight:bold;text-transform:uppercase;">Describe the website you want
+                        <textarea name="brief" style="min-height:240px;" maxlength="4000" required placeholder="Example: Create a simple online presence for a small clinic in Cape Town. It should feel warm and trustworthy, explain our services, show opening hours, include a contact link and a quote/contact form, and look good on phones."></textarea>
                     </label>
                 </div>
                 <div class="actions">

@@ -238,15 +238,7 @@ func pageAssistantHandler(w http.ResponseWriter, r *http.Request) {
 		switch r.FormValue("action") {
 		case "generate":
 			draft, err := generateLocalDesignDraft(s.Domain, DesignAssistantRequest{
-				Goal:         r.FormValue("goal"),
-				Style:        r.FormValue("style"),
-				BusinessName: r.FormValue("business_name"),
-				BusinessType: r.FormValue("business_type"),
-				Location:     r.FormValue("location"),
-				Services:     r.FormValue("services"),
-				Tone:         r.FormValue("tone"),
-				Contact:      r.FormValue("contact"),
-				CallToAction: r.FormValue("call_to_action"),
+				Brief: r.FormValue("brief"),
 			})
 			if err != nil {
 				data.AssistantError = err.Error()

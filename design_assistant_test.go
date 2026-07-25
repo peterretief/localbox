@@ -12,17 +12,12 @@ import (
 
 func TestGenerateLocalDesignDraft(t *testing.T) {
 	draft, err := generateLocalDesignDraft("example.co.za", DesignAssistantRequest{
-		BusinessName: "Dave's Repairs",
-		BusinessType: "Appliance repairs",
-		Location:     "Cape Town",
-		Style:        "online-presence",
-		Services:     "Fridge repairs\nWashing machine repairs",
-		Contact:      "Email dave@example.co.za",
+		Brief: "Create a simple website for Dave's Repairs in Cape Town. We repair fridges and washing machines. Include email dave@example.co.za and make it warm and practical.",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"# AI Website Request for Dave's Repairs", "single-file static HTML website", "online-presence", "narrow readable content column", "index.html", "Fridge repairs", "Washing machine repairs", "Upload Instructions", "Upload HTML", "has not changed the live website"} {
+	for _, want := range []string{"# AI Website Request for example.co.za", "ChatGPT", "single-file static HTML website", "narrow readable content column", "index.html", "Dave's Repairs", "fridges and washing machines", "Upload Instructions", "Upload HTML", "has not changed the live website"} {
 		if !strings.Contains(draft, want) {
 			t.Fatalf("request missing %q:\n%s", want, draft)
 		}
@@ -80,9 +75,7 @@ func TestPageAssistantHandlerGeneratesDraftWithoutPublishing(t *testing.T) {
 	token := newSession("admin", "example.co.za")
 	form := url.Values{}
 	form.Set("action", "generate")
-	form.Set("business_name", "Example Clinic")
-	form.Set("business_type", "Clinic")
-	form.Set("services", "Appointments\nFollow-up care")
+	form.Set("brief", "Create a site for Example Clinic with appointments and follow-up care.")
 	req := httptest.NewRequest(http.MethodPost, "https://example.co.za/page/assistant", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(&http.Cookie{Name: cookieName, Value: token})
