@@ -270,6 +270,15 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    location = /register/verify {
+        proxy_pass http://127.0.0.1:8080/register/verify;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location = /login {
         proxy_pass http://127.0.0.1:8080/login;
         proxy_set_header Host $host;
@@ -545,6 +554,24 @@ server {
 
     location = /payment/paystack/webhook {
         proxy_pass http://127.0.0.1:8080/payment/paystack/webhook;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /account/domains {
+        proxy_pass http://127.0.0.1:8080/account/domains;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /account/order {
+        proxy_pass http://127.0.0.1:8080/account/order;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;

@@ -454,7 +454,7 @@ func TestRegisterHandlerAllowsPrimaryDomain(t *testing.T) {
 	registerHandler(rr, req)
 
 	body := rr.Body.String()
-	if rr.Code != 200 || !strings.Contains(body, "You can then make purchases on this site") || !strings.Contains(body, ">Close</button>") || strings.Contains(body, `<form method="POST" action="/register">`) {
+	if rr.Code != 200 || !strings.Contains(body, "use My domains to see your selected domains") || !strings.Contains(body, ">Sign in and continue</a>") || strings.Contains(body, `<form method="POST" action="/register">`) {
 		t.Fatalf("expected verification notice, code=%d body=%q", rr.Code, rr.Body.String())
 	}
 	if sent.To != "buyer@example.net" || sent.Subject != "Welcome to LocalBox" || !strings.Contains(sent.Body, "registered as a user for "+primaryLocalBoxHost) || !strings.Contains(sent.Body, "/register/verify?") || !strings.Contains(sent.HTMLBody, "<a href=") {
@@ -480,6 +480,33 @@ func TestRegisterHandlerAllowsPrimaryDomain(t *testing.T) {
 	}
 	if physicalAddress != "1 Example Street, Unit 4, Cape Town, Western Cape, 8001, ZA" {
 		t.Fatalf("expected composed physical address, got %q", physicalAddress)
+	}
+}
+
+func TestRegisterNoticePreservesPaymentStartNext(t *testing.T) {
+	oldDB := orderDBFile
+	oldSender := sendOrderNotificationEmail
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	t.Cleanup(func() {
+		orderDBFile = oldDB
+		sendOrderNotificationEmail = oldSender
+	})
+	sendOrderNotificationEmail = func(message orderEmailMessage) error {
+		if !strings.Contains(message.Body, "/register/verify?") || !strings.Contains(message.Body, "next=%2Fpayment%2Fstart%3Fdomain%3Dchosen.co.za%26option%3Dlocalbox-hosting") {
+			t.Fatalf("expected verification email to preserve payment next URL, got %#v", message)
+		}
+		return nil
+	}
+
+	form := strings.NewReader("next=%2Fpayment%2Fstart%3Fdomain%3Dchosen.co.za%26option%3Dlocalbox-hosting&full_name=Buyer+Example&email=buyer%40example.net&phone=%2B27821234567&address_line_1=1+Example+Street&city=Cape+Town&province=Western+Cape&postal_code=8001&country=ZA&username=buyer&currency=ZAR&password=secret-password&confirm_password=secret-password")
+	req := httptest.NewRequest("POST", "http://"+primaryLocalBoxHost+"/register", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	registerHandler(rr, req)
+
+	body := rr.Body.String()
+	if rr.Code != http.StatusOK || !strings.Contains(body, `href="/login?next=%2Fpayment%2Fstart%3Fdomain%3Dchosen.co.za%26option%3Dlocalbox-hosting"`) || !strings.Contains(body, `href="/payment/start?domain=chosen.co.za&amp;option=localbox-hosting"`) {
+		t.Fatalf("expected registration notice to preserve payment flow, code=%d body=%q", rr.Code, body)
 	}
 }
 
@@ -593,6 +620,97 @@ func TestMailboxLoginAcceptsFullEmailUsername(t *testing.T) {
 	}
 }
 
+func TestMailboxLoginPagePrefillsEmailLinkIdentity(t *testing.T) {
+	oldDomainsFile := domainsFile
+	domainsFile = filepath.Join(t.TempDir(), "domains.conf")
+	t.Cleanup(func() { domainsFile = oldDomainsFile })
+	if err := os.WriteFile(domainsFile, []byte("example.co.za\nother.co.za\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("GET", "http://example.co.za/login?domain=example.co.za&username=info", nil)
+	rr := httptest.NewRecorder()
+
+	loginHandler(rr, req)
+
+	body := rr.Body.String()
+	if rr.Code != http.StatusOK ||
+		!strings.Contains(body, `value="info"`) ||
+		!strings.Contains(body, `<div class="fixed-field">example.co.za</div>`) ||
+		!strings.Contains(body, `name="domain" value="example.co.za"`) ||
+		!strings.Contains(body, `href="https://example.co.za/"`) ||
+		!strings.Contains(body, `Back to this website`) ||
+		!strings.Contains(body, `https://localboxmail.co.za/login?public=1&amp;next=%2Faccount%2Fdomains`) ||
+		!strings.Contains(body, `Go to Customer account`) ||
+		strings.Contains(body, `<select name="domain"`) {
+		t.Fatalf("expected contextual login page to lock prefilled domain, code=%d body=%q", rr.Code, body)
+	}
+}
+
+func TestMailboxLoginPageWithoutDomainDoesNotExposeDomainList(t *testing.T) {
+	oldDomainsFile := domainsFile
+	domainsFile = filepath.Join(t.TempDir(), "domains.conf")
+	t.Cleanup(func() { domainsFile = oldDomainsFile })
+	if err := os.WriteFile(domainsFile, []byte("example.co.za\nother.co.za\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("GET", "http://example.co.za/login", nil)
+	rr := httptest.NewRecorder()
+
+	loginHandler(rr, req)
+
+	body := rr.Body.String()
+	if rr.Code != http.StatusOK || strings.Contains(body, `<select name="domain"`) || strings.Contains(body, "other.co.za") {
+		t.Fatalf("mailbox login should not expose domain list before password, code=%d body=%q", rr.Code, body)
+	}
+}
+
+func TestMailboxLoginSelectsDomainAfterPassword(t *testing.T) {
+	oldUsersFile := usersFile
+	usersFile = filepath.Join(t.TempDir(), "users.conf")
+	t.Cleanup(func() { usersFile = oldUsersFile })
+	hash, err := hashPasswordStrong("secret-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saveUsers([]User{
+		{Username: "info", Domain: "one.co.za", Hash: hash},
+		{Username: "info", Domain: "two.co.za", Hash: hash},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	form := strings.NewReader("username=info&password=secret-password")
+	req := httptest.NewRequest("POST", "http://localboxmail.co.za/login", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	loginHandler(rr, req)
+
+	body := rr.Body.String()
+	if rr.Code != http.StatusOK ||
+		!strings.Contains(body, "Select the domain to open") ||
+		!strings.Contains(body, `<select name="domain"`) ||
+		!strings.Contains(body, "one.co.za") ||
+		!strings.Contains(body, "two.co.za") ||
+		!strings.Contains(body, `name="login_token"`) ||
+		strings.Contains(body, `name="password"`) {
+		t.Fatalf("expected post-password domain selection, code=%d body=%q", rr.Code, body)
+	}
+	token := firstLoginTokenValue(body)
+	if token == "" {
+		t.Fatalf("expected login token in body=%q", body)
+	}
+	selectForm := strings.NewReader("username=info&domain=two.co.za&login_token=" + url.QueryEscape(token))
+	selectReq := httptest.NewRequest("POST", "http://localboxmail.co.za/login", selectForm)
+	selectReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	selectRR := httptest.NewRecorder()
+
+	loginHandler(selectRR, selectReq)
+
+	if selectRR.Code != http.StatusFound || !strings.HasPrefix(selectRR.Header().Get("Location"), "https://two.co.za/dashboard?localbox_handoff=") {
+		t.Fatalf("expected selected domain login redirect, code=%d location=%q body=%q", selectRR.Code, selectRR.Header().Get("Location"), selectRR.Body.String())
+	}
+}
+
 func TestPublicLoginPageDoesNotShowMailboxDomainOptions(t *testing.T) {
 	req := httptest.NewRequest("GET", "http://example.com/login?public=1&next=%2Fsoftware.html", nil)
 	rr := httptest.NewRecorder()
@@ -606,9 +724,23 @@ func TestPublicLoginPageDoesNotShowMailboxDomainOptions(t *testing.T) {
 	if !strings.Contains(body, "LocalBox Account") || !strings.Contains(body, "Sign in to your registered account") || !strings.Contains(body, `name="public" value="1"`) {
 		t.Fatalf("expected public account login page, got %s", body)
 	}
-	if strings.Contains(body, "Sign in to your mailbox") || strings.Contains(body, "shopping cart") || strings.Contains(body, "Interested in LocalBox") || strings.Contains(body, `name="domain"`) || strings.Contains(body, "<select") {
+	if strings.Contains(body, "Sign in to your mailbox") || strings.Contains(body, "Go to Customer account") || strings.Contains(body, "Back to this website") || strings.Contains(body, "shopping cart") || strings.Contains(body, "Interested in LocalBox") || strings.Contains(body, `name="domain"`) || strings.Contains(body, "<select") {
 		t.Fatalf("public login should not show mailbox/domain fields, got %s", body)
 	}
+}
+
+func firstLoginTokenValue(body string) string {
+	const marker = `name="login_token" value="`
+	start := strings.Index(body, marker)
+	if start < 0 {
+		return ""
+	}
+	start += len(marker)
+	end := strings.Index(body[start:], `"`)
+	if end < 0 {
+		return ""
+	}
+	return body[start : start+end]
 }
 
 func TestPublicLoginPageShowsForgotPasswordLink(t *testing.T) {

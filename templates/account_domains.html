@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>My Domains - LocalBox Mail</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; color: #14213d; background: #f5f7fb; }
+        main { width: min(1180px, calc(100% - 32px)); margin: 40px auto; }
+        header { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; margin-bottom: 24px; }
+        h1 { margin: 0 0 8px; font-size: clamp(1.7rem, 3vw, 2.5rem); letter-spacing: 0; }
+        p { margin: 0; color: #586174; line-height: 1.5; }
+        a { color: #0077a6; }
+        .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+        .button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 10px 14px; border-radius: 6px; border: 1px solid #c7d4e7; background: #fff; color: #14213d; text-decoration: none; font-weight: 700; text-align: center; line-height: 1.15; }
+        .button.primary { background: #0077a6; border-color: #0077a6; color: #fff; }
+        form.inline { margin: 0; }
+        form.inline button { min-height: 40px; padding: 10px 14px; border-radius: 6px; border: 1px solid #0077a6; background: #0077a6; color: #fff; font: inherit; font-weight: 700; cursor: pointer; text-align: center; line-height: 1.15; }
+        .panel { background: #fff; border: 1px solid #dce4f0; border-radius: 8px; overflow: hidden; box-shadow: 0 8px 20px rgba(20,33,61,.06); }
+        .next-step { padding: 18px 20px; margin-bottom: 16px; }
+        .next-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+        .next-option { padding: 14px; border: 1px solid #dce4f0; border-radius: 8px; background: #fff; }
+        .next-option strong { display: block; margin-bottom: 6px; color: #14213d; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 15px 18px; text-align: left; border-bottom: 1px solid #edf1f7; vertical-align: top; }
+        th:nth-child(1) { width: 31%; }
+        th:nth-child(2) { width: 9%; }
+        th:nth-child(3) { width: 23%; }
+        th:nth-child(4) { width: 10%; }
+        th:nth-child(5) { width: 12%; }
+        th:nth-child(6) { width: 15%; }
+        th { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: #69758a; background: #fbfcfe; }
+        tr:last-child td { border-bottom: 0; }
+        .domain { font-weight: 800; font-size: 1rem; color: #14213d; }
+        .muted { color: #6a7282; font-size: .9rem; }
+        .status { display: inline-flex; min-height: 28px; align-items: center; padding: 5px 9px; border-radius: 999px; background: #e8f4f8; color: #095c72; font-size: .85rem; font-weight: 700; }
+        .empty, .error { padding: 28px; }
+        .error { color: #b42318; }
+        .row-actions { display: grid; grid-template-columns: 1fr; gap: 8px; min-width: 150px; }
+        .row-actions .button, .row-actions form.inline button { width: 100%; }
+        @media (max-width: 720px) {
+            body { background: #fff; }
+            main { margin: 18px auto; width: min(100% - 20px, 1040px); }
+            header { align-items: flex-start; flex-direction: column; }
+            h1 { font-size: 1.8rem; }
+            .actions, .row-actions { width: 100%; justify-content: flex-start; }
+            .actions .button, .row-actions .button, form.inline, form.inline button { width: 100%; }
+            .next-grid { grid-template-columns: 1fr; }
+            .next-step { padding: 14px; }
+            .next-option { padding: 12px; }
+            .panel { border-radius: 7px; box-shadow: none; }
+            table, thead, tbody, tr, th, td { display: block; }
+            thead { display: none; }
+            tbody { padding: 10px; }
+            tr { border: 1px solid #edf1f7; border-radius: 7px; padding: 12px; margin-bottom: 12px; background: #fff; }
+            tr:last-child { margin-bottom: 0; }
+            td { border-bottom: 0; padding: 7px 0; overflow-wrap: anywhere; }
+            td::before { content: attr(data-label); display: block; color: #69758a; font-size: .76rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+            td[data-label="Links"]::before { margin-bottom: 8px; }
+            .muted { font-size: .82rem; }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header>
+            <div>
+                <h1>My domains</h1>
+                <p>Signed in as {{.Email}}</p>
+            </div>
+            <nav class="actions">
+                <a class="button" href="/#check">Search domains</a>
+                <a class="button" href="/public/logout">Sign out</a>
+            </nav>
+        </header>
+
+        <section class="panel next-step">
+            <p><strong>Next step after registering a domain</strong></p>
+            <p>Check this page after registration. Each domain can stay parked, use LocalBox hosting while you try the app, or move to a Raspberry Pi cloud that you own.</p>
+            <div class="next-grid">
+                <div class="next-option">
+                    <strong>Park it for free</strong>
+                    LocalBox keeps the domain safe until you are ready. You can send new nameservers later if you use another provider.
+                </div>
+                <div class="next-option">
+                    <strong>Host it with LocalBox</strong>
+                    Use LocalBox hosting as an easy way to try the app. The first month is free, then hosting is R60 per month or R600 per year. Add as many mailboxes as you need at reasonable usage for no extra cost. Your domain can also be renewed after the first year for R150 if you choose to keep it.
+                </div>
+                <div class="next-option">
+                    <strong>Move to your own Raspberry Pi</strong>
+                    Transfer the domain to your own LocalBox Raspberry Pi, hosted by LocalBox or installed at your home, office, school, or business. Enjoy low power use, easy UPS integration, and the option of a neat rack-mount setup. <a href="/?quote=rpi#contact">Request a quote</a> based on current hardware prices and availability.
+                </div>
+            </div>
+        </section>
+
+        <section class="panel">
+            {{if .Error}}
+            <div class="error">{{.Error}}</div>
+            {{else if not .Orders}}
+            <div class="empty">
+                <p>No domain orders are linked to this account yet.</p>
+                <p><a href="/#check">Search for a .za domain</a></p>
+            </div>
+            {{else}}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Domain</th>
+                        <th>Status</th>
+                        <th>Email</th>
+                        <th>Amount</th>
+                        <th>Updated</th>
+                        <th>Links</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Orders}}
+                    <tr>
+                        <td data-label="Domain">
+                            <div class="domain">{{.Domain}}</div>
+                            <div class="muted">{{.ID}}</div>
+                        </td>
+                        <td data-label="Status"><span class="status">{{.StatusLabel}}</span></td>
+                        <td data-label="Email">{{.Email}}</td>
+                        <td data-label="Amount">{{.Amount}}</td>
+                        <td data-label="Updated"><span class="muted">{{.UpdatedAt}}</span></td>
+                        <td data-label="Links">
+                            <div class="row-actions">
+                                <a class="button" href="/account/order?id={{.ID}}">Order details</a>
+                                {{if and .PaymentURL .CanPay}}<a class="button primary" href="{{.PaymentURL}}">Pay</a>{{end}}
+                                {{if .CanHost}}<form class="inline" method="POST" action="/account/order?id={{.ID}}"><input type="hidden" name="action" value="start_localbox_hosting"><button type="submit">Host with LocalBox</button></form>{{end}}
+                                {{if .WebsiteURL}}<a class="button" href="{{.WebsiteURL}}">Open site</a>{{end}}
+                                {{if .AdminURL}}<a class="button" href="{{.AdminURL}}">Domain admin</a>{{end}}
+                                {{if .CanResume}}<a class="button" href="/payment/start?domain={{.Domain}}">Resume</a>{{end}}
+                                <a class="button" href="/?quote=rpi&domain={{.Domain | urlquery}}&email={{$.Email | urlquery}}#contact">Raspberry Pi quote</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            {{end}}
+        </section>
+    </main>
+</body>
+</html>

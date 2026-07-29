@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -30,8 +31,17 @@ func paymentStartHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	next := paymentStartPath(domain, packageOption)
+	existingOrder, err := activeOrderForDomain(r.Context(), domain)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "Unable to check existing order", http.StatusInternalServerError)
+		return
+	}
 	session := getRegisteredSession(r)
 	if session == nil {
+		if existingOrder != nil {
+			http.Error(w, "This domain already has an active LocalBox order.", http.StatusConflict)
+			return
+		}
 		http.Redirect(w, r, "/register?next="+url.QueryEscape(next), http.StatusFound)
 		return
 	}
@@ -44,10 +54,21 @@ func paymentStartHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/register?verification=required&next="+url.QueryEscape(next), http.StatusFound)
 		return
 	}
-	orderID, err := createOrderFromRegisteredProfile(r.Context(), profile, domain, packageOption)
-	if err != nil {
-		http.Error(w, "Unable to create order", http.StatusInternalServerError)
-		return
+	orderID := ""
+	if existingOrder != nil {
+		if !strings.EqualFold(strings.TrimSpace(existingOrder.Email), strings.TrimSpace(profile.Email)) {
+			http.Error(w, "This domain already has an active LocalBox order.", http.StatusConflict)
+			return
+		}
+		if paymentOrderAlreadyComplete(existingOrder.Status) {
+			http.Redirect(w, r, "/account/domains", http.StatusSeeOther)
+			return
+		}
+		if existingOrder.PaymentURL != "" {
+			http.Redirect(w, r, existingOrder.PaymentURL, http.StatusSeeOther)
+			return
+		}
+		orderID = existingOrder.ID
 	}
 	cfg, err := loadPaystackConfig(paystackConfigFile)
 	if err != nil || cfg.validate() != nil {
@@ -57,6 +78,13 @@ func paymentStartHandler(w http.ResponseWriter, r *http.Request) {
 	amountCents, paymentCurrency, err := quoteDomainPaymentAmountZAR(r.Context(), domain, cfg)
 	if err != nil {
 		http.Error(w, "Unable to calculate payment amount: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	if orderID == "" {
+		orderID, err = createOrderFromRegisteredProfile(r.Context(), profile, domain, packageOption)
+	}
+	if err != nil {
+		http.Error(w, "Unable to create order", http.StatusInternalServerError)
 		return
 	}
 	if err := createPaystackPaymentForOrderWithCurrency(r.Context(), orderID, amountCents, paymentCurrency); err != nil {
@@ -71,6 +99,55 @@ func paymentStartHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, detail.PaymentURL, http.StatusSeeOther)
 }
 
+func activeOrderForDomain(ctx context.Context, domain string) (*OrderSummary, error) {
+	domain = strings.TrimSpace(strings.ToLower(domain))
+	if domain == "" {
+		return nil, sql.ErrNoRows
+	}
+	db, err := openOrdersDB()
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	if err := ensureOrdersAdminSchema(ctx, db); err != nil {
+		return nil, err
+	}
+	var order OrderSummary
+	err = db.QueryRowContext(ctx, `
+		SELECT orders.id, customers.email, orders.domain, orders.status, orders.payment_url, orders.payment_reference,
+			orders.quoted_amount_cents, orders.payment_currency, orders.created_at, orders.updated_at, orders.archived_at
+		FROM orders
+		JOIN customers ON customers.id = orders.customer_id
+		WHERE lower(orders.domain) = ? AND orders.archived_at = ''
+			AND orders.status NOT IN ('cancelled', 'payment_failed')
+		ORDER BY
+			CASE orders.status
+				WHEN 'site_live' THEN 6
+				WHEN 'registered' THEN 5
+				WHEN 'paid' THEN 4
+				WHEN 'pending_payment' THEN 3
+				WHEN 'quoted' THEN 3
+				WHEN 'pending_review' THEN 2
+				ELSE 1
+			END DESC,
+			orders.created_at DESC
+		LIMIT 1
+	`, domain).Scan(&order.ID, &order.Email, &order.Domain, &order.Status, &order.PaymentURL, &order.PaymentReference, &order.QuotedAmountCents, &order.PaymentCurrency, &order.CreatedAt, &order.UpdatedAt, &order.ArchivedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &order, nil
+}
+
+func paymentOrderAlreadyComplete(status string) bool {
+	switch strings.TrimSpace(strings.ToLower(status)) {
+	case "paid", "registered", "site_live":
+		return true
+	default:
+		return false
+	}
+}
+
 func createOrderFromRegisteredProfile(ctx context.Context, profile publicUserProfile, domain, packageOption string) (string, error) {
 	orderID, err := newPaymentOrderID()
 	if err != nil {
@@ -80,7 +157,7 @@ func createOrderFromRegisteredProfile(ctx context.Context, profile publicUserPro
 	if err != nil {
 		return "", err
 	}
-	wantedEmail := "info@" + domain
+	wantedEmail := wantedEmailForPackageOption(domain, packageOption)
 	notes := "Created from registered customer profile.\nSelected LocalBox option: " + localBoxPackageOptionLabel(packageOption)
 	now := time.Now().UTC().Format(time.RFC3339)
 	db, err := openOrdersDB()
@@ -130,7 +207,7 @@ func createOrderFromRegisteredProfile(ctx context.Context, profile publicUserPro
 func paymentStartPath(domain, packageOption string) string {
 	values := url.Values{}
 	values.Set("domain", domain)
-	if option, err := normalizeLocalBoxPackageOption(packageOption); err == nil && option != "hosted-domain-email" {
+	if option, err := normalizeLocalBoxPackageOption(packageOption); err == nil && option != "free-parking" {
 		values.Set("option", option)
 	}
 	return "/payment/start?" + values.Encode()
@@ -139,11 +216,15 @@ func paymentStartPath(domain, packageOption string) string {
 func normalizeLocalBoxPackageOption(value string) (string, error) {
 	value = strings.TrimSpace(strings.ToLower(value))
 	if value == "" {
-		return "hosted-domain-email", nil
+		return "free-parking", nil
 	}
 	switch value {
-	case "hosted-domain-email", "hosted-pi", "full-pi":
+	case "free-parking", "localbox-hosting":
 		return value, nil
+	case "own-nameservers":
+		return "free-parking", nil
+	case "hosted-domain-email", "hosted-pi", "full-pi":
+		return "localbox-hosting", nil
 	default:
 		return "", fmt.Errorf("invalid LocalBox option")
 	}
@@ -151,13 +232,30 @@ func normalizeLocalBoxPackageOption(value string) (string, error) {
 
 func localBoxPackageOptionLabel(value string) string {
 	switch value {
-	case "hosted-pi":
-		return "We host your Raspberry Pi"
-	case "full-pi":
-		return "Full Raspberry Pi package"
+	case "localbox-hosting":
+		return "Host it with LocalBox"
 	default:
-		return "We host the domain and email"
+		return "Park it for free"
 	}
+}
+
+func wantedEmailForPackageOption(domain, packageOption string) string {
+	if packageOption != "localbox-hosting" {
+		return ""
+	}
+	return "info@" + domain
+}
+
+func paystackTestModeEnabled() bool {
+	cfg, err := loadPaystackConfig(paystackConfigFile)
+	if err != nil {
+		return false
+	}
+	return strings.HasPrefix(strings.TrimSpace(cfg.SecretKey), "sk_test_") || strings.HasPrefix(strings.TrimSpace(cfg.PublicKey), "pk_test_")
+}
+
+func errRegistrarDisabledInPaymentTestMode() error {
+	return fmt.Errorf("Domains.co.za registration is disabled while Paystack test keys are configured")
 }
 
 type paymentDomainCheckResult struct {

@@ -110,6 +110,78 @@ func TestCompleteOrderRegistrationPublishesSiteAndSendsCertificateOnly(t *testin
 	}
 }
 
+func TestCompleteOrderRegistrationAllowsParkedDomainWithoutMailbox(t *testing.T) {
+	oldDB := orderDBFile
+	oldBase := localBoxBase
+	oldSender := sendOrderNotificationEmail
+	oldUsersFile := usersFile
+	oldAdminsFile := adminsFile
+	oldDomainsFile := domainsFile
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	localBoxBase = t.TempDir()
+	configDir := t.TempDir()
+	usersFile = filepath.Join(configDir, "users.conf")
+	adminsFile = filepath.Join(configDir, "admins.conf")
+	domainsFile = filepath.Join(configDir, "domains.conf")
+	t.Cleanup(func() {
+		orderDBFile = oldDB
+		localBoxBase = oldBase
+		sendOrderNotificationEmail = oldSender
+		usersFile = oldUsersFile
+		adminsFile = oldAdminsFile
+		domainsFile = oldDomainsFile
+	})
+
+	var sent []orderEmailMessage
+	sendOrderNotificationEmail = func(message orderEmailMessage) error {
+		sent = append(sent, message)
+		return nil
+	}
+
+	db, err := openOrdersDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureOrdersAdminSchema(context.Background(), db); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := db.Exec(`
+		INSERT INTO customers (id, full_name, email, phone, physical_address, created_at)
+		VALUES (1, 'Parked Example', 'peter@example.com', '+27 82 123 4567', '1 Example Street', ?)
+	`, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO orders (id, customer_id, domain, wanted_email, status, notes, payment_reference, created_at, updated_at)
+		VALUES ('ord_parked', 1, 'parked.co.za', '', 'paid', 'Selected LocalBox option: Park it for free', 'pay_123', ?, ?)
+	`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	if err := completeOrderRegistration(context.Background(), "ord_parked", "reg_123"); err != nil {
+		t.Fatal(err)
+	}
+	if len(sent) != 1 || !strings.Contains(sent[0].Body, "The domain is parked. No mailbox was requested for this order.") || strings.Contains(sent[0].Body, "first mailbox requested") {
+		t.Fatalf("expected parked-domain certificate email, got %#v", sent)
+	}
+	detail, err := loadOrderDetail("ord_parked")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail.EmailVoucherCode != "" {
+		t.Fatalf("parked domain should not get mailbox voucher, got %q", detail.EmailVoucherCode)
+	}
+	certificate, err := os.ReadFile(registrationCertificatePath("parked.co.za"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(certificate), "First email address reserved: none requested") || strings.Contains(string(certificate), "Email address registration voucher") {
+		t.Fatalf("parked-domain certificate has wrong mailbox details:\n%s", string(certificate))
+	}
+}
+
 func TestCreateFirstOrderMailboxCreatesAdminMailboxAndSendsLogin(t *testing.T) {
 	oldDB := orderDBFile
 	oldBase := localBoxBase
@@ -169,7 +241,7 @@ func TestCreateFirstOrderMailboxCreatesAdminMailboxAndSendsLogin(t *testing.T) {
 	if !strings.Contains(sent[0].Body, "Email address: info@example.co.za") ||
 		!strings.Contains(sent[0].Body, "Username: info") ||
 		!strings.Contains(sent[0].Body, "Temporary password: LB-") ||
-		!strings.Contains(sent[0].Body, "Email login: https://example.co.za/login") ||
+		!strings.Contains(sent[0].Body, "Email login: https://example.co.za/login?domain=example.co.za&username=info") ||
 		!strings.Contains(sent[0].Body, "Domain admin page: https://example.co.za/admin") ||
 		!strings.Contains(sent[0].Body, "Outbound sending is not enabled automatically") {
 		t.Fatalf("first mailbox email missing login details:\n%s", sent[0].Body)

@@ -32,7 +32,7 @@ func TestPublicUserCannotOpenMailApp(t *testing.T) {
 	}
 }
 
-func TestPublicUserDashboardRedirectsToOrders(t *testing.T) {
+func TestPublicUserDashboardRedirectsToAccountDomains(t *testing.T) {
 	oldUsersFile := usersFile
 	usersFile = filepath.Join(t.TempDir(), "users.conf")
 	t.Cleanup(func() { usersFile = oldUsersFile })
@@ -50,12 +50,12 @@ func TestPublicUserDashboardRedirectsToOrders(t *testing.T) {
 
 	dashboardHandler(rec, req)
 
-	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/order/login" {
-		t.Fatalf("expected order login redirect, code=%d location=%q", rec.Code, rec.Header().Get("Location"))
+	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/account/domains" {
+		t.Fatalf("expected account domains redirect, code=%d location=%q", rec.Code, rec.Header().Get("Location"))
 	}
 }
 
-func TestPublicLoginWithoutNextRedirectsToOrders(t *testing.T) {
+func TestPublicLoginWithoutNextRedirectsToAccountDomains(t *testing.T) {
 	oldUsersFile := usersFile
 	usersFile = filepath.Join(t.TempDir(), "users.conf")
 	t.Cleanup(func() { usersFile = oldUsersFile })
@@ -78,7 +78,7 @@ func TestPublicLoginWithoutNextRedirectsToOrders(t *testing.T) {
 
 	loginHandler(rec, req)
 
-	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/order/login" {
-		t.Fatalf("expected order login redirect, code=%d location=%q body=%q", rec.Code, rec.Header().Get("Location"), rec.Body.String())
+	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/account/domains" {
+		t.Fatalf("expected account domains redirect, code=%d location=%q body=%q", rec.Code, rec.Header().Get("Location"), rec.Body.String())
 	}
 }

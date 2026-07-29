@@ -9,6 +9,7 @@ import (
 	"html"
 	"net/mail"
 	"net/smtp"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,18 +42,22 @@ func completeOrderRegistration(ctx context.Context, id, registrarReference strin
 	if !safeDomain(domain) {
 		return fmt.Errorf("invalid domain")
 	}
-	wantedEmail, err := mail.ParseAddress(order.WantedEmail)
-	if err != nil || !strings.HasSuffix(strings.ToLower(wantedEmail.Address), "@"+domain) {
-		return fmt.Errorf("valid first email address required")
-	}
 	customerEmail, err := mail.ParseAddress(order.Email)
 	if err != nil {
 		return fmt.Errorf("valid customer email required")
 	}
+	wantedEmailAddress := strings.TrimSpace(order.WantedEmail)
+	if wantedEmailAddress != "" {
+		wantedEmail, err := mail.ParseAddress(wantedEmailAddress)
+		if err != nil || !strings.HasSuffix(strings.ToLower(wantedEmail.Address), "@"+domain) {
+			return fmt.Errorf("valid first email address required")
+		}
+		wantedEmailAddress = wantedEmail.Address
+	}
 
 	now := time.Now().UTC()
 	voucher := strings.TrimSpace(order.EmailVoucherCode)
-	if voucher == "" {
+	if voucher == "" && wantedEmailAddress != "" {
 		voucher, err = newEmailVoucherCode()
 		if err != nil {
 			return err
@@ -79,7 +84,7 @@ func completeOrderRegistration(ctx context.Context, id, registrarReference strin
 		if err := sendOrderNotificationEmail(orderEmailMessage{
 			To:      customerEmail.Address,
 			Subject: "Domain registration certificate for " + domain,
-			Body:    certificateEmailBody(domain, wantedEmail.Address, voucher),
+			Body:    certificateEmailBody(domain, wantedEmailAddress, voucher),
 			Attachment: &OutgoingAttachment{
 				Filename:    domain + "-localbox-certificate.txt",
 				ContentType: "text/plain; charset=utf-8",
@@ -110,6 +115,9 @@ func createFirstOrderMailbox(ctx context.Context, id string) error {
 		return fmt.Errorf("invalid domain")
 	}
 	wantedEmail, err := mail.ParseAddress(order.WantedEmail)
+	if strings.TrimSpace(order.WantedEmail) == "" {
+		return fmt.Errorf("no first mailbox was requested for this order")
+	}
 	if err != nil || !strings.HasSuffix(strings.ToLower(wantedEmail.Address), "@"+domain) {
 		return fmt.Errorf("valid first email address required")
 	}
@@ -206,21 +214,39 @@ func orderRegistrationCertificate(order OrderDetail, voucher, websiteURL string,
 	fmt.Fprintln(&b, "Domain: "+normalizeDomain(order.Domain))
 	fmt.Fprintln(&b, "Registrant: "+order.FullName)
 	fmt.Fprintln(&b, "Registrar reference: "+order.RegistrarReference)
-	fmt.Fprintln(&b, "First email address reserved: "+strings.ToLower(order.WantedEmail))
-	fmt.Fprintln(&b, "Mailbox login: https://"+normalizeDomain(order.Domain)+"/login")
-	fmt.Fprintln(&b, "Domain admin page: https://"+normalizeDomain(order.Domain)+"/admin")
+	if strings.TrimSpace(order.WantedEmail) != "" {
+		fmt.Fprintln(&b, "First email address reserved: "+strings.ToLower(order.WantedEmail))
+		fmt.Fprintln(&b, "Mailbox login: https://"+normalizeDomain(order.Domain)+"/login")
+		fmt.Fprintln(&b, "Domain admin page: https://"+normalizeDomain(order.Domain)+"/admin")
+	} else {
+		fmt.Fprintln(&b, "First email address reserved: none requested")
+	}
 	fmt.Fprintln(&b, "Website: "+websiteURL)
 	fmt.Fprintln(&b, "Issued: "+now.UTC().Format(time.RFC3339))
 	fmt.Fprintln(&b)
-	fmt.Fprintln(&b, "Email address registration voucher")
-	fmt.Fprintln(&b, "Voucher code: "+voucher)
-	fmt.Fprintln(&b, "The first mailbox is created by LocalBox. The temporary password is sent in the certificate email and is not printed on this certificate.")
-	fmt.Fprintln(&b)
+	if strings.TrimSpace(order.WantedEmail) != "" {
+		fmt.Fprintln(&b, "Email address registration voucher")
+		fmt.Fprintln(&b, "Voucher code: "+voucher)
+		fmt.Fprintln(&b, "The first mailbox is created by LocalBox. The temporary password is sent in the certificate email and is not printed on this certificate.")
+		fmt.Fprintln(&b)
+	}
 	fmt.Fprintln(&b, "This confirms that LocalBox has completed the domain registration step for this order.")
 	return b.Bytes()
 }
 
 func certificateEmailBody(domain, wantedEmail, voucher string) string {
+	if strings.TrimSpace(wantedEmail) == "" {
+		return fmt.Sprintf(`Your domain registration for %s is complete.
+
+Your registration certificate is attached.
+
+The domain is parked. No mailbox was requested for this order.
+
+When you are ready, you can send LocalBox the nameservers for another DNS provider or ask LocalBox to add hosting.
+
+LocalBox Mail
+`, domain)
+	}
 	loginURL := "https://" + domain + "/login"
 	adminURL := "https://" + domain + "/admin"
 	return fmt.Sprintf(`Your domain registration for %s is complete.
@@ -240,7 +266,10 @@ LocalBox Mail
 }
 
 func firstMailboxEmailBody(domain, wantedEmail, mailboxUser, temporaryPassword string) string {
-	loginURL := "https://" + domain + "/login"
+	loginValues := url.Values{}
+	loginValues.Set("username", mailboxUser)
+	loginValues.Set("domain", domain)
+	loginURL := "https://" + domain + "/login?" + loginValues.Encode()
 	adminURL := "https://" + domain + "/admin"
 	return fmt.Sprintf(`The first LocalBox mailbox for %s has been created.
 

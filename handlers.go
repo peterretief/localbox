@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"html"
 	"html/template"
@@ -10,32 +12,62 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
 type LoginPageData struct {
-	Error       string
-	Username    string
-	Domain      string
-	Domains     []string
-	Next        string
-	RegisterURL string
-	CanRegister bool
-	Public      bool
+	Error            string
+	Username         string
+	Domain           string
+	Domains          []string
+	Next             string
+	RegisterURL      string
+	CustomerLoginURL string
+	SiteURL          string
+	CanRegister      bool
+	Public           bool
+	LockedDomain     bool
+	DomainChoices    []string
+	LoginToken       string
 }
+
+type pendingMailboxLogin struct {
+	Username string
+	Domains  []string
+	Expires  time.Time
+}
+
+var (
+	pendingMailboxLogins   = map[string]pendingMailboxLogin{}
+	pendingMailboxLoginsMu sync.Mutex
+)
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		next := safeRedirectPath(r.URL.Query().Get("next"))
 		public := publicLoginRequest(r, next)
+		username := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("username")))
+		domain := normalizeDomain(r.URL.Query().Get("domain"))
+		lockedDomain := !public && safeDomain(domain)
+		if domain == "" {
+			if host := requestHost(r); !public && host != primaryLocalBoxHost && safeDomain(host) {
+				domain = host
+				lockedDomain = true
+			}
+		}
 		tmpl := template.Must(template.ParseFiles("templates/login.html"))
 		tmpl.Execute(w, LoginPageData{
-			Domain:      lastLoginDomain(r),
-			Domains:     loginFormDomains(public),
-			Next:        next,
-			RegisterURL: loginRegisterURL(r, next),
-			CanRegister: publicRegistrationAllowed(r),
-			Public:      public,
+			Username:         username,
+			Domain:           domain,
+			Domains:          nil,
+			Next:             next,
+			RegisterURL:      loginRegisterURL(r, next),
+			CustomerLoginURL: customerAccountLoginURL(public),
+			SiteURL:          loginSiteURL(r, public),
+			CanRegister:      publicRegistrationAllowed(r),
+			Public:           public,
+			LockedDomain:     lockedDomain,
 		})
 		return
 	}
@@ -46,6 +78,25 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 	next := safeRedirectPath(r.FormValue("next"))
 	public := publicLoginRequest(r, next)
+	if !public && strings.TrimSpace(r.FormValue("login_token")) != "" {
+		pending, ok := consumePendingMailboxLogin(r.FormValue("login_token"))
+		selectedDomain := normalizeDomain(domain)
+		if ok && pendingAllowsDomain(pending, selectedDomain) {
+			if next == "" {
+				next = "/dashboard"
+			}
+			rememberLoginDomain(w, selectedDomain)
+			completeLogin(w, r, pending.Username, selectedDomain, "", next)
+			return
+		}
+		renderLoginPage(w, LoginPageData{
+			Error:            "Please sign in again.",
+			Username:         rawUsername,
+			Next:             next,
+			CustomerLoginURL: customerAccountLoginURL(false),
+		})
+		return
+	}
 	if public && domain == "" {
 		domain = registrationDomain(r)
 	}
@@ -60,9 +111,30 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		completeLogin(w, r, username, domain, "", next)
 		return
 	}
+	if !public && domain == "" {
+		domains := authenticatedMailboxDomains(username, password)
+		if len(domains) == 1 {
+			if next == "" {
+				next = "/dashboard"
+			}
+			rememberLoginDomain(w, domains[0])
+			completeLogin(w, r, username, domains[0], "", next)
+			return
+		}
+		if len(domains) > 1 {
+			renderLoginPage(w, LoginPageData{
+				Username:         username,
+				Next:             next,
+				CustomerLoginURL: customerAccountLoginURL(false),
+				DomainChoices:    domains,
+				LoginToken:       newPendingMailboxLogin(username, domains),
+			})
+			return
+		}
+	}
 	if ok, currency := authenticatePublicUserWithCurrency(username, domain, password); ok {
 		if next == "" {
-			next = "/order/login"
+			next = "/account/domains"
 		}
 		completeLogin(w, r, username, domain, currency, next)
 		return
@@ -70,15 +142,80 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	tmpl := template.Must(template.ParseFiles("templates/login.html"))
 	tmpl.Execute(w, LoginPageData{
-		Error:       "Invalid credentials",
-		Username:    rawUsername,
-		Domain:      domain,
-		Domains:     loginFormDomains(public),
-		Next:        next,
-		RegisterURL: loginRegisterURL(r, next),
-		CanRegister: publicRegistrationAllowed(r),
-		Public:      public,
+		Error:            "Invalid credentials",
+		Username:         rawUsername,
+		Domain:           domain,
+		Domains:          nil,
+		Next:             next,
+		RegisterURL:      loginRegisterURL(r, next),
+		CustomerLoginURL: customerAccountLoginURL(public),
+		SiteURL:          loginSiteURL(r, public),
+		CanRegister:      publicRegistrationAllowed(r),
+		Public:           public,
+		LockedDomain:     false,
 	})
+}
+
+func loginSiteURL(r *http.Request, public bool) string {
+	if public {
+		return ""
+	}
+	host := requestHost(r)
+	if host == "" || host == primaryLocalBoxHost {
+		return ""
+	}
+	return "https://" + host + "/"
+}
+
+func renderLoginPage(w http.ResponseWriter, data LoginPageData) {
+	tmpl := template.Must(template.ParseFiles("templates/login.html"))
+	_ = tmpl.Execute(w, data)
+}
+
+func newPendingMailboxLogin(username string, domains []string) string {
+	var raw [32]byte
+	_, _ = rand.Read(raw[:])
+	token := base64.RawURLEncoding.EncodeToString(raw[:])
+	copied := append([]string(nil), domains...)
+	pendingMailboxLoginsMu.Lock()
+	pendingMailboxLogins[token] = pendingMailboxLogin{
+		Username: username,
+		Domains:  copied,
+		Expires:  time.Now().Add(2 * time.Minute),
+	}
+	pendingMailboxLoginsMu.Unlock()
+	return token
+}
+
+func consumePendingMailboxLogin(token string) (pendingMailboxLogin, bool) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return pendingMailboxLogin{}, false
+	}
+	pendingMailboxLoginsMu.Lock()
+	pending, ok := pendingMailboxLogins[token]
+	delete(pendingMailboxLogins, token)
+	pendingMailboxLoginsMu.Unlock()
+	if !ok || time.Now().After(pending.Expires) {
+		return pendingMailboxLogin{}, false
+	}
+	return pending, true
+}
+
+func pendingAllowsDomain(pending pendingMailboxLogin, domain string) bool {
+	for _, allowed := range pending.Domains {
+		if allowed == domain {
+			return true
+		}
+	}
+	return false
+}
+
+func customerAccountLoginURL(public bool) string {
+	if public {
+		return ""
+	}
+	return "https://" + primaryLocalBoxHost + "/login?public=1&next=" + url.QueryEscape("/account/domains")
 }
 
 func normalizeLoginIdentity(username, domain string) (string, string) {
@@ -279,7 +416,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 			tmpl.Execute(w, data)
 			return
 		}
-		data.Notice = "Check your email and click the verification link. You can then make purchases on this site."
+		data.Notice = "Check your email and click the verification link. After the domain registration step, use My domains to see your selected domains and order status."
 		tmpl := template.Must(template.ParseFiles("templates/register.html"))
 		tmpl.Execute(w, data)
 		return
@@ -305,7 +442,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 			tmpl.Execute(w, data)
 			return
 		}
-		data.Notice = "Check your email and click the verification link. You can then make purchases on this site."
+		data.Notice = "Check your email and click the verification link. After the domain registration step, use My domains to see your selected domains and order status."
 		tmpl := template.Must(template.ParseFiles("templates/register.html"))
 		tmpl.Execute(w, data)
 		return
@@ -574,7 +711,7 @@ func injectPublicSessionBar(data []byte, s *Session, next string, canRegister bo
 		if userExists(s.User, s.Domain) {
 			content = `<span>Logged in as ` + template.HTMLEscapeString(label) + `</span><a href="/dashboard" style="color:#fff;text-decoration:underline;">Dashboard</a><a href="/public/logout" style="color:#fff;text-decoration:underline;">Logout</a>`
 		} else {
-			content = `<span>Logged in as ` + template.HTMLEscapeString(label) + `</span><a href="/order/login" style="color:#fff;text-decoration:underline;">Orders</a><a href="/public/logout" style="color:#fff;text-decoration:underline;">Logout</a>`
+			content = `<span>Logged in as ` + template.HTMLEscapeString(label) + `</span><a href="/account/domains" style="color:#fff;text-decoration:underline;">My domains</a><a href="/public/logout" style="color:#fff;text-decoration:underline;">Logout</a>`
 		}
 	}
 	bar := `<div class="localbox-session-bar" style="box-sizing:border-box;width:100%;background:#1a1a2e;color:#fff;padding:10px 18px;font:14px Arial,sans-serif;display:flex;gap:14px;align-items:center;justify-content:flex-end;position:relative;z-index:9999;">` + content + `</div>`
@@ -673,8 +810,8 @@ func passwordHandler(w http.ResponseWriter, r *http.Request) {
 
 	data := PasswordPageData{}
 	switch {
-	case len(newPassword) < 8:
-		data.Error = "New password must be at least 8 characters."
+	case len(newPassword) < minPasswordLength:
+		data.Error = newPasswordMinLengthError()
 	case newPassword != confirmPassword:
 		data.Error = "New passwords do not match."
 	default:

@@ -5,7 +5,9 @@
     <title>LocalBox Mail — Login</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: sans-serif; background: #1a1a2e; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        body { font-family: sans-serif; background: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; }
+        .localbox-session-bar { flex: 0 0 auto; }
+        .login-page { flex: 1 1 auto; width: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 24px; }
         .card { background: white; padding: 40px; border-radius: 8px; width: 100%; max-width: 400px; }
         h1 { color: #1a1a2e; margin-bottom: 8px; font-size: 1.5em; }
         p.sub { color: #999; margin-bottom: 30px; font-size: 0.9em; }
@@ -17,12 +19,30 @@
         .error { color: #e63946; margin-top: 16px; font-size: 0.9em; text-align: center; }
         .link { margin-top: 18px; color: #777; font-size: 0.9em; text-align: center; }
         .link a { color: #00a0c0; text-decoration: none; }
+        .switch-link { margin-top: 22px; padding-top: 18px; border-top: 1px solid #eef1f4; color: #777; font-size: 0.9em; text-align: center; line-height: 1.35; }
+        .switch-link a { color: #00a0c0; text-decoration: none; font-weight: 700; }
+        .fixed-field { width: 100%; padding: 10px 12px; border: 1px solid #e4e8ee; border-radius: 4px; background: #f7f9fb; color: #333; font-size: 1em; }
     </style>
 </head>
 <body>
+    <main class="login-page">
     <div class="card">
         <h1>{{if .Public}}LocalBox Account{{else}}LocalBox Mail{{end}}</h1>
-        <p class="sub">{{if .Public}}Sign in to your registered account{{else}}Sign in to your mailbox{{end}}</p>
+        <p class="sub">{{if .DomainChoices}}Select the domain to open{{else}}{{if .Public}}Sign in to your registered account{{else}}Sign in to your mailbox{{end}}{{end}}</p>
+        {{if .DomainChoices}}
+        <form method="POST" action="/login">
+            <input type="hidden" name="next" value="{{.Next}}">
+            <input type="hidden" name="username" value="{{.Username}}">
+            <input type="hidden" name="login_token" value="{{.LoginToken}}">
+            <label>Domain</label>
+            <select name="domain" required autofocus>
+                {{range .DomainChoices}}
+                <option value="{{.}}">{{.}}</option>
+                {{end}}
+            </select>
+            <button type="submit">Open domain</button>
+        </form>
+        {{else}}
         <form method="POST" action="/login">
             <input type="hidden" name="next" value="{{.Next}}">
             {{if .Public}}<input type="hidden" name="public" value="1">{{end}}
@@ -31,6 +51,10 @@
 <input type="text" name="username" placeholder="{{if .Public}}dan@example.co.za{{else}}dan or dan@example.co.za{{end}}" value="{{.Username}}" required autofocus>
             {{if not .Public}}
             <label>Domain</label>
+            {{if .LockedDomain}}
+            <div class="fixed-field">{{.Domain}}</div>
+            <input type="hidden" name="domain" value="{{.Domain}}">
+            {{else}}
             {{if .Domains}}
             <select name="domain" required>
                 {{range .Domains}}
@@ -41,13 +65,18 @@
             <input type="text" name="domain" placeholder="opamp.co.za" value="{{.Domain}}" required>
             {{end}}
             {{end}}
+            {{end}}
             <label>Password</label>
             <input type="password" name="password" required>
             <button type="submit">Sign in</button>
         </form>
+        {{end}}
         {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+        {{if .SiteURL}}<p class="link"><a href="{{.SiteURL}}">Back to this website</a></p>{{end}}
         <p class="link"><a href="/forgot-password{{if .Username}}?email={{.Username | urlquery}}{{end}}">Forgot your password?</a></p>
+        {{if .CustomerLoginURL}}<p class="switch-link">Managing domains or registering another one?<br><a href="{{.CustomerLoginURL}}">Go to Customer account</a></p>{{end}}
         {{if and (not .Public) .CanRegister}}<p class="link">Interested in LocalBox? <a href="{{.RegisterURL}}">Create an account</a></p>{{end}}
     </div>
+    </main>
 </body>
 </html>

@@ -20,11 +20,20 @@ import (
 )
 
 const (
+	minPasswordLength      = 6
 	passwordHashAlgorithm  = "pbkdf2-sha256"
 	passwordHashIterations = 120000
 	passwordSaltBytes      = 16
 	passwordKeyBytes       = 32
 )
+
+func passwordMinLengthError() error {
+	return fmt.Errorf("password must be at least %d characters", minPasswordLength)
+}
+
+func newPasswordMinLengthError() string {
+	return fmt.Sprintf("New password must be at least %d characters.", minPasswordLength)
+}
 
 type User struct {
 	Username      string
@@ -129,6 +138,31 @@ func authenticate(username, domain, password string) bool {
 	}
 
 	return false
+}
+
+func authenticatedMailboxDomains(username, password string) []string {
+	username = normalizeMailboxUser(username)
+	if !safeMailboxUser(username) {
+		return nil
+	}
+	users, err := loadUsers()
+	if err != nil {
+		log.Printf("error loading users: %v", err)
+		return nil
+	}
+	var domains []string
+	for _, u := range users {
+		if u.Username != username || !verifyPassword(password, u.Hash) {
+			continue
+		}
+		if passwordNeedsRehash(u.Hash) {
+			if err := setPasswordHash(username, u.Domain, password); err != nil {
+				log.Printf("could not update password hash parameters: %v", err)
+			}
+		}
+		domains = append(domains, u.Domain)
+	}
+	return domains
 }
 
 func mailboxExists(username, domain string) bool {

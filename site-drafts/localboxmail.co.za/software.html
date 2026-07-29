@@ -35,7 +35,13 @@
             color: #22312c;
             text-decoration: none;
         }
-        .nav a:not(.brand), footer a { color: #1e6f5c; }
+        .links {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-size: 14px;
+        }
+        .nav a:not(.brand), footer a { color: #1e6f5c; text-decoration: none; }
         main { padding-top: 56px; padding-bottom: 64px; }
         h1 {
             margin: 0 0 12px;
@@ -49,6 +55,7 @@
             font-size: 24px;
         }
         p { color: #5d6660; }
+        .intro { font-size: 18px; }
         .panel {
             margin-top: 22px;
             padding: 22px;
@@ -81,6 +88,7 @@
         footer { padding: 24px 0; color: #68716b; }
         @media (max-width: 720px) {
             h1 { font-size: 34px; }
+            .nav { align-items: flex-start; flex-direction: column; padding-top: 14px; padding-bottom: 14px; }
             dl { grid-template-columns: 1fr; }
             dd { margin-bottom: 8px; }
         }
@@ -90,13 +98,20 @@
     <header>
         <nav class="nav" aria-label="Main navigation">
             <a class="brand" href="/">LocalBox Mail</a>
-            <a href="/">Back to site</a>
+            <div class="links">
+                <a href="/#check">Register a .za domain</a>
+                <a href="/faq.html">FAQ</a>
+                <a href="/terms.html">Terms</a>
+                <a href="/login?public=1&next=%2F">Sign in</a>
+                <a href="/order/login">Orders</a>
+                <a href="/">Back to site</a>
+            </div>
         </nav>
     </header>
 
     <main>
         <h1>Software details</h1>
-        <p>LocalBox is built to run on Raspberry Pi hardware. This page lists the operating system, services, and integrations used by the LocalBox reference setup.</p>
+        <p class="intro">LocalBox is built to run on Raspberry Pi hardware. This page lists the operating system, services, and integrations used by the current LocalBox reference setup.</p>
 
         <section class="panel">
             <h2>Raspberry Pi platform</h2>
@@ -104,7 +119,7 @@
                 <dt>Hardware</dt>
                 <dd>Raspberry Pi, including Raspberry Pi 3 class devices for the low-cost starter setup. The low power profile makes it practical to integrate with an existing 5 volt data UPS where available.</dd>
                 <dt>Operating system</dt>
-                <dd>Alpine Linux, 32-bit ARM build for Raspberry Pi. The exact Alpine release is recorded per prepared device from <code>/etc/alpine-release</code>.</dd>
+                <dd>Alpine Linux, 32-bit ARM build for Raspberry Pi. The current public reference Pi was checked on 28 July 2026 and is running Alpine <code>3.24.1</code> on <code>armv7l</code>.</dd>
                 <dt>Architecture target</dt>
                 <dd>LocalBox Go services are compiled for <code>linux/arm</code> with <code>GOARM=7</code>.</dd>
                 <dt>Persistence</dt>
@@ -125,8 +140,14 @@
                 <dd>Compiled Go service handling website contact forms, local delivery, outbound relay where configured, spam checks, and domain availability endpoints.</dd>
                 <dt>Web server</dt>
                 <dd>Nginx serves the public website and proxies LocalBox service endpoints.</dd>
-                <dt>Optional mail clients</dt>
-                <dd>Dovecot and Postfix can be enabled for IMAP/SMTP access over the VPN mesh.</dd>
+                <dt>Webmail</dt>
+                <dd>ALPS provides browser-based mail access for LocalBox mailboxes.</dd>
+                <dt>Mail services</dt>
+                <dd>Dovecot and Postfix are used for mailbox storage and mail access/sending where enabled for a domain.</dd>
+                <dt>Contacts and calendar</dt>
+                <dd>Radicale can provide CardDAV and CalDAV services for supported LocalBox accounts.</dd>
+                <dt>Files</dt>
+                <dd>Filebrowser can provide browser-based file access behind LocalBox authentication and routing.</dd>
                 <dt>Email migration</dt>
                 <dd>Existing mailbox migration can be offered as a separate paid service where the source mailbox allows IMAP access.</dd>
             </dl>
@@ -146,7 +167,7 @@
 
         <section class="panel">
             <h2>Prepared device record</h2>
-            <p>Each prepared Raspberry Pi should keep a simple setup record with the device model, serial number, Alpine release, LocalBox build date, VPN node name, and customer/domain assignment.</p>
+            <p>Each prepared Raspberry Pi should keep a simple setup record with the device model, serial number, Alpine release, LocalBox build date, VPN node name, enabled services, and customer/domain assignment.</p>
             <p>Periodic backups should be configured for hardware failure recovery. The backup schedule and retention period depend on the selected service level.</p>
             <div class="note">LocalBox is not Raspberry Pi OS. It is a LocalBox software setup running on Raspberry Pi hardware with Alpine Linux.</div>
         </section>

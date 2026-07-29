@@ -19,8 +19,11 @@
         button:hover { background: #0096c7; }
         .error { color: #e63946; margin-top: 16px; font-size: 0.9em; text-align: center; }
         .notice { color: #1f7a4d; background: #e8f7ef; border-radius: 4px; padding: 14px 16px; margin: 16px 0 8px; font-size: 0.95em; line-height: 1.45; }
-        .close-action { display: block; width: 100%; margin-top: 24px; padding: 12px; background: #00b4d8; color: white; border: none; border-radius: 4px; font-size: 1em; cursor: pointer; text-align: center; text-decoration: none; }
+        .actions { display: grid; gap: 10px; margin-top: 24px; }
+        .close-action { display: block; width: 100%; padding: 12px; background: #00b4d8; color: white; border: none; border-radius: 4px; font-size: 1em; cursor: pointer; text-align: center; text-decoration: none; }
+        .close-action.secondary { background: #eef1f4; color: #1a1a2e; }
         .close-action:hover { background: #0096c7; }
+        .close-action.secondary:hover { background: #dde3e8; }
         .link { margin-top: 18px; color: #777; font-size: 0.9em; text-align: center; }
         .link a { color: #00a0c0; text-decoration: none; }
         @media (max-width: 540px) {
@@ -35,7 +38,12 @@
         <h1>Check your email</h1>
         <p class="sub">We sent a verification link to your email address.</p>
         <p class="notice">{{.Notice}}</p>
-        <button type="button" class="close-action" onclick="window.close(); setTimeout(function(){ window.location.href='/' }, 150);">Close</button>
+        <div class="actions">
+            <a class="close-action" href="{{.LoginURL}}">Sign in and continue</a>
+            <a class="close-action secondary" href="{{if .Next}}{{.Next}}{{else}}/{{end}}">Return to selected domain</a>
+            <a class="close-action secondary" href="/account/domains">My domains</a>
+            <a class="close-action secondary" href="/#check">Back to domain search</a>
+        </div>
         {{else}}
         <h1>{{if .SignedIn}}Complete profile{{else}}Create account{{end}}</h1>
         <p class="sub">{{if .SignedIn}}Add the contact details needed for the domain order and payment.{{else}}Register once so your domain orders and payments can use your saved contact details.{{end}}</p>

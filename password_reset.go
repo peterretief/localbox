@@ -32,6 +32,7 @@ type ResetPasswordPageData struct {
 }
 
 type passwordResetToken struct {
+	AccountType   string
 	Hash          string
 	Username      string
 	Domain        string
@@ -53,7 +54,7 @@ func forgotPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
-	notice := "If that mailbox exists and has a recovery email, reset instructions have been sent."
+	notice := "If that LocalBox account exists, reset instructions have been sent."
 	reason := requestPasswordReset(r, email)
 	if reason != "" {
 		logPasswordResetIncident(r, email, reason)
@@ -87,8 +88,8 @@ func resetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case token == "":
 		data.Error = "Reset link is missing or invalid."
-	case len(password) < 8:
-		data.Error = "New password must be at least 8 characters."
+	case len(password) < minPasswordLength:
+		data.Error = newPasswordMinLengthError()
 	case password != confirmPassword:
 		data.Error = "New passwords do not match."
 	default:
@@ -122,18 +123,29 @@ func requestPasswordReset(r *http.Request, address string) string {
 		return "invalid_email"
 	}
 	user, ok := findMailboxByAddress(address)
-	if !ok {
-		return "unknown_mailbox"
-	}
-	if strings.TrimSpace(user.RecoveryEmail) == "" {
-		return "missing_recovery_email"
+	if ok {
+		if strings.TrimSpace(user.RecoveryEmail) == "" {
+			return "missing_recovery_email"
+		}
+		token, err := createPasswordResetToken(user, time.Now().Add(passwordResetTTL))
+		if err != nil {
+			return "token_create_failed: " + err.Error()
+		}
+		if err := sendPasswordResetEmail(r, user, token); err != nil {
+			return "send_failed: " + err.Error()
+		}
+		return ""
 	}
 
-	token, err := createPasswordResetToken(user, time.Now().Add(passwordResetTTL))
+	profile, err := loadPublicUserProfileByEmail(address)
+	if err != nil {
+		return "unknown_mailbox"
+	}
+	token, err := createPublicPasswordResetToken(profile, time.Now().Add(passwordResetTTL))
 	if err != nil {
 		return "token_create_failed: " + err.Error()
 	}
-	if err := sendPasswordResetEmail(r, user, token); err != nil {
+	if err := sendPublicPasswordResetEmail(r, profile, token); err != nil {
 		return "send_failed: " + err.Error()
 	}
 	return ""
@@ -157,6 +169,14 @@ func findMailboxByAddress(address string) (User, bool) {
 }
 
 func createPasswordResetToken(user User, expiresAt time.Time) (string, error) {
+	return createPasswordResetTokenRecord("mailbox", user.Username, user.Domain, user.RecoveryEmail, expiresAt)
+}
+
+func createPublicPasswordResetToken(profile publicUserProfile, expiresAt time.Time) (string, error) {
+	return createPasswordResetTokenRecord("public", profile.Username, profile.Domain, profile.Email, expiresAt)
+}
+
+func createPasswordResetTokenRecord(accountType, username, domain, recoveryEmail string, expiresAt time.Time) (string, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return "", err
@@ -169,15 +189,16 @@ func createPasswordResetToken(user User, expiresAt time.Time) (string, error) {
 	now := time.Now()
 	var kept []passwordResetToken
 	for _, record := range records {
-		if record.ExpiresAt.After(now) && !(record.Username == user.Username && record.Domain == user.Domain) {
+		if record.ExpiresAt.After(now) && !(record.AccountType == accountType && record.Username == username && record.Domain == domain) {
 			kept = append(kept, record)
 		}
 	}
 	kept = append(kept, passwordResetToken{
+		AccountType:   accountType,
 		Hash:          hashResetToken(token),
-		Username:      user.Username,
-		Domain:        user.Domain,
-		RecoveryEmail: user.RecoveryEmail,
+		Username:      username,
+		Domain:        domain,
+		RecoveryEmail: recoveryEmail,
 		ExpiresAt:     expiresAt,
 	})
 	if err := savePasswordResetTokens(kept); err != nil {
@@ -213,10 +234,17 @@ func completePasswordReset(token, password string) error {
 		_ = savePasswordResetTokens(kept)
 		return fmt.Errorf("reset token not found")
 	}
-	if err := resetMailboxPassword(matched.Username, matched.Domain, password); err != nil {
+	var resetErr error
+	switch matched.AccountType {
+	case "public":
+		resetErr = resetPublicUserPassword(matched.Username, matched.Domain, password)
+	default:
+		resetErr = resetMailboxPassword(matched.Username, matched.Domain, password)
+	}
+	if resetErr != nil {
 		kept = append(kept, *matched)
 		_ = savePasswordResetTokens(kept)
-		return err
+		return resetErr
 	}
 	return savePasswordResetTokens(kept)
 }
@@ -236,6 +264,11 @@ func loadPasswordResetTokens() ([]passwordResetToken, error) {
 			continue
 		}
 		parts := strings.Split(line, ":")
+		accountType := "mailbox"
+		if len(parts) == 6 {
+			accountType = parts[0]
+			parts = parts[1:]
+		}
 		if len(parts) != 5 {
 			continue
 		}
@@ -244,6 +277,7 @@ func loadPasswordResetTokens() ([]passwordResetToken, error) {
 			continue
 		}
 		records = append(records, passwordResetToken{
+			AccountType:   accountType,
 			Hash:          parts[0],
 			Username:      parts[1],
 			Domain:        parts[2],
@@ -260,7 +294,11 @@ func savePasswordResetTokens(records []passwordResetToken) error {
 	}
 	var b strings.Builder
 	for _, record := range records {
-		fmt.Fprintf(&b, "%s:%s:%s:%s:%d\n", record.Hash, record.Username, record.Domain, record.RecoveryEmail, record.ExpiresAt.Unix())
+		accountType := strings.TrimSpace(record.AccountType)
+		if accountType == "" {
+			accountType = "mailbox"
+		}
+		fmt.Fprintf(&b, "%s:%s:%s:%s:%s:%d\n", accountType, record.Hash, record.Username, record.Domain, record.RecoveryEmail, record.ExpiresAt.Unix())
 	}
 	return os.WriteFile(passwordResetTokenFile, []byte(b.String()), 0640)
 }
@@ -286,6 +324,20 @@ func sendPasswordResetEmail(r *http.Request, user User, token string) error {
 	return sendOrderNotificationEmail(orderEmailMessage{
 		To:       user.RecoveryEmail,
 		Subject:  "LocalBox password reset",
+		Body:     textBody,
+		HTMLBody: htmlBody,
+	})
+}
+
+func sendPublicPasswordResetEmail(r *http.Request, profile publicUserProfile, token string) error {
+	link := resetLink(r, token)
+	textBody := fmt.Sprintf("A password reset was requested for your LocalBox customer account %s.\n\nOpen this link within 30 minutes to set a new password:\n\n%s\n\nIf you did not request this, you can ignore this email.\n", profile.Email, link)
+	htmlBody := "<p>A password reset was requested for your LocalBox customer account <strong>" + html.EscapeString(profile.Email) + "</strong>.</p>" +
+		"<p><a href=\"" + html.EscapeString(link) + "\">Reset your password</a></p>" +
+		"<p>This link expires in 30 minutes. If you did not request this, you can ignore this email.</p>"
+	return sendOrderNotificationEmail(orderEmailMessage{
+		To:       profile.Email,
+		Subject:  "LocalBox customer account password reset",
 		Body:     textBody,
 		HTMLBody: htmlBody,
 	})

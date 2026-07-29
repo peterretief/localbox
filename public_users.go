@@ -188,8 +188,8 @@ func normalizePublicUserProfileInput(input *publicUserProfileInput, requirePassw
 	if len(input.PhysicalAddress) < 10 {
 		return fmt.Errorf("physical address required")
 	}
-	if requirePassword && len(input.Password) < 8 {
-		return fmt.Errorf("password must be at least 8 characters")
+	if requirePassword && len(input.Password) < minPasswordLength {
+		return passwordMinLengthError()
 	}
 	return nil
 }
@@ -500,6 +500,42 @@ func authenticatePublicUserWithCurrency(username, domain, password string) (bool
 		return false, ""
 	}
 	return true, cleanCurrency(currency)
+}
+
+func resetPublicUserPassword(username, domain, password string) error {
+	username = strings.TrimSpace(strings.ToLower(username))
+	domain = strings.TrimSpace(strings.ToLower(domain))
+	if username == "" || domain == "" {
+		return fmt.Errorf("registered account not found")
+	}
+	if len(password) < minPasswordLength {
+		return passwordMinLengthError()
+	}
+	hash, err := hashPasswordStrong(password)
+	if err != nil {
+		return err
+	}
+	db, err := openOrdersDB()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	ctx := context.Background()
+	if err := ensurePublicUsersSchema(ctx, db); err != nil {
+		return err
+	}
+	result, err := db.ExecContext(ctx, `
+		UPDATE public_users
+		SET password_hash = ?, updated_at = ?
+		WHERE domain = ? AND username = ?
+	`, hash, time.Now().UTC().Format(time.RFC3339), domain, username)
+	if err != nil {
+		return err
+	}
+	if rows, err := result.RowsAffected(); err != nil || rows == 0 {
+		return fmt.Errorf("registered account not found")
+	}
+	return nil
 }
 
 func publicUserExists(username, domain string) bool {

@@ -394,7 +394,7 @@ func TestPaymentStartUsesRegisteredProfileForPaystackCheckout(t *testing.T) {
 		return `{"status":true,"message":"Authorization URL created","data":{"authorization_url":"https://checkout.paystack.test/pay","reference":"lb-ord-start"}}`
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "http://localboxmail.co.za/payment/start?domain=chosen.co.za&option=hosted-pi", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://localboxmail.co.za/payment/start?domain=chosen.co.za&option=localbox-hosting", nil)
 	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("buyer", "localboxmail.co.za")})
 	rec := httptest.NewRecorder()
 
@@ -408,21 +408,282 @@ func TestPaymentStartUsesRegisteredProfileForPaystackCheckout(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	var fullName, email, domain, status, notes string
+	var fullName, email, domain, wantedEmail, status, notes string
 	var amount int
 	if err := db.QueryRow(`
-		SELECT customers.full_name, customers.email, orders.domain, orders.status, orders.notes, orders.quoted_amount_cents
+		SELECT customers.full_name, customers.email, orders.domain, orders.wanted_email, orders.status, orders.notes, orders.quoted_amount_cents
 		FROM orders
 		JOIN customers ON customers.id = orders.customer_id
 		WHERE orders.domain = 'chosen.co.za'
-	`).Scan(&fullName, &email, &domain, &status, &notes, &amount); err != nil {
+	`).Scan(&fullName, &email, &domain, &wantedEmail, &status, &notes, &amount); err != nil {
 		t.Fatal(err)
 	}
-	if fullName != "Buyer Example" || email != "buyer@example.net" || domain != "chosen.co.za" || status != "pending_payment" || amount != 15000 {
-		t.Fatalf("unexpected order values: name=%q email=%q domain=%q status=%q amount=%d", fullName, email, domain, status, amount)
+	if fullName != "Buyer Example" || email != "buyer@example.net" || domain != "chosen.co.za" || wantedEmail != "info@chosen.co.za" || status != "pending_payment" || amount != 15000 {
+		t.Fatalf("unexpected order values: name=%q email=%q domain=%q wantedEmail=%q status=%q amount=%d", fullName, email, domain, wantedEmail, status, amount)
 	}
-	if !strings.Contains(notes, "Selected LocalBox option: We host your Raspberry Pi") {
+	if !strings.Contains(notes, "Selected LocalBox option: Host it with LocalBox") {
 		t.Fatalf("expected selected option in notes, got %q", notes)
+	}
+}
+
+func TestPaymentStartLeavesWantedEmailBlankForParkedDomain(t *testing.T) {
+	dbPath, configPath := setupPaystackOrderTest(t)
+	orderDBFile = dbPath
+	paystackConfigFile = configPath
+	writePaystackConfig(t, configPath, "https://api.paystack.test", "sk_test_local")
+	if err := registerPublicUserProfile("localboxmail.co.za", "buyer", "buyer@example.net", "Buyer Example", "+27 82 123 4567", "1 Example Street, Cape Town", "secret-password", "ZAR"); err != nil {
+		t.Fatal(err)
+	}
+	oldChecker := domainPaymentChecker
+	domainPaymentChecker = func(ctx context.Context, domain string) (paymentDomainCheckResult, error) {
+		return paymentDomainCheckResult{
+			Domain:        domain,
+			Available:     true,
+			RegisterPrice: 15000,
+			Currency:      "ZAR",
+			Provider:      "domains.co.za",
+		}, nil
+	}
+	t.Cleanup(func() { domainPaymentChecker = oldChecker })
+	withPaystackTransport(t, func(r *http.Request) string {
+		return `{"status":true,"message":"Authorization URL created","data":{"authorization_url":"https://checkout.paystack.test/pay","reference":"lb-ord-start"}}`
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "http://localboxmail.co.za/payment/start?domain=parked.co.za", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("buyer", "localboxmail.co.za")})
+	rec := httptest.NewRecorder()
+
+	paymentStartHandler(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected Paystack redirect, code=%d body=%q", rec.Code, rec.Body.String())
+	}
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var wantedEmail, notes string
+	if err := db.QueryRow(`SELECT wanted_email, notes FROM orders WHERE domain = 'parked.co.za'`).Scan(&wantedEmail, &notes); err != nil {
+		t.Fatal(err)
+	}
+	if wantedEmail != "" {
+		t.Fatalf("parked domain should not request first email, got %q", wantedEmail)
+	}
+	if !strings.Contains(notes, "Selected LocalBox option: Park it for free") {
+		t.Fatalf("expected parking option in notes, got %q", notes)
+	}
+}
+
+func TestPaymentStartRedirectsToAccountDomainsForAlreadyPaidDomain(t *testing.T) {
+	dbPath, configPath := setupPaystackOrderTest(t)
+	orderDBFile = dbPath
+	paystackConfigFile = configPath
+	writePaystackConfig(t, configPath, "https://api.paystack.test", "sk_test_local")
+	if err := registerPublicUserProfile("localboxmail.co.za", "buyer", "buyer@example.net", "Buyer Example", "+27 82 123 4567", "1 Example Street, Cape Town", "secret-password", "ZAR"); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := db.Exec(`
+		INSERT INTO customers (id, full_name, email, phone, physical_address, created_at)
+		VALUES (2, 'Buyer Example', 'buyer@example.net', '+27 82 123 4567', '1 Example Street, Cape Town', ?)
+	`, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO orders (id, customer_id, domain, wanted_email, status, payment_url, payment_reference, quoted_amount_cents, created_at, updated_at)
+		VALUES ('ord_paid', 2, 'chosen.co.za', '', 'paid', 'https://checkout.paystack.test/old', 'lb-paid', 15000, ?, ?)
+	`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "http://localboxmail.co.za/payment/start?domain=chosen.co.za", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("buyer", "localboxmail.co.za")})
+	rec := httptest.NewRecorder()
+
+	paymentStartHandler(rec, req)
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/account/domains" {
+		t.Fatalf("expected account domains redirect, code=%d location=%q body=%q", rec.Code, rec.Header().Get("Location"), rec.Body.String())
+	}
+
+	db, err = sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var count int
+	if err := db.QueryRow(`SELECT count(*) FROM orders WHERE domain = 'chosen.co.za'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("expected existing paid order to be reused, got %d orders", count)
+	}
+}
+
+func TestPaymentStartResumesExistingPendingOrderWithoutPaymentURL(t *testing.T) {
+	dbPath, configPath := setupPaystackOrderTest(t)
+	orderDBFile = dbPath
+	paystackConfigFile = configPath
+	writePaystackConfig(t, configPath, "https://api.paystack.test", "sk_test_local")
+	if err := registerPublicUserProfile("localboxmail.co.za", "buyer", "buyer@example.net", "Buyer Example", "+27 82 123 4567", "1 Example Street, Cape Town", "secret-password", "ZAR"); err != nil {
+		t.Fatal(err)
+	}
+	oldChecker := domainPaymentChecker
+	domainPaymentChecker = func(ctx context.Context, domain string) (paymentDomainCheckResult, error) {
+		return paymentDomainCheckResult{
+			Domain:        domain,
+			Available:     true,
+			RegisterPrice: 15000,
+			Currency:      "ZAR",
+			Provider:      "domains.co.za",
+		}, nil
+	}
+	t.Cleanup(func() { domainPaymentChecker = oldChecker })
+	withPaystackTransport(t, func(r *http.Request) string {
+		return `{"status":true,"message":"Authorization URL created","data":{"authorization_url":"https://checkout.paystack.test/resume","reference":"lb-ord-resume"}}`
+	})
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := db.Exec(`
+		INSERT INTO customers (id, full_name, email, phone, physical_address, created_at)
+		VALUES (2, 'Buyer Example', 'buyer@example.net', '+27 82 123 4567', '1 Example Street, Cape Town', ?)
+	`, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO orders (id, customer_id, domain, wanted_email, status, created_at, updated_at)
+		VALUES ('ord_pending', 2, 'chosen.co.za', '', 'pending_payment', ?, ?)
+	`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "http://localboxmail.co.za/payment/start?domain=chosen.co.za", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("buyer", "localboxmail.co.za")})
+	rec := httptest.NewRecorder()
+
+	paymentStartHandler(rec, req)
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "https://checkout.paystack.test/resume" {
+		t.Fatalf("expected resumed Paystack redirect, code=%d location=%q body=%q", rec.Code, rec.Header().Get("Location"), rec.Body.String())
+	}
+
+	db, err = sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var count int
+	var paymentURL string
+	if err := db.QueryRow(`SELECT count(*), max(payment_url) FROM orders WHERE domain = 'chosen.co.za'`).Scan(&count, &paymentURL); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 || paymentURL != "https://checkout.paystack.test/resume" {
+		t.Fatalf("expected existing order payment URL to be updated, count=%d paymentURL=%q", count, paymentURL)
+	}
+}
+
+func TestPaymentStartRejectsDomainWithActiveOrderForAnotherCustomer(t *testing.T) {
+	dbPath, configPath := setupPaystackOrderTest(t)
+	orderDBFile = dbPath
+	paystackConfigFile = configPath
+	writePaystackConfig(t, configPath, "https://api.paystack.test", "sk_test_local")
+	if err := registerPublicUserProfile("localboxmail.co.za", "buyer", "buyer@example.net", "Buyer Example", "+27 82 123 4567", "1 Example Street, Cape Town", "secret-password", "ZAR"); err != nil {
+		t.Fatal(err)
+	}
+	if err := registerPublicUserProfile("localboxmail.co.za", "other", "other@example.net", "Other Example", "+27 82 123 4567", "2 Example Street, Cape Town", "secret-password", "ZAR"); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := db.Exec(`
+		INSERT INTO customers (id, full_name, email, phone, physical_address, created_at)
+		VALUES (2, 'Buyer Example', 'buyer@example.net', '+27 82 123 4567', '1 Example Street, Cape Town', ?)
+	`, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO orders (id, customer_id, domain, wanted_email, status, payment_url, payment_reference, quoted_amount_cents, created_at, updated_at)
+		VALUES ('ord_paid', 2, 'chosen.co.za', '', 'paid', 'https://checkout.paystack.test/old', 'lb-paid', 15000, ?, ?)
+	`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "http://localboxmail.co.za/payment/start?domain=chosen.co.za", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: newSession("other", "localboxmail.co.za")})
+	rec := httptest.NewRecorder()
+
+	paymentStartHandler(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected conflict for already ordered domain, code=%d location=%q body=%q", rec.Code, rec.Header().Get("Location"), rec.Body.String())
+	}
+}
+
+func TestPaymentStartRejectsAnonymousCheckoutForActiveOrder(t *testing.T) {
+	dbPath, configPath := setupPaystackOrderTest(t)
+	orderDBFile = dbPath
+	paystackConfigFile = configPath
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := db.Exec(`
+		INSERT INTO customers (id, full_name, email, phone, physical_address, created_at)
+		VALUES (2, 'Buyer Example', 'buyer@example.net', '+27 82 123 4567', '1 Example Street, Cape Town', ?)
+	`, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO orders (id, customer_id, domain, wanted_email, status, payment_url, payment_reference, quoted_amount_cents, created_at, updated_at)
+		VALUES ('ord_paid', 2, 'chosen.co.za', '', 'paid', 'https://checkout.paystack.test/old', 'lb-paid', 15000, ?, ?)
+	`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "http://localboxmail.co.za/payment/start?domain=chosen.co.za", nil)
+	rec := httptest.NewRecorder()
+
+	paymentStartHandler(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected conflict for anonymous checkout on active order, code=%d location=%q body=%q", rec.Code, rec.Header().Get("Location"), rec.Body.String())
+	}
+}
+
+func TestPaystackTestModeEnabledDetectsTestKeys(t *testing.T) {
+	oldConfig := paystackConfigFile
+	paystackConfigFile = filepath.Join(t.TempDir(), "paystack.conf")
+	t.Cleanup(func() { paystackConfigFile = oldConfig })
+
+	writePaystackConfig(t, paystackConfigFile, "https://api.paystack.test", "sk_test_local")
+
+	if !paystackTestModeEnabled() {
+		t.Fatal("expected Paystack test mode to be detected")
+	}
+}
+
+func TestLegacyNameserverOptionMapsToFreeParking(t *testing.T) {
+	option, err := normalizeLocalBoxPackageOption("own-nameservers")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if option != "free-parking" {
+		t.Fatalf("option = %q, want free-parking", option)
+	}
+	if got := localBoxPackageOptionLabel(option); got != "Park it for free" {
+		t.Fatalf("unexpected legacy nameserver label: %q", got)
 	}
 }
 

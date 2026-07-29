@@ -13,11 +13,12 @@ type DashboardLink struct {
 }
 
 type DashboardData struct {
-	User       string
-	Domain     string
-	Email      string
-	Links      []DashboardLink
-	AdminLinks []DashboardLink
+	User        string
+	Domain      string
+	Email       string
+	Links       []DashboardLink
+	AdminLinks  []DashboardLink
+	CustomerURL string
 }
 
 func dashboardHandler(w http.ResponseWriter, r *http.Request) {
@@ -32,15 +33,16 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !userExists(s.User, s.Domain) {
-		http.Redirect(w, r, "/order/login", http.StatusFound)
+		http.Redirect(w, r, "/account/domains", http.StatusFound)
 		return
 	}
 
 	email := s.User + "@" + s.Domain
 	data := DashboardData{
-		User:   s.User,
-		Domain: s.Domain,
-		Email:  email,
+		User:        s.User,
+		Domain:      s.Domain,
+		Email:       email,
+		CustomerURL: "https://" + primaryLocalBoxHost + "/account/domains",
 	}
 	data.Links = []DashboardLink{
 		{
@@ -71,6 +73,12 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 				Title:       "Website",
 				Description: "Edit the domain website pages and images.",
 				URL:         "/page",
+			},
+			DashboardLink{
+				Title:       "Customer account",
+				Description: "Register another domain or manage your LocalBox domain orders. Use the customer account that registered the domain.",
+				URL:         data.CustomerURL,
+				External:    true,
 			},
 		)
 	}

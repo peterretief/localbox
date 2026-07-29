@@ -213,7 +213,7 @@
         }
         .product-line {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 18px;
         }
         ul {
@@ -310,6 +310,17 @@
         .result.available { border-color: #87bca7; background: #eef8f2; }
         .result.unavailable { border-color: #d9a49b; background: #fff3f1; }
         .price-line { font-weight: 800; color: #22312c; margin-top: 6px; }
+        .muted-section {
+            color: #68716b;
+        }
+        .muted-section .panel {
+            background: #fbfcfa;
+            border-color: #e5e8e2;
+        }
+        .muted-section h2,
+        .muted-section h3 {
+            color: #3d4843;
+        }
         .result-list {
             display: grid;
             gap: 8px;
@@ -362,55 +373,11 @@
         .result-action {
             margin-top: 12px;
         }
-        .option-choice {
-            margin-top: 18px;
-            padding-top: 18px;
-            border-top: 1px solid #dfe3dc;
-        }
-        .option-choice legend {
-            margin-bottom: 10px;
-            color: #22312c;
-            font-weight: 800;
-        }
-        .option-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 10px;
-        }
-        .option-card {
-            display: grid;
-            grid-template-columns: auto minmax(0, 1fr);
-            gap: 9px;
-            align-items: start;
-            min-height: 112px;
-            padding: 13px;
-            border: 1px solid #dfe3dc;
-            border-radius: 8px;
-            background: #ffffff;
-            color: #4f5a54;
-            font-size: 14px;
-            font-weight: 400;
-            cursor: pointer;
-        }
-        .option-card:has(input:checked) {
-            border-color: #00a0c0;
-            background: #eef9fc;
-            box-shadow: inset 0 0 0 1px #00a0c0;
-        }
-        .option-card strong {
-            display: block;
-            margin-bottom: 4px;
-            color: #22312c;
-        }
-        .option-card input {
-            width: 18px;
-            min-height: 18px;
-            margin-top: 2px;
-        }
-        .selected-option-note {
+        .restore-note {
+            display: none;
             margin-top: 10px;
-            color: #4f5a54;
-            font-size: 14px;
+            color: #68716b;
+            font-size: 13px;
         }
         .quote-panel {
             display: none;
@@ -498,17 +465,13 @@
                 <span>LocalBox Mail</span>
             </a>
             <div class="links">
-                <a href="#services">Services</a>
-                <a href="#check">Domain check</a>
+                <a href="#check">Register a .za domain</a>
                 <a href="#how">How it works</a>
-                <a href="#why">Why LocalBox</a>
-                <a href="#later">Hosting</a>
-                <a href="#updates">Waitlist</a>
-                <a href="#check">Register domain</a>
-                <a href="/help.html">Help</a>
                 <a href="/software.html">Software</a>
                 <a href="/terms.html">Terms</a>
                 <a href="/faq.html">FAQ</a>
+                <a href="/login?public=1&next=%2F">Sign in</a>
+                <a href="/account/domains">My domains</a>
                 <a href="#contact">Contact</a>
             </div>
         </nav>
@@ -518,52 +481,40 @@
         <section class="hero">
             <img class="hero-device" src="/assets/images/rpi3b.png" alt="" aria-hidden="true">
             <div class="hero-inner">
-                <h1>LocalBox Mail</h1>
-                <p>LocalBox supports artists, NGOs, schools, local projects, clinics, churches, cooperatives, companies, individuals, and small organisations with domain, email, and website services on Raspberry Pi hosts.</p>
-                <p class="hero-note">This site is served from a Raspberry Pi 3 running LocalBox. The same approach can support business pages, portfolios, education, local notices, and shared services.</p>
-                <p class="development-note">LocalBox is still in active development. We are testing the hosted mail, contacts, calendar, and file services now, with a public progress update planned for 31 July 2026.</p>
+                <h1>Welcome to LocalBox</h1>
+                <p>Search for a new .za domain, register it, then choose the simple next step: park it with LocalBox for free or let LocalBox host it for you.</p>
+                <p class="hero-note">Start with the domain name first. Hosting, mail, websites, and Raspberry Pi options can be decided after the domain is secured.</p>
+                <p class="development-note">LocalBox is focused on new South African .za registrations first, including .co.za, org.za, net.za, and web.za.</p>
                 <div class="actions">
-                    <a class="button primary" href="#check">Check and register a domain</a>
-                    <a class="button secondary" href="#services">Service setup</a>
+                    <a class="button primary" href="#check">Search .za domains</a>
+                    <a class="button secondary" href="#how">See the steps</a>
                 </div>
             </div>
         </section>
 
-        <section id="services">
+        <section id="services" class="muted-section">
             <div class="wrap">
                 <div class="section-head">
-                    <h2>Three LocalBox options</h2>
-                    <p>LocalBox is being kept simple: start with hosted domain and email, host your own Raspberry Pi with us, or order the full prepared Raspberry Pi package.</p>
+                    <h2>After registration</h2>
+                    <p>The main decision is what should happen to the domain once it is registered. Keep it parked while you decide, or ask LocalBox to prepare hosting.</p>
                 </div>
                 <div class="product-line">
                     <article class="panel">
-                        <h3>1. We host the domain and email</h3>
-                        <p>For people who want the domain, DNS, first mailbox, and starter website handled without buying hardware first.</p>
+                        <h3>Park it with LocalBox</h3>
+                        <p>For people who want to secure the name now and decide on hosting later.</p>
                         <ul>
-                            <li>New South African .za domain registration, starting with .co.za</li>
-                            <li>DNS and Cloudflare routing setup</li>
-                            <li>First receiving mailbox and domain admin login</li>
-                            <li>Simple starter website and contact page</li>
+                            <li>Free basic domain parking</li>
+                            <li>No website or mailbox setup required immediately</li>
+                            <li>Use LocalBox hosting later, or send new nameservers when you have another provider</li>
                         </ul>
                     </article>
                     <article class="panel">
-                        <h3>2. We host your Raspberry Pi</h3>
-                        <p>For customers who want a dedicated Raspberry Pi assigned to them, but hosted by LocalBox for power, network, updates, and remote support.</p>
+                        <h3>Host it with LocalBox</h3>
+                        <p>Try the app with LocalBox hosting first. When you are ready, LocalBox can help you move to your own Raspberry Pi cloud at home or work.</p>
                         <ul>
-                            <li>Customer-assigned Raspberry Pi hosted with LocalBox</li>
-                            <li>Domain, mail, website, and contact form on that Pi</li>
-                            <li>Secure VPN mesh access for admin and support</li>
-                            <li>Storage, backup, and support options can be added</li>
-                        </ul>
-                    </article>
-                    <article class="panel">
-                        <h3>3. Full Raspberry Pi package</h3>
-                        <p>For customers who want a prepared LocalBox Raspberry Pi couriered to them, ready to plug into their network.</p>
-                        <ul>
-                            <li>Raspberry Pi prepared with LocalBox</li>
-                            <li>Case, storage, power, and courier options</li>
-                            <li>Domain, mail, website, and Cloudflare routing configured</li>
-                            <li>Add-ons available for extra mailboxes, backups, migration, and support</li>
+                            <li>DNS and routing setup</li>
+                            <li>Starter website and mail options</li>
+                            <li>Low power Raspberry Pi hardware with easy UPS integration and a stylish rack-mount direction in design</li>
                         </ul>
                     </article>
                 </div>
@@ -573,12 +524,12 @@
         <section id="check" class="band">
             <div class="wrap">
                 <div class="section-head">
-                    <h2>Check a domain</h2>
-                    <p>LocalBox is starting with new South African .za domain registrations. Transfers, existing domains, and international domains are planned as we broaden the offering.</p>
+                    <h2>Search and register a .za domain</h2>
+                    <p>Enter the name you want. LocalBox will check South African .za extensions and send you to registration when the domain is available.</p>
                 </div>
 
                 <article class="panel" style="margin-bottom:18px;">
-                    <h3>Domain requests</h3>
+                    <h3>Domain registration</h3>
                     <form class="domain-check" data-domain-lookup>
                         <label>Domain name
                             <input name="name" placeholder="example-name" autocomplete="off" required>
@@ -590,33 +541,17 @@
                         </label>
                         <button type="submit">Check</button>
                     </form>
-                    <fieldset class="option-choice" data-package-options>
-                        <legend>Step 2: after the domain is paid and registered, choose the LocalBox option you want</legend>
-                        <div class="option-grid">
-                            <label class="option-card">
-                                <input type="radio" name="package_option" value="hosted-domain-email" checked>
-                                <span><strong>We host the domain and email</strong>Domain, DNS, starter website, and first receiving mailbox.</span>
-                            </label>
-                            <label class="option-card">
-                                <input type="radio" name="package_option" value="hosted-pi">
-                                <span><strong>We host your Raspberry Pi</strong>Your assigned Pi stays hosted with LocalBox for power, network, and support.</span>
-                            </label>
-                            <label class="option-card">
-                                <input type="radio" name="package_option" value="full-pi">
-                                <span><strong>Full Raspberry Pi package</strong>Prepared Pi with case, storage, power, setup, and courier add-ons.</span>
-                            </label>
-                        </div>
-                    </fieldset>
-                    <p class="selected-option-note" data-selected-package>Selected: We host the domain and email</p>
+                    <p class="fine" style="margin-top:14px;">Register the domain first. After registration, check My domains for the next step: keep it parked for free or ask LocalBox to host it.</p>
+                    <p class="restore-note" data-restore-note>Your previous domain choice has been restored.</p>
                     <div class="quote-actions">
-                        <button type="button" data-quote-toggle>Ask for quote</button>
+                        <button type="button" data-quote-toggle>Ask a question</button>
                     </div>
                     <div class="quote-panel" data-quote-panel>
-                        <h4>Ask for a LocalBox quote</h4>
-                        <p class="fine">We will try to answer any questions you may have. LocalBox is about people first, then the technology that helps them.</p>
+                        <h4>Ask about a domain</h4>
+                        <p class="fine">Use this if you need help choosing a domain, parking, or LocalBox hosting.</p>
                         <form class="quote-form" method="POST" action="/contact" data-quote-form>
                             <input type="text" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
-                            <input type="hidden" name="subject" value="LocalBox quote request" data-quote-subject>
+                            <input type="hidden" name="subject" value="LocalBox domain question" data-quote-subject>
                             <div class="forms">
                                 <label>Name
                                     <input type="text" name="name" autocomplete="name" required>
@@ -631,12 +566,12 @@
                             <label>Message
                                 <textarea name="message" data-quote-message required></textarea>
                             </label>
-                            <button type="submit">Send quote request</button>
+                            <button type="submit">Send question</button>
                         </form>
                     </div>
                     <div class="result" data-domain-result aria-live="polite"></div>
-                    <p style="margin-top:14px;">Step 1 is the domain: for .co.za domains, the current estimate is R150 for domain registration including DNS setup. Once the domain is paid and registered, the hosted email, hosted Raspberry Pi, and full Raspberry Pi package options can be added or quoted.</p>
-                    <p class="fine">No LocalBox hosting or Raspberry Pi setup starts until the domain registration step is confirmed.</p>
+                    <p style="margin-top:14px;">For .co.za domains, the current estimate is R150 for domain registration.</p>
+                    <p class="fine">No LocalBox hosting, mail, or Raspberry Pi setup starts unless you choose that after the domain registration step.</p>
                 </article>
             </div>
         </section>
@@ -645,7 +580,7 @@
             <div class="wrap">
                 <div class="section-head">
                     <h2>How it works</h2>
-                    <p>Start by paying for and registering the domain. After that, choose the LocalBox option that fits and LocalBox provisions the routing, first mailbox, hosting, Pi setup, and handover steps in order.</p>
+                    <p>Start by securing the domain name. LocalBox parks it first, then you can leave it parked, send another provider's nameservers, or ask LocalBox to prepare hosting.</p>
                 </div>
                 <div class="flow">
                     <div class="step">
@@ -653,22 +588,22 @@
                         Search for a new South African .za domain and choose the name you want to register.
                     </div>
                     <div class="step">
-                        <strong>2. Choose an option</strong>
-                        After the domain is paid and registered, pick hosted domain and email, a LocalBox-hosted Raspberry Pi, or the full prepared Raspberry Pi package.
+                        <strong>2. Keep it parked</strong>
+                        The domain can stay parked while you decide whether to use another DNS provider or LocalBox hosting.
                     </div>
                     <div class="step">
                         <strong>3. Register and provision</strong>
-                        Create your LocalBox account, complete payment, then LocalBox registers the domain and prepares the routing.
+                        Create your LocalBox account, complete payment, then LocalBox registers the domain and records your choice.
                     </div>
                     <div class="step">
-                        <strong>4. Create access</strong>
-                        The first receiving mailbox and admin login are created, with extra mailboxes, backups, courier, and support handled as add-ons.
+                        <strong>4. Use it when ready</strong>
+                        Keep it parked, connect it to another provider, or add LocalBox website and mail hosting later.
                     </div>
                 </div>
             </div>
         </section>
 
-        <section id="why" class="band">
+        <section id="why" class="band muted-section">
             <div class="wrap">
                 <div class="section-head">
                     <h2>Why this setup is different</h2>
@@ -703,11 +638,11 @@
             </div>
         </section>
 
-        <section id="later">
+        <section id="later" class="muted-section">
             <div class="wrap">
                 <div class="section-head">
-                    <h2>Add-ons and later upgrades</h2>
-                    <p>The three main options stay simple. Extra work is quoted as an add-on when it is needed.</p>
+                    <h2>Optional hosting later</h2>
+                    <p>These services are available after the domain decision, but they are intentionally secondary to registration.</p>
                 </div>
                 <div class="grid">
                     <article class="panel">
@@ -770,21 +705,21 @@
                     <p>Use this for questions from an artist, NGO, school, company, practice, local project, or support contact. We will try to answer any questions you may have; LocalBox is about people first.</p>
                 </div>
                 <article class="panel">
-                    <form method="POST" action="/contact">
+                    <form method="POST" action="/contact" data-contact-form>
                         <input type="text" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
                         <div class="forms">
                             <label>Name
-                                <input type="text" name="name" autocomplete="name" required>
+                                <input type="text" name="name" autocomplete="name" required data-contact-name>
                             </label>
                             <label>Email
-                                <input type="email" name="email" autocomplete="email" required>
+                                <input type="email" name="email" autocomplete="email" required data-contact-email>
                             </label>
                         </div>
                         <label>Subject
-                            <input type="text" name="subject" placeholder="How can we help?">
+                            <input type="text" name="subject" placeholder="How can we help?" data-contact-subject>
                         </label>
                         <label>Message
-                            <textarea name="message" required></textarea>
+                            <textarea name="message" required data-contact-message></textarea>
                         </label>
                         <button type="submit">Send message</button>
                     </form>
@@ -796,37 +731,51 @@
     <footer>
         <div class="footer-inner">
             <span>LocalBox Mail</span>
-            <span>Domain, email, and website setup on Raspberry Pi LocalBox hosts. <a href="#check">Register a domain</a> · <a href="/help.html">Help videos</a> · <a href="/software.html">Software details</a> · <a href="/faq.html">FAQ</a> · <a href="/terms.html">Terms, business information and refund policy</a></span>
+            <span>.za domain registration with nameserver, parking, and LocalBox hosting options. <a href="#check">Register a domain</a> · <a href="/software.html">Software details</a> · <a href="/faq.html">FAQ</a> · <a href="/terms.html">Terms, business information and refund policy</a></span>
         </div>
     </footer>
     <script>
         (function(){
             const form = document.querySelector("[data-domain-lookup]");
             const result = document.querySelector("[data-domain-result]");
-            const optionNote = document.querySelector("[data-selected-package]");
             const quoteToggle = document.querySelector("[data-quote-toggle]");
             const quotePanel = document.querySelector("[data-quote-panel]");
             const quoteForm = document.querySelector("[data-quote-form]");
             const quoteDomain = document.querySelector("[data-quote-domain]");
             const quoteMessage = document.querySelector("[data-quote-message]");
             const quoteSubject = document.querySelector("[data-quote-subject]");
-            const packageLabels = {
-                "hosted-domain-email": "We host the domain and email",
-                "hosted-pi": "We host your Raspberry Pi",
-                "full-pi": "Full Raspberry Pi package"
-            };
+            const contactForm = document.querySelector("[data-contact-form]");
+            const storageKey = "localboxmail.domainChoice";
             if(!form || !result){
                 return;
             }
-            function selectedPackageOption(){
-                const selected = document.querySelector("input[name='package_option']:checked");
-                return selected ? selected.value : "hosted-domain-email";
+            function saveChoice(){
+                try {
+                    const input = form.querySelector("input[name='name']");
+                    window.localStorage.setItem(storageKey, JSON.stringify({
+                        name: cleanName(input ? input.value : "")
+                    }));
+                } catch (error) {}
             }
-            function selectedPackageLabel(){
-                return packageLabels[selectedPackageOption()] || packageLabels["hosted-domain-email"];
+            function restoreChoice(){
+                let saved = null;
+                try {
+                    saved = JSON.parse(window.localStorage.getItem(storageKey) || "null");
+                } catch (error) {}
+                if(!saved || typeof saved !== "object"){
+                    return;
+                }
+                const input = form.querySelector("input[name='name']");
+                if(input && saved.name && !input.value){
+                    input.value = saved.name;
+                }
+                const note = document.querySelector("[data-restore-note]");
+                if(note && saved.name){
+                    note.style.display = "block";
+                }
             }
             function paymentStartURL(domain){
-                return "/payment/start?domain=" + encodeURIComponent(domain) + "&option=" + encodeURIComponent(selectedPackageOption());
+                return "/payment/start?domain=" + encodeURIComponent(domain);
             }
             function requestedDomain(){
                 const input = form.querySelector("input[name='name']");
@@ -842,7 +791,7 @@
             function quoteText(){
                 const domain = quoteDomain && quoteDomain.value.trim() ? quoteDomain.value.trim() : requestedDomain();
                 return [
-                    "Please send me a quote for: " + selectedPackageLabel(),
+                    "I need help with this domain:",
                     domain ? "Domain/project: " + domain : "Domain/project: ",
                     "",
                     "Notes:"
@@ -850,7 +799,7 @@
             }
             function updateQuoteFields(force){
                 if(quoteSubject){
-                    quoteSubject.value = "LocalBox quote request - " + selectedPackageLabel();
+                    quoteSubject.value = "LocalBox domain question";
                 }
                 if(quoteDomain && !quoteDomain.value.trim()){
                     quoteDomain.value = requestedDomain();
@@ -861,14 +810,56 @@
                 }
             }
             function updatePackageUI(){
-                if(optionNote){
-                    optionNote.textContent = "Selected: " + selectedPackageLabel();
-                }
                 document.querySelectorAll("[data-payment-domain]").forEach(link => {
                     link.href = paymentStartURL(link.getAttribute("data-payment-domain") || "");
-                    link.textContent = "Register now - " + selectedPackageLabel();
+                    link.textContent = "Register domain";
                 });
                 updateQuoteFields(false);
+                saveChoice();
+            }
+            function localBoxPiQuoteMessage(domain){
+                return [
+                    "I would like a quote for a LocalBox Raspberry Pi setup.",
+                    "",
+                    domain ? "Domain: " + domain : "Domain: ",
+                    "Preferred location: home / office / business / hosted by LocalBox",
+                    "Approximate number of users/mailboxes: ",
+                    "I understand I can add as many mailboxes as I need at reasonable usage for no extra cost.",
+                    "",
+                    "Please quote based on current Raspberry Pi hardware prices and availability.",
+                    "I am interested in low power usage, easy UPS integration, and the rack-mount option when available."
+                ].join("\n");
+            }
+            function prefillContactFormFromURL(){
+                if(!contactForm){
+                    return;
+                }
+                const params = new URLSearchParams(window.location.search);
+                if(params.get("quote") !== "rpi"){
+                    return;
+                }
+                const domain = cleanName(params.get("domain") || requestedDomain());
+                const email = params.get("email") || "";
+                const subject = contactForm.querySelector("[data-contact-subject]");
+                const message = contactForm.querySelector("[data-contact-message]");
+                const emailInput = contactForm.querySelector("[data-contact-email]");
+                if(subject && !subject.value.trim()){
+                    subject.value = domain ? "LocalBox Raspberry Pi quote for " + domain : "LocalBox Raspberry Pi quote";
+                }
+                if(message && !message.value.trim()){
+                    message.value = localBoxPiQuoteMessage(domain);
+                }
+                if(emailInput && email && !emailInput.value.trim()){
+                    emailInput.value = email;
+                }
+                setTimeout(function(){
+                    const name = contactForm.querySelector("[data-contact-name]");
+                    if(name && !name.value.trim()){
+                        name.focus();
+                    } else if(message){
+                        message.focus();
+                    }
+                }, 50);
             }
             function cleanName(value){
                 value = String(value || "").trim().toLowerCase();
@@ -919,7 +910,7 @@
                         link.className = "result-action";
                         link.setAttribute("data-payment-domain", item.domain);
                         link.href = paymentStartURL(item.domain);
-                        link.textContent = "Register now - " + selectedPackageLabel();
+                        link.textContent = "Register domain";
                         actions.appendChild(link);
                         row.appendChild(actions);
                     }
@@ -933,9 +924,10 @@
                     result.appendChild(errors);
                 }
             }
-            document.querySelectorAll("input[name='package_option']").forEach(input => {
-                input.addEventListener("change", updatePackageUI);
-            });
+            const domainInput = form.querySelector("input[name='name']");
+            if(domainInput){
+                domainInput.addEventListener("input", saveChoice);
+            }
             if(quoteToggle && quotePanel){
                 quoteToggle.addEventListener("click", function(){
                     quotePanel.classList.toggle("open");
@@ -965,11 +957,14 @@
                     updateQuoteFields(false);
                 });
             }
+            restoreChoice();
             updatePackageUI();
+            prefillContactFormFromURL();
             form.addEventListener("submit", function(event){
                 event.preventDefault();
                 const params = new URLSearchParams(new FormData(form));
                 params.set("name", cleanName(params.get("name")));
+                saveChoice();
                 result.className = "result";
                 result.style.display = "block";
                 result.textContent = "Checking domains...";

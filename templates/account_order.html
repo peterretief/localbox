@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Order Details - LocalBox Mail</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; color: #14213d; background: #f5f7fb; }
+        main { width: min(980px, calc(100% - 32px)); margin: 40px auto; }
+        header { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; margin-bottom: 24px; }
+        h1 { margin: 0 0 8px; font-size: clamp(1.7rem, 3vw, 2.4rem); letter-spacing: 0; }
+        h2 { margin: 0 0 14px; font-size: 1.1rem; }
+        p { margin: 0; color: #586174; line-height: 1.5; }
+        a { color: #0077a6; }
+        .actions, .row-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .actions { justify-content: flex-end; }
+        .button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 10px 14px; border-radius: 6px; border: 1px solid #c7d4e7; background: #fff; color: #14213d; text-decoration: none; font-weight: 700; white-space: nowrap; }
+        .button.primary { background: #0077a6; border-color: #0077a6; color: #fff; }
+        form.inline { margin: 0; }
+        form.inline button { min-height: 40px; padding: 10px 14px; border-radius: 6px; border: 1px solid #0077a6; background: #0077a6; color: #fff; font: inherit; font-weight: 700; cursor: pointer; white-space: nowrap; }
+        .panel { background: #fff; border: 1px solid #dce4f0; border-radius: 8px; padding: 22px; box-shadow: 0 8px 20px rgba(20,33,61,.06); margin-bottom: 16px; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .field { padding: 12px; background: #f8fafc; border: 1px solid #edf1f7; border-radius: 7px; overflow-wrap: anywhere; }
+        .field strong { display: block; margin-bottom: 5px; color: #69758a; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
+        .muted { color: #6a7282; font-size: .9rem; }
+        .notice { color: #1f7a4d; background: #e8f7ef; border: 1px solid #c8ebd7; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; }
+        .error { color: #b42318; background: #fff3f1; border: 1px solid #f1c8c1; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; }
+        .status { display: inline-flex; min-height: 28px; align-items: center; padding: 5px 9px; border-radius: 999px; background: #e8f4f8; color: #095c72; font-size: .85rem; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #edf1f7; vertical-align: top; }
+        th { color: #69758a; font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+        tr:last-child td { border-bottom: 0; }
+        @media (max-width: 720px) {
+            main { margin: 24px auto; width: min(100% - 24px, 980px); }
+            header { align-items: flex-start; flex-direction: column; }
+            .actions { justify-content: flex-start; }
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header>
+            <div>
+                <h1>{{.Order.Domain}}</h1>
+                <p>Signed in as {{.Email}}</p>
+            </div>
+            <nav class="actions">
+                <a class="button" href="/account/domains">My domains</a>
+                <a class="button" href="/#check">Search domains</a>
+                <a class="button" href="/public/logout">Sign out</a>
+            </nav>
+        </header>
+
+        {{if .Success}}<div class="notice">{{.Success}}</div>{{end}}
+        {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+
+        <section class="panel">
+            <p><span class="status">{{.StatusLabel}}</span> <span class="muted">{{.Order.ID}}</span></p>
+            {{if .CanHost}}<p class="muted">LocalBox hosting includes the first month free. After that it is R60 per month or R600 per year. You can add as many mailboxes as you need at reasonable usage for no extra cost. Domain renewal is R150 after the first year if you choose to renew.</p>{{end}}
+            <div class="row-actions" style="margin-top:16px;">
+                {{if and .Order.PaymentURL .CanPay}}<a class="button primary" href="{{.Order.PaymentURL}}">Pay</a>{{end}}
+                {{if .CanHost}}<form class="inline" method="POST" action="/account/order?id={{.Order.ID}}"><input type="hidden" name="action" value="start_localbox_hosting"><button type="submit">Host with LocalBox</button></form>{{end}}
+                {{if .Order.WebsiteURL}}<a class="button" href="{{.Order.WebsiteURL}}">Open site</a>{{end}}
+                {{if .AdminURL}}<a class="button" href="{{.AdminURL}}">Domain admin</a>{{end}}
+                {{if .CanResume}}<a class="button" href="/payment/start?domain={{.Order.Domain}}">Resume</a>{{end}}
+                <a class="button" href="/?quote=rpi&domain={{.Order.Domain | urlquery}}&email={{.Email | urlquery}}#contact">Request Raspberry Pi quote</a>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Order details</h2>
+            <div class="grid">
+                <div class="field"><strong>Domain</strong>{{.Order.Domain}}</div>
+                <div class="field"><strong>Status</strong>{{.StatusLabel}}</div>
+                <div class="field"><strong>First email address</strong>{{.WantedEmail}}</div>
+                <div class="field"><strong>Amount</strong>{{.Amount}}</div>
+                <div class="field"><strong>Payment reference</strong>{{if .Order.PaymentReference}}{{.Order.PaymentReference}}{{else}}<span class="muted">Not paid yet</span>{{end}}</div>
+                <div class="field"><strong>Registrar reference</strong>{{if .Order.RegistrarReference}}{{.Order.RegistrarReference}}{{else}}<span class="muted">Not registered</span>{{end}}</div>
+                <div class="field"><strong>Created</strong>{{.Order.CreatedAt}}</div>
+                <div class="field"><strong>Updated</strong>{{.Order.UpdatedAt}}</div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Timeline</h2>
+            {{if .Order.Events}}
+            <table>
+                <thead><tr><th>Time</th><th>Status</th><th>Message</th></tr></thead>
+                <tbody>
+                    {{range .Order.Events}}
+                    <tr><td class="muted">{{.CreatedAt}}</td><td>{{.EventType}}</td><td>{{.Message}}</td></tr>
+                    {{end}}
+                </tbody>
+            </table>
+            {{else}}
+            <p class="muted">No timeline entries yet.</p>
+            {{end}}
+        </section>
+    </main>
+</body>
+</html>

@@ -121,6 +121,58 @@ func TestPasswordResetUnknownMailboxDoesNotSendEmail(t *testing.T) {
 	}
 }
 
+func TestPasswordResetSendsCustomerAccountEmailAndUpdatesPassword(t *testing.T) {
+	configDir := t.TempDir()
+	oldDB := orderDBFile
+	oldUsersFile := usersFile
+	oldTokenFile := passwordResetTokenFile
+	oldSecurityLogFile := securityLogFile
+	oldSender := sendOrderNotificationEmail
+	oldLimiter := passwordResetLimiter
+	orderDBFile = filepath.Join(configDir, "localbox.db")
+	usersFile = filepath.Join(configDir, "users.conf")
+	passwordResetTokenFile = filepath.Join(configDir, "password-reset-tokens.conf")
+	securityLogFile = filepath.Join(configDir, "security.log")
+	passwordResetLimiter = newResetRateLimiter()
+	t.Cleanup(func() {
+		orderDBFile = oldDB
+		usersFile = oldUsersFile
+		passwordResetTokenFile = oldTokenFile
+		securityLogFile = oldSecurityLogFile
+		sendOrderNotificationEmail = oldSender
+		passwordResetLimiter = oldLimiter
+	})
+
+	if err := registerPublicUserProfile("localboxmail.co.za", "peter001", "peter@example.com", "Peter Retief", "+27 82 123 4567", "1 Example Street", "old-password", "ZAR"); err != nil {
+		t.Fatal(err)
+	}
+	var sent []orderEmailMessage
+	sendOrderNotificationEmail = func(message orderEmailMessage) error {
+		sent = append(sent, message)
+		return nil
+	}
+
+	req := httptest.NewRequest("POST", "https://localboxmail.co.za/forgot-password", nil)
+	reason := requestPasswordReset(req, "peter@example.com")
+	if reason != "" {
+		t.Fatalf("expected customer reset request to succeed, got %q", reason)
+	}
+	if len(sent) != 1 || sent[0].To != "peter@example.com" || !strings.Contains(sent[0].Subject, "customer account") || !strings.Contains(sent[0].Body, "/reset-password?token=") {
+		t.Fatalf("unexpected customer reset email: %#v", sent)
+	}
+
+	token := tokenFromBody(t, sent[0].Body)
+	if err := completePasswordReset(token, "new-password"); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := authenticatePublicUserWithCurrency("peter001", "localboxmail.co.za", "new-password"); !ok {
+		t.Fatal("expected new customer password to authenticate")
+	}
+	if ok, _ := authenticatePublicUserWithCurrency("peter001", "localboxmail.co.za", "old-password"); ok {
+		t.Fatal("old customer password should no longer authenticate")
+	}
+}
+
 func tokenFromBody(t *testing.T, body string) string {
 	t.Helper()
 	const marker = "token="
