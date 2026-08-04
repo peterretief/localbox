@@ -4,6 +4,7 @@ set -eu
 LOCALBOX_BASE=${LOCALBOX_BASE:-/mnt/data/localbox}
 BACKUP_DIR=${BACKUP_DIR:-$LOCALBOX_BASE/backups}
 INCLUDE_MAIL_DATA=${INCLUDE_MAIL_DATA:-0}
+INCLUDE_SITE_DATA=${INCLUDE_SITE_DATA:-0}
 INCLUDE_FILE_DATA=${INCLUDE_FILE_DATA:-0}
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 HOST=$(hostname 2>/dev/null || echo localbox)
@@ -71,12 +72,41 @@ copy_if_exists /var/localbox/send.log
 copy_if_exists /mnt/data/alps-test/config.toml
 copy_if_exists "$LOCALBOX_BASE/filebrowser"
 
+include_domain_subdirs() {
+    name=$1
+    label=$2
+    found=0
+
+    if [ ! -d "$LOCALBOX_BASE/domains" ]; then
+        return 0
+    fi
+
+    for domain_dir in "$LOCALBOX_BASE"/domains/*; do
+        [ -d "$domain_dir/$name" ] || continue
+        found=1
+        domain=$(basename "$domain_dir")
+        dst="$WORKDIR/rootfs$LOCALBOX_BASE/domains/$domain"
+        mkdir -p "$dst"
+        cp -a "$domain_dir/$name" "$dst/"
+    done
+
+    if [ "$found" = "1" ]; then
+        echo ">> Included LocalBox $label data."
+    fi
+}
+
 if [ "$INCLUDE_MAIL_DATA" = "1" ]; then
-    echo ">> Including LocalBox mail/site data..."
+    echo ">> Including LocalBox mail data..."
     mkdir -p "$WORKDIR/rootfs$LOCALBOX_BASE"
     cp -a "$LOCALBOX_BASE/domains" "$WORKDIR/rootfs$LOCALBOX_BASE/" 2>/dev/null || true
 else
-    echo ">> Skipping mail/site data. Set INCLUDE_MAIL_DATA=1 to include it."
+    echo ">> Skipping mail data. Set INCLUDE_MAIL_DATA=1 to include it."
+    if [ "$INCLUDE_SITE_DATA" = "1" ]; then
+        echo ">> Including LocalBox website/contact-form data..."
+        include_domain_subdirs site "website/contact-form"
+    else
+        echo ">> Skipping website/contact-form data. Set INCLUDE_SITE_DATA=1 to include it without mail."
+    fi
 fi
 
 if [ "$INCLUDE_FILE_DATA" = "1" ]; then
@@ -96,6 +126,12 @@ Host: $HOST
 
 This archive contains selected LocalBox configuration and service state.
 
+Data switches used:
+
+- INCLUDE_MAIL_DATA=$INCLUDE_MAIL_DATA
+- INCLUDE_SITE_DATA=$INCLUDE_SITE_DATA
+- INCLUDE_FILE_DATA=$INCLUDE_FILE_DATA
+
 Restore outline on a fresh Alpine Pi:
 
 1. Install base packages used by LocalBox.
@@ -111,6 +147,8 @@ Sensitive contents may include:
 - /etc/postfix/sasl_passwd*
 - /var/lib/tailscale
 - SSH host keys in /etc/ssh
+- Website/contact-form files under $LOCALBOX_BASE/domains/*/site when included
+- Contact-form messages in maildirs when INCLUDE_MAIL_DATA=1
 
 Treat this backup as secret.
 EOF
