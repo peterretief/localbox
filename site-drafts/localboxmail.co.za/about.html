@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why LocalBox Runs on Raspberry Pi | LocalBox Mail</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #20242a;
+            background: #f7f8f5;
+            line-height: 1.6;
+        }
+        header, footer {
+            background: #ffffff;
+            border-bottom: 1px solid #dfe3dc;
+        }
+        footer { border-top: 1px solid #dfe3dc; border-bottom: 0; }
+        .nav, main, .footer-inner {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 22px;
+        }
+        .nav {
+            min-height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+        }
+        .brand {
+            font-weight: 800;
+            color: #22312c;
+            text-decoration: none;
+        }
+        .links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-size: 14px;
+        }
+        .nav a:not(.brand), footer a { color: #1e6f5c; text-decoration: none; }
+        main { padding-top: 56px; padding-bottom: 64px; }
+        h1 {
+            margin: 0 0 14px;
+            color: #22312c;
+            font-size: 42px;
+            line-height: 1.1;
+        }
+        h2 {
+            margin: 0 0 10px;
+            color: #22312c;
+            font-size: 24px;
+            line-height: 1.2;
+        }
+        p, li { color: #5d6660; }
+        ul { margin-top: 10px; }
+        .intro {
+            margin: 0;
+            color: #4f5a54;
+            font-size: 18px;
+        }
+        .panel {
+            margin-top: 22px;
+            padding: 22px;
+            background: #ffffff;
+            border: 1px solid #dfe3dc;
+            border-radius: 8px;
+        }
+        .note {
+            margin-top: 22px;
+            padding: 16px;
+            border-left: 4px solid #d98c50;
+            background: #fff8f0;
+            color: #5d4b38;
+        }
+        footer { padding: 24px 0; color: #68716b; }
+        @media (max-width: 720px) {
+            h1 { font-size: 34px; }
+            .nav { align-items: flex-start; flex-direction: column; padding-top: 14px; padding-bottom: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="nav" aria-label="Main navigation">
+            <a class="brand" href="/">LocalBox Mail</a>
+            <div class="links">
+                <a href="/#check">Register your domain</a>
+                <a href="/software.html">Software</a>
+                <a href="/faq.html">FAQ</a>
+                <a href="/terms.html">Terms</a>
+                <a href="/">Back to site</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <h1>Why run LocalBox on a Raspberry Pi 3 B+?</h1>
+        <p class="intro">LocalBox services can run on almost any desktop computer or server, including Docker-supported hardware, so why choose a tiny Raspberry Pi?</p>
+        <p class="intro">The answer is not simply that the Raspberry Pi is small or inexpensive. Its real strength is that it can provide useful local services in places where conventional servers, reliable electricity, and dependable internet connections are not always available.</p>
+
+        <section class="panel">
+            <h2>Small computer, simple power</h2>
+            <p>A Raspberry Pi 3 B+ runs from a 5-volt power supply and often uses around 0.35A to 0.5A during normal operation. A 2.5A power supply is still recommended so it can run safely with connected USB storage and other peripherals. Its modest power requirements make it much easier to keep running during an outage. A small battery-based uninterruptible power supply can support it, and it can also be powered from solar panels, wind turbines, or other off-grid systems.</p>
+            <p>Keeping a conventional server running during a long power failure can require a large and expensive UPS. Keeping a Raspberry Pi running is a much simpler problem.</p>
+        </section>
+
+        <section class="panel">
+            <h2>Built to communicate with the physical world</h2>
+            <p>The Raspberry Pi is more than a miniature desktop computer. It supports several hardware communication methods commonly used by sensors and electronic devices, including:</p>
+            <ul>
+                <li>I2C</li>
+                <li>SPI</li>
+                <li>One-Wire</li>
+                <li>Serial communication</li>
+                <li>General-purpose input and output pins</li>
+            </ul>
+            <p>This means LocalBox can do more than host software. It can collect information from environmental sensors, medical instruments, security devices, power meters, and other locally connected equipment.</p>
+            <p>The Pi also has four USB ports, allowing additional storage, backup drives, cellular modems, printers, and other peripherals to be connected.</p>
+        </section>
+
+        <section class="panel">
+            <h2>Local networking and remote access</h2>
+            <p>Ethernet, Wi-Fi, and Bluetooth are built in, making it easy for the Raspberry Pi to communicate with computers, mobile phones, and other devices on the local network.</p>
+            <p>LocalBox can continue providing forms, websites, email, and data services even when the internet connection is slow or unavailable. People connected to the local network can keep working because the services and data are physically present on the premises.</p>
+            <p>When internet access is available, secure network tunnels can connect the Pi to authorised remote users or central systems. Because the tunnel begins from inside the local network, it can often operate through restrictive firewalls without exposing LocalBox directly to the public internet.</p>
+        </section>
+
+        <section class="panel">
+            <h2>Small enough to go almost anywhere</h2>
+            <p>A Raspberry Pi is roughly the size of a bank card. It can be installed in a clinic, school, community centre, workshop, farm, small business, or private home without needing a server room.</p>
+            <p>It is also relatively affordable and is supported by a large community. Its hardware and software are well documented, making it an excellent platform for education. Students and local technicians can learn how the system works, modify it, and eventually support it themselves.</p>
+        </section>
+
+        <section class="panel">
+            <h2>A rural clinic example</h2>
+            <p>Imagine a clinic in a remote rural area where electricity is unreliable and internet connectivity is intermittent.</p>
+            <p>A Raspberry Pi running LocalBox could host local forms for capturing patient and clinical information. Staff could open those forms from phones, tablets, or computers connected to the clinic's local network. Because the service runs inside the clinic, their work would not have to stop whenever the internet connection fails.</p>
+            <p>The Pi could run from a small battery backup and be supported by solar power. When an internet connection becomes available, authorised information could be backed up or synchronised with another system.</p>
+            <p>This is the Raspberry Pi's hidden ace: it can provide dependable local computing precisely where a conventional cloud-only system is least dependable.</p>
+        </section>
+
+        <section class="panel">
+            <h2>A connected rural community</h2>
+            <p>Now imagine a village with a shared Raspberry Pi running LocalBox.</p>
+            <p>Schools, clinics, small businesses, and residents could have locally hosted websites, community information, forms, educational material, and communication services. Local content would remain available without consuming expensive mobile data or depending on a permanent internet connection.</p>
+            <p>Internet access could still extend the system when available, but the community would not be completely dependent on it.</p>
+        </section>
+
+        <section class="panel">
+            <h2>A small device with a larger purpose</h2>
+            <p>Running LocalBox on a Raspberry Pi is not about claiming that the Pi is more powerful than a desktop computer or conventional server. It is about using the right kind of computer for the environment.</p>
+            <p>The Raspberry Pi is small, economical, energy-efficient, easy to power, and designed to communicate with both networks and physical devices. Those qualities allow LocalBox to place useful digital services closer to the people who need them.</p>
+            <p>By supporting LocalBox, you are not only buying something useful and interesting for yourself. You are helping develop technology that could serve homes, businesses, schools, clinics, and communities that conventional cloud services do not always reach.</p>
+            <div class="note">It is a small investment in a more resilient and locally connected future, and perhaps a small way of making the world a little better.</div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-inner">
+            <span>LocalBox Mail</span>
+            <span>Why LocalBox uses Raspberry Pi hardware. <a href="/#check">Register your domain</a> · <a href="/software.html">Software details</a> · <a href="/faq.html">FAQ</a></span>
+        </div>
+    </footer>
+</body>
+</html>

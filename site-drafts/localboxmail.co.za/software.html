@@ -99,7 +99,7 @@
         <nav class="nav" aria-label="Main navigation">
             <a class="brand" href="/">LocalBox Mail</a>
             <div class="links">
-                <a href="/#check">Register a .za domain</a>
+                <a href="/#check">Register your domain</a>
                 <a href="/faq.html">FAQ</a>
                 <a href="/terms.html">Terms</a>
                 <a href="/login?public=1&next=%2F">Sign in</a>
@@ -111,17 +111,17 @@
 
     <main>
         <h1>Software details</h1>
-        <p class="intro">LocalBox is built to run on Raspberry Pi hardware. This page lists the operating system, services, and integrations used by the current LocalBox reference setup.</p>
+        <p class="intro">LocalBox is built to run on Raspberry Pi hardware or in Docker on supported machines. This page lists the operating system, services, and integrations used by the current LocalBox reference setup.</p>
 
         <section class="panel">
-            <h2>Raspberry Pi platform</h2>
+            <h2>Deployment platforms</h2>
             <dl>
                 <dt>Hardware</dt>
-                <dd>Raspberry Pi, including Raspberry Pi 3 class devices for the low-cost starter setup. The low power profile makes it practical to integrate with an existing 5 volt data UPS where available.</dd>
+                <dd>Raspberry Pi, including Raspberry Pi 3 class devices for the low-cost starter setup, or Docker on hardware that already supports it. The low power profile makes it practical to integrate with an existing 5 volt data UPS where available.</dd>
                 <dt>Operating system</dt>
-                <dd>Alpine Linux, 32-bit ARM build for Raspberry Pi. The current public reference Pi was checked on 28 July 2026 and is running Alpine <code>3.24.1</code> on <code>armv7l</code>.</dd>
+                <dd>Alpine Linux, 32-bit ARM build for Raspberry Pi, or a Docker image on supported hosts. The current public reference Pi was checked on 28 July 2026 and is running Alpine <code>3.24.1</code> on <code>armv7l</code>.</dd>
                 <dt>Architecture target</dt>
-                <dd>LocalBox Go services are compiled for <code>linux/arm</code> with <code>GOARM=7</code>.</dd>
+                <dd>LocalBox Go services are compiled for <code>linux/arm</code> with <code>GOARM=7</code> for Pi builds, and container-ready service images are used for Docker deployments.</dd>
                 <dt>Persistence</dt>
                 <dd>Alpine local backup state is persisted with <code>lbu</code>.</dd>
                 <dt>Data storage</dt>
@@ -156,7 +156,7 @@
         <section class="panel">
             <h2>External integrations</h2>
             <ul>
-                <li>Cloudflare Tunnel for public website routing to protect your Raspberry Pi from direct exposure to the internet.</li>
+                <li>Cloudflare Tunnel for public website routing to protect your Raspberry Pi or Docker host from direct exposure to the internet.</li>
                 <li>Cloudflare DNS and Registrar APIs for supported global domains where configured.</li>
                 <li>Domains.co.za API for South African domain checks and registrar operations where configured.</li>
                 <li>Brevo SMTP relay for outbound email where configured.</li>
@@ -167,15 +167,15 @@
 
         <section class="panel">
             <h2>Prepared device record</h2>
-            <p>Each prepared Raspberry Pi should keep a simple setup record with the device model, serial number, Alpine release, LocalBox build date, VPN node name, enabled services, and customer/domain assignment.</p>
+            <p>Each prepared Raspberry Pi or Docker host should keep a simple setup record with the device model or host details, serial number, Alpine release where relevant, LocalBox build date, VPN node name, enabled services, and customer/domain assignment.</p>
             <p>Periodic backups should be configured for hardware failure recovery. The backup schedule and retention period depend on the selected service level.</p>
-            <div class="note">LocalBox is not Raspberry Pi OS. It is a LocalBox software setup running on Raspberry Pi hardware with Alpine Linux.</div>
+            <div class="note">LocalBox is not Raspberry Pi OS. It is a LocalBox software setup running on Raspberry Pi hardware with Alpine Linux, or in Docker on supported hardware.</div>
         </section>
     </main>
 
     <footer>
         <div class="footer-inner">
-            <span>LocalBox Mail software details for Raspberry Pi based LocalBox hosts.</span>
+            <span>LocalBox Mail software details for Raspberry Pi and Docker based LocalBox hosts.</span>
         </div>
     </footer>
 </body>

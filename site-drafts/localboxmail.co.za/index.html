@@ -195,6 +195,21 @@
             color: #5d6660;
             font-size: 15px;
         }
+        .power-list {
+            margin: 0 0 14px;
+            border-top: 1px solid #e5e8e2;
+        }
+        .power-list p {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin: 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e8e2;
+        }
+        .power-list strong { color: #22312c; }
+        .power-list span { color: #5d6660; text-align: right; }
+        .power-note { margin-bottom: 0; }
         .price-box {
             background: #24352f;
             color: #ffffff;
@@ -380,6 +395,38 @@
             color: #8a4a22;
             font-size: 13px;
         }
+        .registration-notice {
+            margin: 0 0 16px;
+            padding: 12px 14px;
+            border: 1px solid #ead8a4;
+            border-radius: 7px;
+            background: #fff8df;
+            color: #514322;
+            line-height: 1.45;
+        }
+        .lookup-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .lookup-heading h3 { margin: 0; }
+        .paystack-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex: 0 0 auto;
+            color: #68716b;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .paystack-badge img {
+            display: block;
+            width: 92px;
+            height: auto;
+        }
         .result-action {
             margin-top: 12px;
         }
@@ -475,8 +522,9 @@
                 <span>LocalBox Mail</span>
             </a>
             <div class="links">
-                <a href="#check">Register a .za domain</a>
-                <a href="#how">How it works</a>
+                <a href="#check">Register your domain</a>
+                <a href="#how">The journey</a>
+                <a href="/about.html">About</a>
                 <a href="/software.html">Software</a>
                 <a href="/terms.html">Terms</a>
                 <a href="/faq.html">FAQ</a>
@@ -492,12 +540,13 @@
             <img class="hero-device" src="/assets/images/rpi3b.png" alt="" aria-hidden="true">
             <div class="hero-inner">
                 <h1>Welcome to LocalBox</h1>
-                <p>Search for a new .za domain, register it, then choose the simple next step: park it with LocalBox for free or let LocalBox host it for you.</p>
-                <p class="hero-note">Start with the domain name first. Hosting, mail, websites, and Raspberry Pi options can be decided after the domain is secured.</p>
-                <p class="development-note">LocalBox is focused on new South African .za registrations first, including .co.za, org.za, net.za, and web.za.</p>
+                <p>Start your journey with LocalBox on Raspberry Pi or Docker.</p>
+                <p class="hero-note">Start with your own domain name.</p>
+                <p class="development-note">LocalBox registers South African domains and can help with other domain requests. It can also be deployed on Raspberry Pi hardware or on any hardware that supports Docker.</p>
                 <div class="actions">
-                    <a class="button primary" href="#check">Search .za domains</a>
-                    <a class="button secondary" href="#how">See the steps</a>
+                    <a class="button primary" href="#check">Find your domain</a>
+                    <a class="button secondary" href="/about.html">Read this first</a>
+                    <a class="button secondary" href="#how">See the journey</a>
                 </div>
             </div>
         </section>
@@ -506,12 +555,12 @@
             <div class="wrap">
                 <div class="section-head">
                     <h2>After registration</h2>
-                    <p>The main decision is what should happen to the domain once it is registered. Keep it parked while you decide, or ask LocalBox to prepare hosting.</p>
+                    <p>After your domain is registered, your journey begins. Park your domain for free, or start hosting your first website and register your first email address on Raspberry Pi or Docker-supported hardware. It is all up to you.</p>
                 </div>
                 <div class="product-line">
                     <article class="panel">
                         <h3>Park it with LocalBox</h3>
-                        <p>For people who want to secure the name now and decide on hosting later.</p>
+                        <p>Secure your domain name now and decide on hosting later.</p>
                         <ul>
                             <li>Free basic domain parking</li>
                             <li>No website or mailbox setup required immediately</li>
@@ -520,11 +569,11 @@
                     </article>
                     <article class="panel">
                         <h3>Host it with LocalBox</h3>
-                        <p>Try the app with LocalBox hosting first. When you are ready, LocalBox can help you move to your own Raspberry Pi cloud at home or work.</p>
+                        <p>Try the app with LocalBox hosting first. When you are ready, LocalBox can help you move to your own Raspberry Pi setup or a Docker deployment on supported hardware at home or work.</p>
                         <ul>
                             <li>DNS and routing setup</li>
                             <li>Starter website and mail options</li>
-                            <li>Low power Raspberry Pi hardware with easy UPS integration and a stylish rack-mount direction in design</li>
+                            <li>Low power Raspberry Pi hardware or Docker on supported machines with easy UPS integration and a stylish rack-mount direction in design</li>
                         </ul>
                     </article>
                 </div>
@@ -534,24 +583,36 @@
         <section id="check" class="band">
             <div class="wrap">
                 <div class="section-head">
-                    <h2>Search and register a .za domain</h2>
-                    <p>Enter the name you want. LocalBox will check South African .za extensions and send you to registration when the domain is available.</p>
+                    <h2>Search for and register your domain</h2>
+                    <p>Enter your domain name. LocalBox can check .za domains, other supported domains, or create a free LocalBox subdomain so you can try the web builder. <a href="/about.html">Read this first</a> if you want to understand why LocalBox uses Raspberry Pi hardware or Docker.</p>
                 </div>
 
                 <article class="panel" style="margin-bottom:18px;">
-                    <h3>Domain registration</h3>
+                    <div class="lookup-heading">
+                        <h3>Domain registration</h3>
+                        <div class="paystack-badge" aria-label="Payments powered by Paystack">
+                            <span>Secure payments by</span>
+                            <img src="/assets/images/paystack-logo.svg" alt="Paystack">
+                        </div>
+                    </div>
+                    <p class="registration-notice">Automatic domain registration is disabled at the moment. You can still search for a domain name and send us a request.</p>
                     <form class="domain-check" data-domain-lookup>
-                        <label>Domain name
+                        <label>Your domain name
                             <input name="name" placeholder="example-name" autocomplete="off" required>
                         </label>
                         <label>Extensions
                             <select name="tlds">
-                                <option value="co.za,org.za,net.za,web.za">South Africa .za</option>
+                                <option value="co.za,org.za,web.za">South Africa .za</option>
+                                <option value="" disabled>Loading more extensions...</option>
+                                <option value="co.za">South Africa .co.za</option>
+                                <option value="org.za">South Africa .org.za</option>
+                                <option value="web.za">South Africa .web.za</option>
+                                <option value="localboxmail.co.za" data-localbox-subdomain-option>Free subdomain on localboxmail.co.za</option>
                             </select>
                         </label>
                         <button type="submit">Check</button>
                     </form>
-                    <p class="fine" style="margin-top:14px;">Register the domain first. After registration, check My domains for the next step: keep it parked for free or ask LocalBox to host it.</p>
+                    <p class="fine" style="margin-top:14px;">Register your domain first. After registration, check My domains for the next part of your journey: keep it parked for free or ask LocalBox to host it.</p>
                     <p class="restore-note" data-restore-note>Your previous domain choice has been restored.</p>
                     <div class="quote-actions">
                         <button type="button" data-quote-toggle>Ask a question</button>
@@ -566,11 +627,11 @@
                                 <label>Name
                                     <input type="text" name="name" autocomplete="name" required>
                                 </label>
-                                <label>Email address
+                                <label>Your email address
                                     <input type="email" name="email" autocomplete="email" required>
                                 </label>
                             </div>
-                            <label>Domain or project
+                            <label>Your domain or project
                                 <input type="text" name="quote_domain" data-quote-domain placeholder="example.co.za">
                             </label>
                             <label>Message
@@ -581,7 +642,7 @@
                     </div>
                     <div class="result" data-domain-result aria-live="polite"></div>
                     <p style="margin-top:14px;">For .co.za domains, the current estimate is R150 for domain registration.</p>
-                    <p class="fine">No LocalBox hosting, mail, or Raspberry Pi setup starts unless you choose that after the domain registration step.</p>
+                    <p class="fine">This is just for your domain registration and does not include hosting or email. Your domain belongs to you without provisos.</p>
                 </article>
             </div>
         </section>
@@ -637,12 +698,17 @@
             <div class="wrap">
                 <div class="section-head">
                     <h2>Why this setup is different</h2>
-                    <p>LocalBox uses small, low power Raspberry Pi hardware so a person, practice, group, or organisation can run useful online services without the cost, heat, noise, and power needs of a normal server.</p>
+                    <p>LocalBox uses small, low power Raspberry Pi hardware or Docker on supported hardware so a person, practice, group, or organisation can run useful online services without the cost, heat, noise, and power needs of a normal server. <a href="/about.html">Read why LocalBox runs well on a Raspberry Pi or Docker-supported hardware.</a></p>
                 </div>
                 <div class="grid">
                     <article class="panel">
-                        <h3>5V and ~2.5A DC</h3>
-                        <p>Easily integrate with small UPS, battery, inverter, or solar-backed power.</p>
+                        <h3>Power usage</h3>
+                        <div class="power-list" aria-label="Power draw by state">
+                            <p><strong>Idle</strong><span>260 mA (1.4 W)</span></p>
+                            <p><strong>Moderate load</strong><span>480 mA (2.4 W)</span></p>
+                            <p><strong>Full CPU load</strong><span>730 mA (3.7 W)</span></p>
+                        </div>
+                        <p class="power-note">Recommended adapter: 5V, 2.5A DC. This allows up to 1.2A for attached USB devices and peripherals.</p>
                     </article>
                     <article class="panel">
                         <h3>Low heat and quiet</h3>
@@ -654,7 +720,7 @@
                     </article>
                     <article class="panel">
                         <h3>Affordable hardware</h3>
-                        <p>A Raspberry Pi 3 class board can cost under R1000 before storage, power, case, and setup, which keeps the starting point realistic for small hosted services.</p>
+                        <p>A Raspberry Pi 3 class board can cost under R1000 before storage, power, case, and setup, and Docker can run on many existing machines, which keeps the starting point realistic for small hosted services.</p>
                     </article>
                     <article class="panel">
                         <h3>Built for shared responsibility</h3>
@@ -671,8 +737,8 @@
         <section id="later" class="muted-section">
             <div class="wrap">
                 <div class="section-head">
-                    <h2>Optional hosting later</h2>
-                    <p>These services are available after the domain decision, but they are intentionally secondary to registration.</p>
+                    <h2>The journey is toward self-hosting and ownership</h2>
+                    <p>LocalBox helps you move toward self-hosting and ownership. Your domain, content, website, email, files, and backups can remain under your control on low-power local hardware or Docker-supported systems.</p>
                 </div>
                 <div class="grid">
                     <article class="panel">
@@ -688,6 +754,7 @@
                         <h3>Hardware and backups</h3>
                         <ul>
                             <li>Case, power, storage, and courier options for full Raspberry Pi packages</li>
+                            <li>Docker deployments for supported hardware already in your environment</li>
                             <li>Mail and website data mounted on removable storage</li>
                             <li>Periodic backup recommended for hardware failure recovery</li>
                             <li>Syncthing file sharing can be added for approved devices</li>
@@ -716,7 +783,7 @@
                     <form method="POST" action="/waitlist">
                         <input type="text" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
                         <input type="hidden" name="source" value="localboxmail.co.za homepage">
-                        <label>Email address
+                        <label>Your email address
                             <div class="waitlist-form">
                                 <input type="email" name="email" autocomplete="email" placeholder="you@example.co.za" required>
                                 <button type="submit">Subscribe</button>
@@ -761,7 +828,7 @@
     <footer>
         <div class="footer-inner">
             <span>LocalBox Mail</span>
-            <span>.za domain registration with nameserver, parking, and LocalBox hosting options. <a href="#check">Register a domain</a> · <a href="/software.html">Software details</a> · <a href="/faq.html">FAQ</a> · <a href="/terms.html">Terms, business information and refund policy</a></span>
+            <span>.za domain registration with nameserver, parking, and LocalBox hosting options on Raspberry Pi or Docker-supported hardware. <a href="#check">Register your domain</a> · <a href="/about.html">About LocalBox</a> · <a href="/software.html">Software details</a> · <a href="/faq.html">FAQ</a> · <a href="/terms.html">Terms, business information and refund policy</a></span>
         </div>
     </footer>
     <script>
@@ -776,6 +843,7 @@
             const quoteSubject = document.querySelector("[data-quote-subject]");
             const contactForm = document.querySelector("[data-contact-form]");
             const storageKey = "localboxmail.domainChoice";
+            const tldSelect = form ? form.querySelector("select[name='tlds']") : null;
             if(!form || !result){
                 return;
             }
@@ -807,6 +875,50 @@
             function paymentStartURL(domain){
                 return "/payment/start?domain=" + encodeURIComponent(domain);
             }
+            function subdomainCreateURL(domain){
+                return "/account/subdomain/create?domain=" + encodeURIComponent(domain);
+            }
+            function localBoxSubdomainSuffix(){
+                const host = (window.location.hostname || "").toLowerCase();
+                if(host === "localboxzen.co.za"){
+                    return "localboxzen.co.za";
+                }
+                return "localboxmail.co.za";
+            }
+            function updateLocalBoxSubdomainOption(){
+                const option = document.querySelector("[data-localbox-subdomain-option]");
+                if(!option){
+                    return;
+                }
+                const suffix = localBoxSubdomainSuffix();
+                option.value = suffix;
+                option.textContent = "Free subdomain on " + suffix;
+            }
+            function addLocalBoxSubdomainOptions(parents){
+                if(!tldSelect || !Array.isArray(parents)){
+                    return;
+                }
+                const existing = new Set(Array.from(tldSelect.options).map(option => option.value));
+                const wanted = parents
+                    .map(parent => String(parent || "").trim().toLowerCase())
+                    .filter(parent => parent.indexOf(".") > 0 && !existing.has(parent));
+                if(wanted.length === 0){
+                    return;
+                }
+                const separator = document.createElement("option");
+                separator.value = "";
+                separator.disabled = true;
+                separator.textContent = "Free LocalBox subdomains";
+                tldSelect.appendChild(separator);
+                wanted.forEach(parent => {
+                    const option = document.createElement("option");
+                    option.value = parent;
+                    option.textContent = "Free subdomain on " + parent;
+                    option.setAttribute("data-localbox-subdomain-option", "");
+                    tldSelect.appendChild(option);
+                    existing.add(parent);
+                });
+            }
             function requestedDomain(){
                 const input = form.querySelector("input[name='name']");
                 const raw = input ? cleanName(input.value) : "";
@@ -818,11 +930,18 @@
                 }
                 return raw + ".co.za";
             }
-            function quoteText(){
+            function quoteText(item){
                 const domain = quoteDomain && quoteDomain.value.trim() ? quoteDomain.value.trim() : requestedDomain();
+                const estimate = item ? money(item) : "";
+                const provider = item && item.provider ? providerLabel(item.provider) : "";
                 return [
-                    "I need help with this domain:",
-                    domain ? "Domain/project: " + domain : "Domain/project: ",
+                    "I would like a manual quote for domain registration.",
+                    domain ? "Domain: " + domain : "Domain: ",
+                    estimate ? "Estimated price shown: " + estimate : "Estimated price shown: price on request",
+                    provider ? "Preferred registrar/provider: " + provider : "Preferred registrar/provider: ",
+                    "",
+                    "This request is for domain registration only and does not include hosting or email.",
+                    "I understand my domain belongs to me without provisos once registered.",
                     "",
                     "Notes:"
                 ].join("\n");
@@ -842,7 +961,7 @@
             function updatePackageUI(){
                 document.querySelectorAll("[data-payment-domain]").forEach(link => {
                     link.href = paymentStartURL(link.getAttribute("data-payment-domain") || "");
-                    link.textContent = "Register domain";
+                    link.textContent = "Register your domain";
                 });
                 updateQuoteFields(false);
                 saveChoice();
@@ -909,6 +1028,102 @@
             function providerLabel(provider){
                 return provider === "domains.co.za" ? "Domains.co.za" : provider === "cloudflare" ? "Cloudflare" : provider || "Provider";
             }
+            function loadDomainExtensions(){
+                if(!tldSelect){
+                    return;
+                }
+                fetch("/api/domain/tlds", {headers: {"Accept": "application/json"}})
+                    .then(response => response.json().then(data => ({ok: response.ok, data})))
+                    .then(({ok, data}) => {
+                        const loading = Array.from(tldSelect.options).find(option => option.disabled && option.textContent.indexOf("Loading") >= 0);
+                        if(loading){
+                            loading.remove();
+                        }
+                        if(!ok || !Array.isArray(data.tlds)){
+                            return;
+                        }
+                        addLocalBoxSubdomainOptions(data.subdomain_parents);
+                        const prices = data.prices && typeof data.prices === "object" ? data.prices : {};
+                        const existing = new Set(Array.from(tldSelect.options).map(option => option.value));
+                        const cloudflareTLDs = Array.isArray(data.cloudflare_tlds) ? data.cloudflare_tlds : [];
+                        if(cloudflareTLDs.length){
+                            const group = document.createElement("optgroup");
+                            group.label = "Cloudflare extensions";
+                            cloudflareTLDs.forEach(tld => {
+                                if(!tld || existing.has(tld)){
+                                    return;
+                                }
+                                const option = document.createElement("option");
+                                option.value = tld;
+                                const quote = prices[tld] || {};
+                                const price = quote.register_price ? money({register_price: quote.register_price, currency: quote.currency || "ZAR"}) : "";
+                                option.textContent = "." + tld + (price ? " - est " + price : " - price on request");
+                                group.appendChild(option);
+                                existing.add(tld);
+                            });
+                            if(group.children.length){
+                                tldSelect.appendChild(group);
+                            }
+                        }
+                        const separator = document.createElement("option");
+                        separator.value = "";
+                        separator.disabled = true;
+                        separator.textContent = "More manual extensions";
+                        tldSelect.appendChild(separator);
+                        data.tlds.forEach(tld => {
+                            if(!tld || existing.has(tld)){
+                                return;
+                            }
+                            const option = document.createElement("option");
+                            option.value = tld;
+                            const quote = prices[tld] || {};
+                            const price = quote.register_price ? money({register_price: quote.register_price, currency: quote.currency || "ZAR"}) : "";
+                            option.textContent = "." + tld + (price ? " - est " + price + ", quoted manually" : " - price on request");
+                            tldSelect.appendChild(option);
+                            existing.add(tld);
+                        });
+                    })
+                    .catch(() => {
+                        const loading = Array.from(tldSelect.options).find(option => option.disabled && option.textContent.indexOf("Loading") >= 0);
+                        if(loading){
+                            loading.textContent = "More extensions unavailable";
+                        }
+                    });
+            }
+            function automaticCheckoutAvailable(item){
+                return item.available && parseInt(item.payment_price || "0", 10) > 0;
+            }
+            function unavailableCheckoutText(item){
+                if(!item.available){
+                    return "";
+                }
+                if(item.reason === "manual_registration"){
+                    return " - manual quote required";
+                }
+                if(item.reason === "manual_registration_unchecked"){
+                    const price = money(item);
+                    return price ? " - est " + price + ", quoted and added manually" : " - manual availability and price check required";
+                }
+                if(item.reason === "localbox_test_subdomain"){
+                    return " - free LocalBox trial after a non-refundable USD 1 verification fee";
+                }
+                return " - automatic registration disabled";
+            }
+            function openDomainRequest(domain, item){
+                if(quotePanel){
+                    quotePanel.classList.add("open");
+                }
+                if(quoteDomain){
+                    quoteDomain.value = domain || "";
+                }
+                if(quoteMessage){
+                    quoteMessage.value = quoteText(item);
+                    quoteMessage.dataset.autoQuote = "1";
+                }
+                if(quoteDomain){
+                    quoteDomain.focus();
+                }
+            }
             function render(data){
                 result.className = "result";
                 result.style.display = "block";
@@ -929,19 +1144,38 @@
                     name.textContent = item.domain;
                     const detail = document.createElement("small");
                     const price = money(item);
-                    detail.textContent = providerLabel(item.provider) + " - " + (item.available ? "available" : "not available") + (price ? " - checkout " + price : "");
+                    const checkoutText = automaticCheckoutAvailable(item) ? " - checkout " + price : unavailableCheckoutText(item);
+                    detail.textContent = providerLabel(item.provider) + " - " + (item.available ? "available" : "not available") + checkoutText;
                     meta.appendChild(name);
                     meta.appendChild(detail);
                     row.appendChild(meta);
                     if(item.available){
                         const actions = document.createElement("div");
                         actions.className = "result-actions";
-                        const link = document.createElement("a");
-                        link.className = "result-action";
-                        link.setAttribute("data-payment-domain", item.domain);
-                        link.href = paymentStartURL(item.domain);
-                        link.textContent = "Register domain";
-                        actions.appendChild(link);
+                        if(automaticCheckoutAvailable(item)){
+                            const link = document.createElement("a");
+                            link.className = "result-action";
+                            link.setAttribute("data-payment-domain", item.domain);
+                            link.href = paymentStartURL(item.domain);
+                            link.textContent = "Register your domain";
+                            actions.appendChild(link);
+                        } else {
+                            if(item.reason === "localbox_test_subdomain"){
+                                const link = document.createElement("a");
+                                link.className = "result-action";
+                                link.href = subdomainCreateURL(item.domain) + "&trial=1";
+                                link.textContent = "Start verified free trial";
+                                actions.appendChild(link);
+                            } else {
+                                const request = document.createElement("button");
+                                request.type = "button";
+                                request.textContent = "Send request";
+                                request.addEventListener("click", function(){
+                                    openDomainRequest(item.domain, item);
+                                });
+                                actions.appendChild(request);
+                            }
+                        }
                         row.appendChild(actions);
                     }
                     list.appendChild(row);
@@ -988,6 +1222,8 @@
                 });
             }
             restoreChoice();
+            updateLocalBoxSubdomainOption();
+            loadDomainExtensions();
             updatePackageUI();
             prefillContactFormFromURL();
             form.addEventListener("submit", function(event){
