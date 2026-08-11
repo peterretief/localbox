@@ -444,3 +444,12 @@ func registrationCertificateSVG(domain, registrant, websiteURL, username, regist
 </svg>`)
 	return b.Bytes()
 }
+
+func ensureRegistrationCertificateSVG(domain, username string) error {
+	path := registrationCertificateSVGPath(domain)
+	data, err := os.ReadFile(path)
+	if err == nil && bytes.Contains(data, []byte("Certificate number")) {
+		return nil
+	}
+	return os.WriteFile(path, registrationCertificateSVG(domain, "", "", username, "", "", "", "", "", time.Now().UTC()), 0640)
+}

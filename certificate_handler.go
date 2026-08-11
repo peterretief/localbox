@@ -2,10 +2,8 @@ package main
 
 import (
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 func certificateHandler(w http.ResponseWriter, r *http.Request) {
@@ -30,11 +28,9 @@ func certificateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.EqualFold(r.URL.Query().Get("format"), "svg") {
 		path = registrationCertificateSVGPath(domain)
-		if _, err := os.Stat(path); err != nil {
-			if err := saveRegistrationCertificate(domain, s.User, time.Now().UTC()); err != nil {
-				http.Error(w, "Certificate unavailable", http.StatusInternalServerError)
-				return
-			}
+		if err := ensureRegistrationCertificateSVG(domain, s.User); err != nil {
+			http.Error(w, "Certificate unavailable", http.StatusInternalServerError)
+			return
 		}
 		w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
 		w.Header().Set("Content-Disposition", `attachment; filename="`+domain+`-localbox-certificate.svg"`)
