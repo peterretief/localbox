@@ -360,6 +360,41 @@ func resendOrderWelcomeEmail(id string) error {
 	return appendOrderEvent(order.ID, "welcome_email_resent", "Welcome email and registration certificate resent to the customer.")
 }
 
+func sendOrderCertificateCopy(id, recipient string) error {
+	order, err := loadOrderDetail(id)
+	if err != nil {
+		return err
+	}
+	address, err := mail.ParseAddress(strings.TrimSpace(recipient))
+	if err != nil {
+		return fmt.Errorf("valid recipient email required")
+	}
+	domain := normalizeDomain(order.Domain)
+	websiteURL := strings.TrimSpace(order.WebsiteURL)
+	if websiteURL == "" {
+		websiteURL = "https://" + domain + "/"
+	}
+	now := time.Now().UTC()
+	if issued, parseErr := time.Parse(time.RFC3339, order.CreatedAt); parseErr == nil {
+		now = issued.UTC()
+	}
+	voucher := strings.TrimSpace(order.EmailVoucherCode)
+	certificate := registrationCertificateSVG(domain, order.FullName, websiteURL, order.WantedEmail, order.RegistrarReference, voucher, order.PhysicalAddress, order.Phone, order.Email, order.CreatedAt, now)
+	if err := sendOrderNotificationEmail(orderEmailMessage{
+		To:      address.Address,
+		Subject: "Domain registration certificate for " + domain,
+		Body:    certificateEmailBody(domain, order.WantedEmail, voucher),
+		Attachment: &OutgoingAttachment{
+			Filename:    domain + "-localbox-certificate.svg",
+			ContentType: "image/svg+xml",
+			Data:        certificate,
+		},
+	}); err != nil {
+		return err
+	}
+	return appendOrderEvent(order.ID, "certificate_copy_sent", "Registration certificate copy sent to "+address.Address+".")
+}
+
 func verifyFirstOrderMailboxReady(id string) error {
 	order, err := loadOrderDetail(id)
 	if err != nil {

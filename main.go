@@ -49,6 +49,8 @@ func main() {
 			os.Exit(runOrderResendMailboxLogin(os.Args[2:], os.Stderr))
 		case "order-resend-welcome":
 			os.Exit(runOrderResendWelcome(os.Args[2:], os.Stderr))
+		case "order-send-certificate-copy":
+			os.Exit(runOrderSendCertificateCopy(os.Args[2:], os.Stderr))
 		case "order-sync-brevo":
 			os.Exit(runOrderSyncBrevo(os.Args[2:], os.Stderr))
 		case "order-send-checklist":
@@ -66,6 +68,19 @@ func main() {
 	if err := http.ListenAndServe(listenAddr, routes); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
+}
+
+func runOrderSendCertificateCopy(args []string, stderr io.Writer) int {
+	if len(args) != 2 {
+		fmt.Fprintln(stderr, "Usage: mail-ingest order-send-certificate-copy ORD_... EMAIL")
+		return 2
+	}
+	if err := sendOrderCertificateCopy(args[0], args[1]); err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	fmt.Fprintln(stderr, "Certificate copy sent.")
+	return 0
 }
 
 func runProvisionOrder(args []string, stderr io.Writer) int {
