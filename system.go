@@ -345,7 +345,7 @@ func saveRegistrationCertificate(domain, username string, now time.Time) error {
 	if err := os.WriteFile(path, registrationCertificate(domain, username, now), 0640); err != nil {
 		return err
 	}
-	return os.WriteFile(registrationCertificateSVGPath(domain), registrationCertificateSVG(domain, "", "", username, "", "", "", "", "", now), 0640)
+	return os.WriteFile(registrationCertificateSVGPath(domain), registrationCertificateSVG(domain, "", "", username, "", "", "", "", "", now.Format(time.RFC3339), now), 0640)
 }
 
 func registrationCertificate(domain, username string, now time.Time) []byte {
@@ -387,7 +387,7 @@ func registrationCertificate(domain, username string, now time.Time) []byte {
 	return b.Bytes()
 }
 
-func registrationCertificateSVG(domain, registrant, websiteURL, username, registrarReference, voucher, physicalAddress, phone, emailAddress string, now time.Time) []byte {
+func registrationCertificateSVG(domain, registrant, websiteURL, username, registrarReference, voucher, physicalAddress, phone, emailAddress, detailsSuppliedAt string, now time.Time) []byte {
 	domain = normalizeDomain(domain)
 	registrant = strings.TrimSpace(registrant)
 	websiteURL = strings.TrimSpace(websiteURL)
@@ -404,11 +404,11 @@ func registrationCertificateSVG(domain, registrant, websiteURL, username, regist
 
 	var b bytes.Buffer
 	party := func(x, y int, title, contact, postal, phoneNumber, emailAddress string) string {
-		return fmt.Sprintf(`<text x="%d" y="%d" class="section">%s</text><text x="%d" y="%d" class="party">Contact: %s</text><text x="%d" y="%d" class="party">Postal: %s</text><text x="%d" y="%d" class="party">Phone: %s</text><text x="%d" y="%d" class="party">E-Mail: %s</text>`, x, y, html.EscapeString(title), x, y+23, html.EscapeString(contact), x, y+44, html.EscapeString(postal), x, y+65, html.EscapeString(phoneNumber), x, y+86, html.EscapeString(emailAddress))
+		return fmt.Sprintf(`<text x="%d" y="%d" class="section">%s</text><text x="%d" y="%d" class="party">Contact: %s</text><text x="%d" y="%d" class="party">Postal: %s</text><text x="%d" y="%d" class="party">E-Mail: %s</text>`, x, y, html.EscapeString(title), x, y+23, html.EscapeString(contact), x, y+44, html.EscapeString(postal), x, y+65, html.EscapeString(emailAddress))
 	}
 
 	fmt.Fprint(&b, `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="950" viewBox="0 0 1120 950" data-template="v3" role="document" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="950" viewBox="0 0 1120 950" data-template="v4" role="document" aria-labelledby="title description">
   <title id="title">LocalBox Domain Registration Certificate</title>
   <desc id="description">Official registration record issued by LocalBox.</desc>
   <rect width="1120" height="950" fill="#f5f1e8"/>
@@ -435,8 +435,10 @@ func registrationCertificateSVG(domain, registrant, websiteURL, username, regist
 	fmt.Fprint(&b, row("Certificate number", registrationCertificateNumber(domain, registrarReference, now), 532))
 	fmt.Fprint(&b, row("Registrar reference", registrarReference, 580))
 	fmt.Fprint(&b, row("Email voucher", voucher, 628))
-	fmt.Fprint(&b, party(120, 742, "ISSUED BY LOCALBOX", "LocalBox Mail", "https://localboxmail.co.za", "", "admin@localboxmail.co.za"))
-	fmt.Fprint(&b, party(590, 742, "CUSTOMER DETAILS", registrant, physicalAddress, phone, email))
+	fmt.Fprint(&b, row("Issued", now.UTC().Format(time.RFC3339), 676))
+	fmt.Fprint(&b, row("Details supplied", detailsSuppliedAt, 724))
+	fmt.Fprint(&b, party(120, 790, "ISSUED BY LOCALBOX", "LocalBox Mail", "https://localboxmail.co.za", "", "admin@localboxmail.co.za"))
+	fmt.Fprint(&b, party(590, 790, "CUSTOMER DETAILS", registrant, physicalAddress, "", email))
 	fmt.Fprint(&b, `<text x="560" y="890" text-anchor="middle" class="note">Issued by LocalBox Mail.</text>
 </svg>`)
 	return b.Bytes()
@@ -445,12 +447,12 @@ func registrationCertificateSVG(domain, registrant, websiteURL, username, regist
 func ensureRegistrationCertificateSVG(domain, username string) error {
 	path := registrationCertificateSVGPath(domain)
 	data, err := os.ReadFile(path)
-	if err == nil && bytes.Contains(data, []byte(`data-template="v3"`)) {
+	if err == nil && bytes.Contains(data, []byte(`data-template="v4"`)) {
 		return nil
 	}
 
 	now := time.Now().UTC()
-	certificate := registrationCertificateSVG(domain, "", "", username, "", "", "", "", "", now)
+	certificate := registrationCertificateSVG(domain, "", "", username, "", "", "", "", "", now.Format(time.RFC3339), now)
 	if summaries, summaryErr := loadOrderSummaries(); summaryErr == nil {
 		for _, summary := range summaries {
 			if normalizeDomain(summary.Domain) != normalizeDomain(domain) || strings.TrimSpace(summary.ArchivedAt) != "" {
@@ -460,7 +462,7 @@ func ensureRegistrationCertificateSVG(domain, username string) error {
 				if issued, parseErr := time.Parse(time.RFC3339, detail.CreatedAt); parseErr == nil {
 					now = issued.UTC()
 				}
-				certificate = registrationCertificateSVG(domain, detail.FullName, detail.WebsiteURL, detail.WantedEmail, detail.RegistrarReference, detail.EmailVoucherCode, detail.PhysicalAddress, detail.Phone, detail.Email, now)
+				certificate = registrationCertificateSVG(domain, detail.FullName, detail.WebsiteURL, detail.WantedEmail, detail.RegistrarReference, detail.EmailVoucherCode, detail.PhysicalAddress, detail.Phone, detail.Email, detail.CreatedAt, now)
 			}
 			break
 		}

@@ -82,7 +82,7 @@ func completeOrderRegistration(ctx context.Context, id, registrarReference strin
 	}
 
 	certificate := orderRegistrationCertificate(*order, voucher, websiteURL, now)
-	certificateSVG := registrationCertificateSVG(domain, order.FullName, websiteURL, order.WantedEmail, order.RegistrarReference, voucher, order.PhysicalAddress, order.Phone, order.Email, now)
+	certificateSVG := registrationCertificateSVG(domain, order.FullName, websiteURL, order.WantedEmail, order.RegistrarReference, voucher, order.PhysicalAddress, order.Phone, order.Email, order.CreatedAt, now)
 	certificatePath := registrationCertificatePath(domain)
 	certificateSVGPath := registrationCertificateSVGPath(domain)
 	if err := os.MkdirAll(filepath.Dir(certificatePath), 0770); err != nil {
@@ -343,7 +343,7 @@ func resendOrderWelcomeEmail(id string) error {
 	certificateSVGPath := registrationCertificateSVGPath(domain)
 	certificate, readErr := os.ReadFile(certificateSVGPath)
 	if readErr != nil {
-		certificate = registrationCertificateSVG(domain, order.FullName, websiteURL, order.WantedEmail, order.RegistrarReference, voucher, order.PhysicalAddress, order.Phone, order.Email, time.Now().UTC())
+		certificate = registrationCertificateSVG(domain, order.FullName, websiteURL, order.WantedEmail, order.RegistrarReference, voucher, order.PhysicalAddress, order.Phone, order.Email, order.CreatedAt, time.Now().UTC())
 	}
 	if err := sendOrderNotificationEmail(orderEmailMessage{
 		To:      customerEmail.Address,
@@ -586,6 +586,7 @@ func orderRegistrationCertificate(order OrderDetail, voucher, websiteURL string,
 	fmt.Fprintln(&b, "Issued by: LocalBox Mail")
 	fmt.Fprintln(&b, "Issuer website: https://localboxmail.co.za")
 	fmt.Fprintln(&b, "Issuer email: admin@localboxmail.co.za")
+	fmt.Fprintln(&b, "Customer details supplied: "+order.CreatedAt)
 	fmt.Fprintln(&b, "Registrar reference: "+order.RegistrarReference)
 	if strings.TrimSpace(order.WantedEmail) != "" {
 		fmt.Fprintln(&b, "First email address reserved: "+strings.ToLower(order.WantedEmail))
@@ -605,7 +606,6 @@ func orderRegistrationCertificate(order OrderDetail, voucher, websiteURL string,
 	fmt.Fprintln(&b, "Customer Details")
 	fmt.Fprintln(&b, "Contact: "+order.FullName)
 	fmt.Fprintln(&b, "Postal: "+order.PhysicalAddress)
-	fmt.Fprintln(&b, "Phone: "+order.Phone)
 	fmt.Fprintln(&b, "E-Mail: "+order.Email)
 	return b.Bytes()
 }
