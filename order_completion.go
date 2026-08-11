@@ -259,12 +259,13 @@ Your first mailbox is ready.
 
 Mailbox: %s
 Login URL: https://%s/login
+Webmail client: https://mail.%s/
 Domain admin: https://%s/admin
 
 Your temporary password is sent in the separate mailbox-login email. Sign in and change it from the password page.
 
 LocalBox Mail
-`, wantedEmail, domain, domain)
+`, wantedEmail, domain, domain, domain)
 	raw := buildOutgoingEmail("admin@localboxmail.co.za", wantedEmail, "Welcome to LocalBox Mail: "+domain, body, time.Now().UTC(), nil)
 	if _, err := writeRawToMaildir(maildirPath(domain, mailboxUser), raw, time.Now().UTC(), "welcome", "new"); err != nil {
 		return err
@@ -430,6 +431,7 @@ func sendPaidCustomerSetupChecklist(id, websiteURL string) error {
 		"- Cloudflare zone ID: " + presentOrMissing(order.CloudflareZoneID),
 		"- Cloudflare nameservers: " + presentOrMissing(order.CloudflareNameservers),
 		"- Website URL: " + presentOrMissing(firstNonEmpty(websiteURL, order.WebsiteURL)),
+		"- Webmail client: https://mail." + domain + "/ (ALPS)",
 		"- Starter website files: " + setupChecklistSiteStatus(domain),
 		"- First mailbox: " + mailboxStatus,
 		"- Domain admin: " + adminStatus,
@@ -617,6 +619,7 @@ Your registration certificate is attached.
 
 MAILBOX LOGIN DETAILS
 Login URL: %s
+Webmail client: https://mail.%s/
 Username: %s
 Temporary password: See the separate mailbox login email.
 
@@ -626,7 +629,7 @@ DOMAIN ADMIN
 Admin page: %s
 
 LocalBox Mail
-`, domain, loginURL, wantedEmail, voucher, adminURL)
+`, domain, loginURL, domain, wantedEmail, voucher, adminURL)
 }
 
 func firstMailboxEmailBody(domain, wantedEmail, mailboxUser, temporaryPassword string) string {
@@ -635,6 +638,7 @@ func firstMailboxEmailBody(domain, wantedEmail, mailboxUser, temporaryPassword s
 
 MAILBOX LOGIN DETAILS
 Login URL: %s
+Webmail client: https://mail.%s/
 Username: %s
 Temporary password: %s
 
@@ -649,7 +653,7 @@ Please sign in and change the temporary password from the password page.
 Outbound sending is not enabled automatically. LocalBox will confirm any Brevo or sending-domain setup separately.
 
 LocalBox Mail
-`, domain, loginURL, mailboxUser+"@"+domain, temporaryPassword, wantedEmail, domain, domain)
+`, domain, loginURL, domain, mailboxUser+"@"+domain, temporaryPassword, wantedEmail, domain, domain)
 }
 
 func siteLiveEmailBody(domain, websiteURL string) string {
