@@ -159,8 +159,8 @@ func TestCompleteOrderRegistrationIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(certificate), detail.EmailVoucherCode) {
-		t.Fatalf("certificate missing voucher:\n%s", string(certificate))
+	if strings.Contains(string(certificate), detail.EmailVoucherCode) || strings.Contains(string(certificate), "Voucher code:") {
+		t.Fatalf("certificate should not print the email voucher:\n%s", string(certificate))
 	}
 	if strings.Contains(string(certificate), "Temporary password:") {
 		t.Fatalf("certificate should not print temporary password:\n%s", string(certificate))
@@ -408,7 +408,7 @@ func firstLineWithPrefix(text, prefix string) string {
 	return ""
 }
 
-func TestOrderRegistrationCertificateIncludesVoucher(t *testing.T) {
+func TestOrderRegistrationCertificateOmitsVoucher(t *testing.T) {
 	now := time.Date(2026, 7, 13, 8, 0, 0, 0, time.UTC)
 	cert := string(orderRegistrationCertificate(OrderDetail{
 		OrderSummary: OrderSummary{
@@ -424,7 +424,6 @@ func TestOrderRegistrationCertificateIncludesVoucher(t *testing.T) {
 		"Domain: example.co.za",
 		"Registrant: Peter Example",
 		"Registrar reference: reg_123",
-		"Voucher code: EMAIL-AAAA-BBBB",
 		"Mailbox login: https://example.co.za/login",
 		"Domain admin page: https://example.co.za/admin",
 		"Website: https://example.co.za/",
@@ -432,5 +431,8 @@ func TestOrderRegistrationCertificateIncludesVoucher(t *testing.T) {
 		if !strings.Contains(cert, want) {
 			t.Fatalf("certificate did not include %q:\n%s", want, cert)
 		}
+	}
+	if strings.Contains(cert, "EMAIL-AAAA-BBBB") || strings.Contains(cert, "Voucher code:") {
+		t.Fatalf("certificate should omit the email voucher:\n%s", cert)
 	}
 }

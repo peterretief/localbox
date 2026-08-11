@@ -633,11 +633,6 @@ func orderRegistrationCertificate(order OrderDetail, voucher, websiteURL string,
 	fmt.Fprintln(&b, "Website: "+websiteURL)
 	fmt.Fprintln(&b, "Issued: "+now.UTC().Format(time.RFC3339))
 	fmt.Fprintln(&b)
-	if strings.TrimSpace(order.WantedEmail) != "" {
-		fmt.Fprintln(&b, "Email address registration voucher")
-		fmt.Fprintln(&b, "Voucher code: "+voucher)
-		fmt.Fprintln(&b)
-	}
 	fmt.Fprintln(&b, "Customer Details")
 	fmt.Fprintln(&b, "Contact: "+order.FullName)
 	fmt.Fprintln(&b, "Postal: "+order.PhysicalAddress)
