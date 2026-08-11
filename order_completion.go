@@ -82,7 +82,7 @@ func completeOrderRegistration(ctx context.Context, id, registrarReference strin
 	}
 
 	certificate := orderRegistrationCertificate(*order, voucher, websiteURL, now)
-	certificateSVG := registrationCertificateSVG(domain, order.FullName, websiteURL, order.WantedEmail, voucher, now)
+	certificateSVG := registrationCertificateSVG(domain, order.FullName, websiteURL, order.WantedEmail, order.RegistrarReference, voucher, order.PhysicalAddress, order.Phone, order.Email, now)
 	certificatePath := registrationCertificatePath(domain)
 	certificateSVGPath := registrationCertificateSVGPath(domain)
 	if err := os.MkdirAll(filepath.Dir(certificatePath), 0770); err != nil {
@@ -343,7 +343,7 @@ func resendOrderWelcomeEmail(id string) error {
 	certificateSVGPath := registrationCertificateSVGPath(domain)
 	certificate, readErr := os.ReadFile(certificateSVGPath)
 	if readErr != nil {
-		certificate = registrationCertificateSVG(domain, order.FullName, websiteURL, order.WantedEmail, voucher, time.Now().UTC())
+		certificate = registrationCertificateSVG(domain, order.FullName, websiteURL, order.WantedEmail, order.RegistrarReference, voucher, order.PhysicalAddress, order.Phone, order.Email, time.Now().UTC())
 	}
 	if err := sendOrderNotificationEmail(orderEmailMessage{
 		To:      customerEmail.Address,
@@ -581,6 +581,7 @@ func orderRegistrationCertificate(order OrderDetail, voucher, websiteURL string,
 	fmt.Fprintln(&b, "LOCALBOX DOMAIN REGISTRATION CERTIFICATE")
 	fmt.Fprintln(&b)
 	fmt.Fprintln(&b, "Domain: "+normalizeDomain(order.Domain))
+	fmt.Fprintln(&b, "Certificate number: "+registrationCertificateNumber(order.Domain, order.RegistrarReference, now))
 	fmt.Fprintln(&b, "Registrant: "+order.FullName)
 	fmt.Fprintln(&b, "Registrar reference: "+order.RegistrarReference)
 	if strings.TrimSpace(order.WantedEmail) != "" {
@@ -599,7 +600,31 @@ func orderRegistrationCertificate(order OrderDetail, voucher, websiteURL string,
 		fmt.Fprintln(&b, "The first mailbox is created by LocalBox. The temporary password is sent in a separate email and is not printed on this certificate.")
 		fmt.Fprintln(&b)
 	}
-	fmt.Fprintln(&b, "This confirms that LocalBox has completed the domain registration step for this order.")
+	fmt.Fprintln(&b, "Registrar Details")
+	fmt.Fprintln(&b, "Contact: Domains")
+	fmt.Fprintln(&b, "Postal: 219 Osborn Road Houghton Estate Office Park Houghton, 2198, Johannesburg, ZA")
+	fmt.Fprintln(&b, "Phone: +27.116409700")
+	fmt.Fprintln(&b, "E-Mail: sales@domains.co.za")
+	fmt.Fprintln(&b)
+	fmt.Fprintln(&b, "Registrant Details")
+	fmt.Fprintln(&b, "Contact: "+order.FullName)
+	fmt.Fprintln(&b, "Postal: "+order.PhysicalAddress)
+	fmt.Fprintln(&b, "Phone: "+order.Phone)
+	fmt.Fprintln(&b, "E-Mail: "+order.Email)
+	fmt.Fprintln(&b)
+	for _, section := range []string{"Admin Details", "Tech Details", "Billing Details"} {
+		fmt.Fprintln(&b, section)
+		fmt.Fprintln(&b, "Contact: "+order.FullName)
+		fmt.Fprintln(&b, "Postal: "+order.PhysicalAddress)
+		fmt.Fprintln(&b, "Phone: "+order.Phone)
+		fmt.Fprintln(&b, "E-Mail: "+order.Email)
+		fmt.Fprintln(&b)
+	}
+	fmt.Fprintln(&b, "Requester Details")
+	fmt.Fprintln(&b, "Contact: Domains")
+	fmt.Fprintln(&b, "Postal: 219 Osborn Road Houghton Estate Office Park Houghton, 2198, Johannesburg, ZA")
+	fmt.Fprintln(&b, "Phone: +27.116409700")
+	fmt.Fprintln(&b, "E-Mail: sales@domains.co.za")
 	return b.Bytes()
 }
 
