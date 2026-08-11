@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/mail"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -33,6 +34,78 @@ type PublicRegisterData struct {
 	LoginURL        string
 	SignedIn        bool
 	Notice          string
+}
+
+func (data PublicRegisterData) Subtitle() string {
+	if domain := data.SelectedDomain(); domain != "" {
+		if strings.HasPrefix(strings.TrimSpace(data.Next), "/payment/start") {
+			return "Continue with " + domain + ". Create or sign in to your LocalBox account, then you will return to payment for this domain."
+		}
+	}
+	if !data.SignedIn {
+		return "Register once so your domain orders and payments can use your saved contact details."
+	}
+	if strings.HasPrefix(strings.TrimSpace(data.Next), "/payment/start") {
+		return "Add the contact details needed for the domain order and payment."
+	}
+	return "Update the contact details saved for your LocalBox account."
+}
+
+func (data PublicRegisterData) SubmitLabel() string {
+	if !data.SignedIn {
+		if strings.HasPrefix(strings.TrimSpace(data.Next), "/payment/start") {
+			return "Create account and continue"
+		}
+		return "Create account"
+	}
+	if strings.HasPrefix(strings.TrimSpace(data.Next), "/payment/start") {
+		return "Continue to payment"
+	}
+	return "Save profile"
+}
+
+func (data PublicRegisterData) SelectedDomain() string {
+	if domain := paymentDomainFromNext(data.Next); domain != "" {
+		return domain
+	}
+	domain := normalizeDomain(data.Domain)
+	if domain == "" || domain == primaryLocalBoxHost {
+		return ""
+	}
+	return domain
+}
+
+func (data PublicRegisterData) ContinueLabel() string {
+	if domain := data.SelectedDomain(); domain != "" {
+		return "Continue with " + domain
+	}
+	return "Continue"
+}
+
+func (data PublicRegisterData) NoticeTitle() string {
+	if strings.HasPrefix(strings.TrimSpace(data.Next), "/payment/start") {
+		return "Confirm your email to continue"
+	}
+	return "Check your email"
+}
+
+func (data PublicRegisterData) NoticeSubtitle() string {
+	if domain := data.SelectedDomain(); domain != "" {
+		return "After you confirm your email, LocalBox will return you to " + domain + "."
+	}
+	return "After you confirm your email, LocalBox will return you to the next step."
+}
+
+func paymentDomainFromNext(next string) string {
+	next = strings.TrimSpace(next)
+	if next == "" {
+		return ""
+	}
+	u, err := url.Parse(next)
+	if err != nil || u.Path != "/payment/start" {
+		return ""
+	}
+	return normalizeDomain(u.Query().Get("domain"))
 }
 
 type publicUserProfileInput struct {
@@ -369,7 +442,7 @@ func verifyPublicUserEmailToken(token string) (publicUserProfile, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	if _, err := db.ExecContext(ctx, `
 		UPDATE public_users
-		SET email_verified_at = ?, email_verification_token = '', updated_at = ?
+		SET email_verified_at = ?, updated_at = ?
 		WHERE domain = ? AND username = ?
 	`, now, now, profile.Domain, profile.Username); err != nil {
 		return publicUserProfile{}, err
@@ -447,6 +520,13 @@ func updatePublicUserProfileDetails(input publicUserProfileInput) error {
 	if err := ensurePublicUsersSchema(ctx, db); err != nil {
 		return err
 	}
+	var previousEmail string
+	if err := db.QueryRowContext(ctx, `SELECT email FROM public_users WHERE domain = ? AND username = ?`, input.Domain, input.Username).Scan(&previousEmail); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("registered account not found")
+		}
+		return err
+	}
 	result, err := db.ExecContext(ctx, `
 		UPDATE public_users
 		SET full_name = ?, phone = ?, physical_address = ?, address_line_1 = ?, address_line_2 = ?, city = ?, province = ?, postal_code = ?, country = ?, currency = ?, updated_at = ?
@@ -457,6 +537,13 @@ func updatePublicUserProfileDetails(input publicUserProfileInput) error {
 	}
 	if rows, err := result.RowsAffected(); err != nil || rows == 0 {
 		return fmt.Errorf("registered account not found")
+	}
+	if _, err := db.ExecContext(ctx, `
+		UPDATE customers
+		SET full_name = ?, phone = ?, physical_address = ?
+		WHERE lower(email) = lower(?)
+	`, input.FullName, input.Phone, input.PhysicalAddress, previousEmail); err != nil {
+		return err
 	}
 	return nil
 }
@@ -500,6 +587,44 @@ func authenticatePublicUserWithCurrency(username, domain, password string) (bool
 		return false, ""
 	}
 	return true, cleanCurrency(currency)
+}
+
+func authenticatePublicUserEmail(email, password string) (publicUserProfile, bool) {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		return publicUserProfile{}, false
+	}
+	db, err := openOrdersDB()
+	if err != nil {
+		return publicUserProfile{}, false
+	}
+	defer db.Close()
+	ctx := context.Background()
+	if err := ensurePublicUsersSchema(ctx, db); err != nil {
+		return publicUserProfile{}, false
+	}
+	rows, err := db.QueryContext(ctx, `
+		SELECT username, domain, email, full_name, phone, physical_address, address_line_1, address_line_2, city, province, postal_code, country, currency, email_verified_at, password_hash
+		FROM public_users
+		WHERE email = ?
+		ORDER BY updated_at DESC
+	`, email)
+	if err != nil {
+		return publicUserProfile{}, false
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var profile publicUserProfile
+		var hash string
+		if err := rows.Scan(&profile.Username, &profile.Domain, &profile.Email, &profile.FullName, &profile.Phone, &profile.PhysicalAddress, &profile.AddressLine1, &profile.AddressLine2, &profile.City, &profile.Province, &profile.PostalCode, &profile.Country, &profile.Currency, &profile.EmailVerifiedAt, &hash); err != nil {
+			return publicUserProfile{}, false
+		}
+		if verifyPassword(password, hash) {
+			profile.Currency = cleanCurrency(profile.Currency)
+			return profile, true
+		}
+	}
+	return publicUserProfile{}, false
 }
 
 func resetPublicUserPassword(username, domain, password string) error {

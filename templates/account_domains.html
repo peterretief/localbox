@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>My Domains - LocalBox Mail</title>
     <style>
         * { box-sizing: border-box; }
@@ -14,10 +15,18 @@
         .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
         .button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 10px 14px; border-radius: 6px; border: 1px solid #c7d4e7; background: #fff; color: #14213d; text-decoration: none; font-weight: 700; text-align: center; line-height: 1.15; }
         .button.primary { background: #0077a6; border-color: #0077a6; color: #fff; }
+        .button.disabled { background: #eef2f7; border-color: #d5dde9; color: #7a8494; cursor: not-allowed; }
         form.inline { margin: 0; }
         form.inline button { min-height: 40px; padding: 10px 14px; border-radius: 6px; border: 1px solid #0077a6; background: #0077a6; color: #fff; font: inherit; font-weight: 700; cursor: pointer; text-align: center; line-height: 1.15; }
         .panel { background: #fff; border: 1px solid #dce4f0; border-radius: 8px; overflow: hidden; box-shadow: 0 8px 20px rgba(20,33,61,.06); }
         .next-step { padding: 18px 20px; margin-bottom: 16px; }
+        details.next-step { padding: 0; }
+        details.next-step summary { cursor: pointer; padding: 16px 20px; font-weight: 800; list-style: none; }
+        details.next-step summary::-webkit-details-marker { display: none; }
+        details.next-step summary::after { content: "Show"; float: right; color: #0077a6; font-weight: 700; }
+        details.next-step[open] summary { border-bottom: 1px solid #edf1f7; }
+        details.next-step[open] summary::after { content: "Hide"; }
+        .next-content { padding: 16px 20px 20px; }
         .next-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
         .next-option { padding: 14px; border: 1px solid #dce4f0; border-radius: 8px; background: #fff; }
         .next-option strong { display: block; margin-bottom: 6px; color: #14213d; }
@@ -38,6 +47,14 @@
         .error { color: #b42318; }
         .row-actions { display: grid; grid-template-columns: 1fr; gap: 8px; min-width: 150px; }
         .row-actions .button, .row-actions form.inline button { width: 100%; }
+        .row-more { border: 1px solid #dce4f0; border-radius: 7px; background: #fbfcfe; overflow: hidden; }
+        .row-more summary { min-height: 38px; padding: 10px 12px; cursor: pointer; list-style: none; color: #0077a6; font-weight: 800; text-align: center; }
+        .row-more summary::-webkit-details-marker { display: none; }
+        .row-more summary::after { content: "Show"; margin-left: 6px; color: #69758a; font-weight: 700; }
+        .row-more[open] summary { border-bottom: 1px solid #edf1f7; }
+        .row-more[open] summary::after { content: "Hide"; }
+        .row-more-content { display: grid; gap: 8px; padding: 10px; }
+        .site-note { padding: 10px 12px; border: 1px solid #c8ebd7; border-radius: 7px; background: #e8f7ef; color: #1f7a4d; font-size: .86rem; line-height: 1.35; }
         @media (max-width: 720px) {
             body { background: #fff; }
             main { margin: 18px auto; width: min(100% - 20px, 1040px); }
@@ -69,29 +86,24 @@
                 <p>Signed in as {{.Email}}</p>
             </div>
             <nav class="actions">
-                <a class="button" href="/#check">Search domains</a>
+                <a class="button primary" href="/register?next=%2Faccount%2Fdomains">Update registration details</a>
+                <a class="button" href="/#check">Return to domain registration</a>
                 <a class="button" href="/public/logout">Sign out</a>
             </nav>
         </header>
 
-        <section class="panel next-step">
-            <p><strong>Next step after registering a domain</strong></p>
-            <p>Check this page after registration. Each domain can stay parked, use LocalBox hosting while you try the app, or move to a Raspberry Pi cloud that you own.</p>
-            <div class="next-grid">
-                <div class="next-option">
-                    <strong>Park it for free</strong>
-                    LocalBox keeps the domain safe until you are ready. You can send new nameservers later if you use another provider.
-                </div>
-                <div class="next-option">
-                    <strong>Host it with LocalBox</strong>
-                    Use LocalBox hosting as an easy way to try the app. The first month is free, then hosting is R60 per month or R600 per year. Add as many mailboxes as you need at reasonable usage for no extra cost. Your domain can also be renewed after the first year for R150 if you choose to keep it.
-                </div>
-                <div class="next-option">
-                    <strong>Move to your own Raspberry Pi</strong>
-                    Transfer the domain to your own LocalBox Raspberry Pi, hosted by LocalBox or installed at your home, office, school, or business. Enjoy low power use, easy UPS integration, and the option of a neat rack-mount setup. <a href="/?quote=rpi#contact">Request a quote</a> based on current hardware prices and availability.
+        <details class="panel next-step">
+            <summary>More info</summary>
+            <div class="next-content">
+                <p>Every new domain comes with a starter website and a first email address such as <strong>info@yourdomain</strong>, created automatically. Your mailbox username and temporary password are sent to the address you registered with, along with a link to your domain admin page.</p>
+                <div class="next-grid">
+                    <div class="next-option">
+                        <strong>Everything is set up for you</strong>
+                        LocalBox registers your domain, publishes a starter website, and creates your first mailbox automatically. Sign in with the temporary password sent to you and change it from the password page. You can cancel at any stage.
+                    </div>
                 </div>
             </div>
-        </section>
+        </details>
 
         <section class="panel">
             {{if .Error}}
@@ -126,13 +138,19 @@
                         <td data-label="Updated"><span class="muted">{{.UpdatedAt}}</span></td>
                         <td data-label="Links">
                             <div class="row-actions">
-                                <a class="button" href="/account/order?id={{.ID}}">Order details</a>
-                                {{if and .PaymentURL .CanPay}}<a class="button primary" href="{{.PaymentURL}}">Pay</a>{{end}}
-                                {{if .CanHost}}<form class="inline" method="POST" action="/account/order?id={{.ID}}"><input type="hidden" name="action" value="start_localbox_hosting"><button type="submit">Host with LocalBox</button></form>{{end}}
-                                {{if .WebsiteURL}}<a class="button" href="{{.WebsiteURL}}">Open site</a>{{end}}
-                                {{if .AdminURL}}<a class="button" href="{{.AdminURL}}">Domain admin</a>{{end}}
-                                {{if .CanResume}}<a class="button" href="/payment/start?domain={{.Domain}}">Resume</a>{{end}}
-                                <a class="button" href="/?quote=rpi&domain={{.Domain | urlquery}}&email={{$.Email | urlquery}}#contact">Raspberry Pi quote</a>
+                                {{if .AdminURL}}<a class="button primary" href="{{.AdminURL}}">Manage domain</a>{{else if .AdminPending}}<span class="button disabled" aria-disabled="true">Manage domain pending</span>{{else}}<a class="button primary" href="/account/order?id={{.ID}}">Manage domain</a>{{end}}
+                                <details class="row-more">
+                                    <summary>More</summary>
+                                    <div class="row-more-content">
+                                        {{if .NextStep}}<span class="muted">{{.NextStep}}</span>{{end}}
+                                        <a class="button" href="/account/order?id={{.ID}}">Order details</a>
+                                        {{if and .PaymentURL .CanPay}}<a class="button primary" href="{{.PaymentURL}}">Pay</a>{{end}}
+                                        {{if .CanHost}}<form class="inline" method="POST" action="/account/order?id={{.ID}}"><input type="hidden" name="action" value="start_localbox_hosting"><button type="submit">Host with LocalBox</button></form>{{end}}
+                                        {{if .WebsiteURL}}<a class="button" href="{{.WebsiteURL}}">Open site</a><span class="site-note">Your starter website has been created. New domains can take a few minutes before the website opens everywhere, especially HTTPS.</span>{{end}}
+                                        {{if .AdminURL}}<a class="button" href="{{.AdminURL}}">Domain admin</a>{{else if .AdminPending}}<span class="button disabled" aria-disabled="true">Domain admin pending</span>{{end}}
+                                        {{if .CanResume}}<a class="button" href="/payment/start?domain={{.Domain}}">Resume</a>{{end}}
+                                    </div>
+                                </details>
                             </div>
                         </td>
                     </tr>
