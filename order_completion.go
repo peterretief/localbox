@@ -583,6 +583,9 @@ func orderRegistrationCertificate(order OrderDetail, voucher, websiteURL string,
 	fmt.Fprintln(&b, "Domain: "+normalizeDomain(order.Domain))
 	fmt.Fprintln(&b, "Certificate number: "+registrationCertificateNumber(order.Domain, order.RegistrarReference, now))
 	fmt.Fprintln(&b, "Registrant: "+order.FullName)
+	fmt.Fprintln(&b, "Issued by: LocalBox Mail")
+	fmt.Fprintln(&b, "Issuer website: https://localboxmail.co.za")
+	fmt.Fprintln(&b, "Issuer email: admin@localboxmail.co.za")
 	fmt.Fprintln(&b, "Registrar reference: "+order.RegistrarReference)
 	if strings.TrimSpace(order.WantedEmail) != "" {
 		fmt.Fprintln(&b, "First email address reserved: "+strings.ToLower(order.WantedEmail))
@@ -597,34 +600,13 @@ func orderRegistrationCertificate(order OrderDetail, voucher, websiteURL string,
 	if strings.TrimSpace(order.WantedEmail) != "" {
 		fmt.Fprintln(&b, "Email address registration voucher")
 		fmt.Fprintln(&b, "Voucher code: "+voucher)
-		fmt.Fprintln(&b, "The first mailbox is created by LocalBox. The temporary password is sent in a separate email and is not printed on this certificate.")
 		fmt.Fprintln(&b)
 	}
-	fmt.Fprintln(&b, "Registrar Details")
-	fmt.Fprintln(&b, "Contact: Domains")
-	fmt.Fprintln(&b, "Postal: 219 Osborn Road Houghton Estate Office Park Houghton, 2198, Johannesburg, ZA")
-	fmt.Fprintln(&b, "Phone: +27.116409700")
-	fmt.Fprintln(&b, "E-Mail: sales@domains.co.za")
-	fmt.Fprintln(&b)
-	fmt.Fprintln(&b, "Registrant Details")
+	fmt.Fprintln(&b, "Customer Details")
 	fmt.Fprintln(&b, "Contact: "+order.FullName)
 	fmt.Fprintln(&b, "Postal: "+order.PhysicalAddress)
 	fmt.Fprintln(&b, "Phone: "+order.Phone)
 	fmt.Fprintln(&b, "E-Mail: "+order.Email)
-	fmt.Fprintln(&b)
-	for _, section := range []string{"Admin Details", "Tech Details", "Billing Details"} {
-		fmt.Fprintln(&b, section)
-		fmt.Fprintln(&b, "Contact: "+order.FullName)
-		fmt.Fprintln(&b, "Postal: "+order.PhysicalAddress)
-		fmt.Fprintln(&b, "Phone: "+order.Phone)
-		fmt.Fprintln(&b, "E-Mail: "+order.Email)
-		fmt.Fprintln(&b)
-	}
-	fmt.Fprintln(&b, "Requester Details")
-	fmt.Fprintln(&b, "Contact: Domains")
-	fmt.Fprintln(&b, "Postal: 219 Osborn Road Houghton Estate Office Park Houghton, 2198, Johannesburg, ZA")
-	fmt.Fprintln(&b, "Phone: +27.116409700")
-	fmt.Fprintln(&b, "E-Mail: sales@domains.co.za")
 	return b.Bytes()
 }
 

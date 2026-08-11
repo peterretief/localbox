@@ -358,7 +358,6 @@ func registrationCertificate(domain, username string, now time.Time) []byte {
 		"",
 		"This confirms that LocalBox has completed the local setup for this registered domain.",
 		"Domain registration is handled as a separate registrar step and is not performed by the public request form.",
-		"The temporary mailbox password is not printed on this certificate.",
 	}
 
 	var b bytes.Buffer
@@ -409,12 +408,12 @@ func registrationCertificateSVG(domain, registrant, websiteURL, username, regist
 	}
 
 	fmt.Fprint(&b, `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1100" viewBox="0 0 1120 1100" role="document" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="950" viewBox="0 0 1120 950" data-template="v3" role="document" aria-labelledby="title description">
   <title id="title">LocalBox Domain Registration Certificate</title>
   <desc id="description">Official registration record issued by LocalBox.</desc>
-  <rect width="1120" height="1100" fill="#f5f1e8"/>
-  <rect x="34" y="34" width="1052" height="1032" fill="#fffdf8" stroke="#183b35" stroke-width="4"/>
-  <rect x="54" y="54" width="1012" height="992" fill="none" stroke="#c6924b" stroke-width="2"/>
+  <rect width="1120" height="950" fill="#f5f1e8"/>
+  <rect x="34" y="34" width="1052" height="882" fill="#fffdf8" stroke="#183b35" stroke-width="4"/>
+  <rect x="54" y="54" width="1012" height="842" fill="none" stroke="#c6924b" stroke-width="2"/>
   <circle cx="560" cy="128" r="42" fill="#183b35"/>
   <path d="M540 128l14 14 28-32" fill="none" stroke="#fffdf8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
   <text x="560" y="220" text-anchor="middle" class="title">DOMAIN REGISTRATION CERTIFICATE</text>
@@ -436,11 +435,9 @@ func registrationCertificateSVG(domain, registrant, websiteURL, username, regist
 	fmt.Fprint(&b, row("Certificate number", registrationCertificateNumber(domain, registrarReference, now), 532))
 	fmt.Fprint(&b, row("Registrar reference", registrarReference, 580))
 	fmt.Fprint(&b, row("Email voucher", voucher, 628))
-	fmt.Fprint(&b, party(120, 742, "REGISTRAR DETAILS", "Domains", "219 Osborn Road Houghton Estate Office Park Houghton, 2198, Johannesburg, ZA", "+27.116409700", "sales@domains.co.za"))
-	fmt.Fprint(&b, party(590, 742, "REGISTRANT DETAILS", registrant, physicalAddress, phone, email))
-	fmt.Fprint(&b, party(120, 870, "ADMIN DETAILS", registrant, physicalAddress, phone, email))
-	fmt.Fprint(&b, party(590, 870, "TECHNICAL DETAILS", registrant, physicalAddress, phone, email))
-	fmt.Fprint(&b, `<text x="560" y="1018" text-anchor="middle" class="note">LocalBox registration record. Temporary mailbox passwords are not included.</text>
+	fmt.Fprint(&b, party(120, 742, "ISSUED BY LOCALBOX", "LocalBox Mail", "https://localboxmail.co.za", "", "admin@localboxmail.co.za"))
+	fmt.Fprint(&b, party(590, 742, "CUSTOMER DETAILS", registrant, physicalAddress, phone, email))
+	fmt.Fprint(&b, `<text x="560" y="890" text-anchor="middle" class="note">Issued by LocalBox Mail.</text>
 </svg>`)
 	return b.Bytes()
 }
@@ -448,7 +445,7 @@ func registrationCertificateSVG(domain, registrant, websiteURL, username, regist
 func ensureRegistrationCertificateSVG(domain, username string) error {
 	path := registrationCertificateSVGPath(domain)
 	data, err := os.ReadFile(path)
-	if err == nil && bytes.Contains(data, []byte("Certificate number")) {
+	if err == nil && bytes.Contains(data, []byte(`data-template="v3"`)) {
 		return nil
 	}
 	return os.WriteFile(path, registrationCertificateSVG(domain, "", "", username, "", "", "", "", "", time.Now().UTC()), 0640)
