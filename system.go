@@ -448,5 +448,22 @@ func ensureRegistrationCertificateSVG(domain, username string) error {
 	if err == nil && bytes.Contains(data, []byte(`data-template="v3"`)) {
 		return nil
 	}
-	return os.WriteFile(path, registrationCertificateSVG(domain, "", "", username, "", "", "", "", "", time.Now().UTC()), 0640)
+
+	now := time.Now().UTC()
+	certificate := registrationCertificateSVG(domain, "", "", username, "", "", "", "", "", now)
+	if summaries, summaryErr := loadOrderSummaries(); summaryErr == nil {
+		for _, summary := range summaries {
+			if normalizeDomain(summary.Domain) != normalizeDomain(domain) || strings.TrimSpace(summary.ArchivedAt) != "" {
+				continue
+			}
+			if detail, detailErr := loadOrderDetail(summary.ID); detailErr == nil {
+				if issued, parseErr := time.Parse(time.RFC3339, detail.CreatedAt); parseErr == nil {
+					now = issued.UTC()
+				}
+				certificate = registrationCertificateSVG(domain, detail.FullName, detail.WebsiteURL, detail.WantedEmail, detail.RegistrarReference, detail.EmailVoucherCode, detail.PhysicalAddress, detail.Phone, detail.Email, now)
+			}
+			break
+		}
+	}
+	return os.WriteFile(path, certificate, 0640)
 }
