@@ -58,12 +58,15 @@ func TestProvisionPaidDomainOrderWithFakesCompletesOrder(t *testing.T) {
 	oldUsersFile := usersFile
 	oldAdminsFile := adminsFile
 	oldDomainsFile := domainsFile
+	oldRegistrarConfigFile := registrarConfigFile
+	oldBrevoSetup := ensureBrevoDomainSetupForOrder
 	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
 	localBoxBase = t.TempDir()
 	configDir := t.TempDir()
 	usersFile = filepath.Join(configDir, "users.conf")
 	adminsFile = filepath.Join(configDir, "admins.conf")
 	domainsFile = filepath.Join(configDir, "domains.conf")
+	registrarConfigFile = filepath.Join(configDir, "registrar.conf")
 	t.Cleanup(func() {
 		orderDBFile = oldDB
 		localBoxBase = oldBase
@@ -71,9 +74,15 @@ func TestProvisionPaidDomainOrderWithFakesCompletesOrder(t *testing.T) {
 		usersFile = oldUsersFile
 		adminsFile = oldAdminsFile
 		domainsFile = oldDomainsFile
+		registrarConfigFile = oldRegistrarConfigFile
+		ensureBrevoDomainSetupForOrder = oldBrevoSetup
 	})
+	enableRegistrarForTest(t, registrarConfigFile)
 	sendOrderNotificationEmail = func(message orderEmailMessage) error {
 		return nil
+	}
+	ensureBrevoDomainSetupForOrder = func(ctx context.Context, id string) error {
+		return appendOrderEvent(id, "brevo_setup_verified", "Brevo sender domain DNS setup completed for example.co.za.")
 	}
 	insertProvisioningTestOrder(t, "paid")
 
@@ -85,17 +94,17 @@ func TestProvisionPaidDomainOrderWithFakesCompletesOrder(t *testing.T) {
 		registerRef: "domainscoza-uuid",
 	}
 
-	if err := provisionPaidDomainOrderWith(context.Background(), "ord_test", provisioner); err != nil {
+	if err := runRegistrationWorkflow(context.Background(), "ord_test", provisioner); err != nil {
 		t.Fatal(err)
 	}
 
 	wantCalls := strings.Join([]string{
 		"check:example.co.za",
 		"zone:example.co.za",
-		"tunnel:zone123:example.co.za",
 		"register:example.co.za",
 		"nameservers:example.co.za:sam.ns.cloudflare.com,marissa.ns.cloudflare.com",
 		"activation:zone123",
+		"tunnel:zone123:example.co.za",
 	}, "|")
 	if got := strings.Join(provisioner.calls, "|"); got != wantCalls {
 		t.Fatalf("unexpected calls:\n got: %s\nwant: %s", got, wantCalls)
@@ -108,7 +117,7 @@ func TestProvisionPaidDomainOrderWithFakesCompletesOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if detail.Status != "registered" || detail.RegistrarReference != "domainscoza-uuid" || detail.CloudflareZoneID != "zone123" || detail.CloudflareNameservers != "sam.ns.cloudflare.com,marissa.ns.cloudflare.com" {
+	if detail.Status != "site_live" || detail.RegistrarReference != "domainscoza-uuid" || detail.CloudflareZoneID != "zone123" || detail.CloudflareNameservers != "sam.ns.cloudflare.com,marissa.ns.cloudflare.com" {
 		t.Fatalf("unexpected provisioned order: %#v", detail)
 	}
 	if _, err := os.Stat(registrationCertificatePath("example.co.za")); err != nil {
@@ -151,12 +160,18 @@ func TestPrepareCloudflareForDomainOrderStoresGeneratedNameservers(t *testing.T)
 
 func TestProvisionPaidDomainOrderWithFakesMarksFailureRetryable(t *testing.T) {
 	oldDB := orderDBFile
+	oldRegistrarConfigFile := registrarConfigFile
 	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
-	t.Cleanup(func() { orderDBFile = oldDB })
+	registrarConfigFile = filepath.Join(t.TempDir(), "registrar.conf")
+	t.Cleanup(func() {
+		orderDBFile = oldDB
+		registrarConfigFile = oldRegistrarConfigFile
+	})
+	enableRegistrarForTest(t, registrarConfigFile)
 	insertProvisioningTestOrder(t, "paid")
 
 	provisioner := &fakeDomainProvisioner{checkErr: fmt.Errorf("domain no longer available")}
-	if err := provisionPaidDomainOrderWith(context.Background(), "ord_test", provisioner); err == nil || !strings.Contains(err.Error(), "domain no longer available") {
+	if err := runRegistrationWorkflow(context.Background(), "ord_test", provisioner); err == nil || !strings.Contains(err.Error(), "domain no longer available") {
 		t.Fatalf("expected availability error, got %v", err)
 	}
 
@@ -179,12 +194,15 @@ func TestProvisionPaidDomainOrderWithFakesResumesAfterRegistrarSuccess(t *testin
 	oldUsersFile := usersFile
 	oldAdminsFile := adminsFile
 	oldDomainsFile := domainsFile
+	oldRegistrarConfigFile := registrarConfigFile
+	oldBrevoSetup := ensureBrevoDomainSetupForOrder
 	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
 	localBoxBase = t.TempDir()
 	configDir := t.TempDir()
 	usersFile = filepath.Join(configDir, "users.conf")
 	adminsFile = filepath.Join(configDir, "admins.conf")
 	domainsFile = filepath.Join(configDir, "domains.conf")
+	registrarConfigFile = filepath.Join(configDir, "registrar.conf")
 	t.Cleanup(func() {
 		orderDBFile = oldDB
 		localBoxBase = oldBase
@@ -192,9 +210,15 @@ func TestProvisionPaidDomainOrderWithFakesResumesAfterRegistrarSuccess(t *testin
 		usersFile = oldUsersFile
 		adminsFile = oldAdminsFile
 		domainsFile = oldDomainsFile
+		registrarConfigFile = oldRegistrarConfigFile
+		ensureBrevoDomainSetupForOrder = oldBrevoSetup
 	})
+	enableRegistrarForTest(t, registrarConfigFile)
 	sendOrderNotificationEmail = func(message orderEmailMessage) error {
 		return nil
+	}
+	ensureBrevoDomainSetupForOrder = func(ctx context.Context, id string) error {
+		return appendOrderEvent(id, "brevo_setup_verified", "Brevo sender domain DNS setup completed for example.co.za.")
 	}
 	insertProvisioningTestOrder(t, "provisioning_failed")
 	if err := updateOrderFields("ord_test", "provisioning_failed", "Previous attempt registered domain but failed later.", map[string]any{
@@ -206,14 +230,14 @@ func TestProvisionPaidDomainOrderWithFakesResumesAfterRegistrarSuccess(t *testin
 	}
 
 	provisioner := &fakeDomainProvisioner{checkErr: fmt.Errorf("domain no longer available")}
-	if err := provisionPaidDomainOrderWith(context.Background(), "ord_test", provisioner); err != nil {
+	if err := runRegistrationWorkflow(context.Background(), "ord_test", provisioner); err != nil {
 		t.Fatal(err)
 	}
 
 	wantCalls := strings.Join([]string{
-		"tunnel:zone123:example.co.za",
 		"nameservers:example.co.za:sam.ns.cloudflare.com,marissa.ns.cloudflare.com",
 		"activation:zone123",
+		"tunnel:zone123:example.co.za",
 	}, "|")
 	if got := strings.Join(provisioner.calls, "|"); got != wantCalls {
 		t.Fatalf("unexpected calls:\n got: %s\nwant: %s", got, wantCalls)
@@ -222,8 +246,89 @@ func TestProvisionPaidDomainOrderWithFakesResumesAfterRegistrarSuccess(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if detail.Status != "registered" || detail.RegistrarReference != "domainscoza-uuid" {
+	if detail.Status != "site_live" || detail.RegistrarReference != "domainscoza-uuid" {
 		t.Fatalf("unexpected resumed order: %#v", detail)
+	}
+}
+
+func TestProvisionPaidDomainOrderBlocksWhenRegistrarDisabled(t *testing.T) {
+	oldDB := orderDBFile
+	oldRegistrarConfigFile := registrarConfigFile
+	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
+	registrarConfigFile = filepath.Join(t.TempDir(), "missing-registrar.conf")
+	t.Cleanup(func() {
+		orderDBFile = oldDB
+		registrarConfigFile = oldRegistrarConfigFile
+	})
+	insertProvisioningTestOrder(t, "paid")
+
+	provisioner := &fakeDomainProvisioner{
+		zone: provisionedCloudflareZone{
+			ID:          "zone123",
+			NameServers: []string{"sam.ns.cloudflare.com", "marissa.ns.cloudflare.com"},
+		},
+		registerRef: "domainscoza-uuid",
+	}
+
+	err := runRegistrationWorkflow(context.Background(), "ord_test", provisioner)
+	if err == nil || !strings.Contains(err.Error(), "registrar live registration is disabled") {
+		t.Fatalf("expected disabled registrar error, got %v", err)
+	}
+	if len(provisioner.calls) != 0 {
+		t.Fatalf("registrar disabled should block before provider calls, got %v", provisioner.calls)
+	}
+}
+
+func TestReusableTestRegistrarReferenceRequiresDevelopmentMode(t *testing.T) {
+	oldRegistrarConfigFile := registrarConfigFile
+	registrarConfigFile = filepath.Join(t.TempDir(), "registrar.conf")
+	t.Cleanup(func() { registrarConfigFile = oldRegistrarConfigFile })
+
+	if err := os.WriteFile(registrarConfigFile, []byte("mode=development\nreusable_test_domain=example.co.za\nreusable_test_registrar_reference=dev-uuid\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if reference, ok := reusableTestRegistrarReference("example.co.za"); !ok || reference != "dev-uuid" {
+		t.Fatalf("unexpected reusable reference %q, %v", reference, ok)
+	}
+	if _, ok := reusableTestRegistrarReference("other.co.za"); ok {
+		t.Fatal("unexpected reusable reference for another domain")
+	}
+	if err := os.WriteFile(registrarConfigFile, []byte("mode=live\nreusable_test_domain=example.co.za\nreusable_test_registrar_reference=dev-uuid\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := reusableTestRegistrarReference("example.co.za"); ok {
+		t.Fatal("live mode must not enable a reusable test domain")
+	}
+}
+
+func TestRegistrarConfigSupportsLiveModeAllowlistAndBalanceFloor(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "registrar.conf")
+	if err := os.WriteFile(path, []byte("mode=live\nallow_domain=example.co.za\nmin_live_balance=150.00\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := loadRegistrarConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Mode != "live" || !cfg.AllowDomains["example.co.za"] || cfg.MinLiveBalanceCents != 15000 {
+		t.Fatalf("unexpected registrar config: %#v", cfg)
+	}
+}
+
+func TestDomainsCoZaBalanceCentsPrefersFundsFields(t *testing.T) {
+	response := domainsCoZaFundsResponse{
+		StrBalance: "R250.50",
+	}
+	response.ObjReseller.Balance = "R300.00"
+	if got := domainsCoZaBalanceCents(response); got != 25050 {
+		t.Fatalf("balance cents = %d", got)
+	}
+}
+
+func enableRegistrarForTest(t *testing.T, path string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte("mode=live\n"), 0640); err != nil {
+		t.Fatal(err)
 	}
 }
 

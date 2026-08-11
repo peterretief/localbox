@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"net"
 	"strings"
 )
 
@@ -62,86 +64,24 @@ func prepareCloudflareForDomainOrderWith(ctx context.Context, orderID string, pr
 	return zone, nil
 }
 
-func provisionPaidDomainOrderWith(ctx context.Context, orderID string, provisioner domainProvisioner) error {
-	orderID = strings.TrimSpace(orderID)
-	if orderID == "" {
-		return fmt.Errorf("order ID required")
+func delegatedNameserversMatch(domain string, expected []string) bool {
+	if len(expected) == 0 {
+		return false
 	}
-	if provisioner == nil {
-		return fmt.Errorf("domain provisioner required")
-	}
-	order, err := loadOrderDetail(orderID)
+	answers, err := net.LookupNS(domain)
 	if err != nil {
-		return err
+		return false
 	}
-	if order.Status == "registered" && order.RegistrarReference != "" {
-		return nil
+	actual := make(map[string]bool, len(answers))
+	for _, answer := range answers {
+		actual[strings.TrimSuffix(strings.ToLower(strings.TrimSpace(answer.Host)), ".")] = true
 	}
-	if order.Status != "paid" && order.Status != "provisioning" && order.Status != "provisioning_failed" {
-		return fmt.Errorf("order must be paid before provisioning")
-	}
-	domain, err := normalizePaymentDomain(order.Domain)
-	if err != nil {
-		_ = markOrderProvisioningFailed(orderID, err)
-		return err
-	}
-
-	if strings.TrimSpace(order.RegistrarReference) == "" {
-		if err := provisioner.CheckDomainAvailable(ctx, domain); err != nil {
-			_ = markOrderProvisioningFailed(orderID, err)
-			return err
+	for _, nameserver := range expected {
+		if !actual[strings.TrimSuffix(strings.ToLower(strings.TrimSpace(nameserver)), ".")] {
+			return false
 		}
 	}
-	if err := updateOrderFields(orderID, "provisioning", "Domain provisioning started.", nil); err != nil {
-		return err
-	}
-
-	zone := provisionedCloudflareZone{
-		ID:          strings.TrimSpace(order.CloudflareZoneID),
-		NameServers: parseProvisionedNameservers(order.CloudflareNameservers),
-	}
-	if zone.ID == "" || len(zone.NameServers) < 2 {
-		zone, err = ensureCloudflareZoneForOrder(ctx, order, domain, provisioner)
-		if err != nil {
-			_ = markOrderProvisioningFailed(orderID, err)
-			return err
-		}
-	}
-	if err := provisioner.UpsertTunnelRecords(ctx, zone.ID, domain); err != nil {
-		_ = markOrderProvisioningFailed(orderID, err)
-		return err
-	}
-
-	registrarReference := strings.TrimSpace(order.RegistrarReference)
-	if registrarReference == "" {
-		registrarReference, err = provisioner.RegisterDomain(ctx, order, zone.NameServers)
-		if err != nil {
-			_ = markOrderProvisioningFailed(orderID, err)
-			return err
-		}
-		registrarReference = strings.TrimSpace(registrarReference)
-		if registrarReference == "" {
-			err = fmt.Errorf("registrar did not return a reference")
-			_ = markOrderProvisioningFailed(orderID, err)
-			return err
-		}
-		if err := updateOrderFields(orderID, "provisioning", "Domain registered at registrar.", map[string]any{
-			"registrar_reference": registrarReference,
-		}); err != nil {
-			return err
-		}
-	}
-
-	if err := provisioner.UpdateNameservers(ctx, domain, zone.NameServers); err != nil {
-		_ = markOrderProvisioningFailed(orderID, err)
-		return err
-	}
-	if err := provisioner.CheckZoneActivation(ctx, zone.ID); err != nil {
-		_ = markOrderProvisioningFailed(orderID, err)
-		return err
-	}
-
-	return completeOrderRegistration(ctx, orderID, registrarReference)
+	return true
 }
 
 func ensureCloudflareZoneForOrder(ctx context.Context, order *OrderDetail, domain string, provisioner domainProvisioner) (provisionedCloudflareZone, error) {
@@ -169,6 +109,25 @@ func ensureCloudflareZoneForOrder(ctx context.Context, order *OrderDetail, domai
 		return provisionedCloudflareZone{}, err
 	}
 	return zone, nil
+}
+
+var queuePaidDomainOrderProvisioning = queuePaidDomainOrderProvisioningImpl
+
+func queuePaidDomainOrderProvisioningImpl(orderID string) {
+	orderID = strings.TrimSpace(orderID)
+	if orderID == "" {
+		return
+	}
+	go func() {
+		provisioner, err := newConfiguredDomainProvisioner()
+		if err != nil {
+			log.Printf("Automatic domain provisioning skipped for %s: %v", orderID, err)
+			return
+		}
+		if err := runRegistrationWorkflow(context.Background(), orderID, provisioner); err != nil {
+			log.Printf("Automatic domain provisioning failed for %s: %v", orderID, err)
+		}
+	}()
 }
 
 func markOrderProvisioningFailed(orderID string, cause error) error {

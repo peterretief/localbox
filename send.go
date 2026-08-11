@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"mime/multipart"
+	"net"
 	"net/mail"
 	"net/smtp"
 	"net/textproto"
@@ -17,6 +19,7 @@ import (
 
 const smtpConfigFile = "/etc/localbox/smtp.conf"
 const maxComposeAttachmentBytes = 10 << 20
+const smtpDeliveryTimeout = 20 * time.Second
 
 type SMTPConfig struct {
 	Enabled  bool
@@ -50,6 +53,9 @@ type localRecipient struct {
 }
 
 func sendMailMessage(senderUser, senderDomain, to, subject, body string, attachment *OutgoingAttachment) (string, error) {
+	if isLocalBoxTrialDomain(senderDomain) {
+		return "", fmt.Errorf("outbound email is disabled for LocalBox trial domains")
+	}
 	from := senderUser + "@" + senderDomain
 	from = strings.TrimSpace(from)
 	to = strings.TrimSpace(to)
@@ -87,9 +93,7 @@ func sendMailMessage(senderUser, senderDomain, to, subject, body string, attachm
 			return "", err
 		}
 
-		addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-		auth := smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
-		if err := smtp.SendMail(addr, auth, cfg.From, []string{toAddress.Address}, raw); err != nil {
+		if err := sendSMTPWithTimeout(cfg, cfg.From, toAddress.Address, raw); err != nil {
 			return "", err
 		}
 		delivery = "Message sent by SMTP."
@@ -102,6 +106,56 @@ func sendMailMessage(senderUser, senderDomain, to, subject, body string, attachm
 		return "", err
 	}
 	return delivery + " Saved to Sent.", nil
+}
+
+// smtp.SendMail has no deadline. Use the client API so a relay that accepts a
+// connection but stops responding cannot leave order provisioning blocked.
+func sendSMTPWithTimeout(cfg SMTPConfig, from, to string, raw []byte) error {
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	conn, err := net.DialTimeout("tcp", addr, smtpDeliveryTimeout)
+	if err != nil {
+		return err
+	}
+	client, err := smtp.NewClient(conn, cfg.Host)
+	if err != nil {
+		_ = conn.Close()
+		return err
+	}
+	defer client.Close()
+	deadline := time.Now().Add(smtpDeliveryTimeout)
+	if err := conn.SetDeadline(deadline); err != nil {
+		return err
+	}
+	if ok, _ := client.Extension("STARTTLS"); ok {
+		if err := client.StartTLS(&tls.Config{ServerName: cfg.Host, MinVersion: tls.VersionTLS12}); err != nil {
+			return err
+		}
+		if err := conn.SetDeadline(deadline); err != nil {
+			return err
+		}
+	}
+	auth := smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
+	if err := client.Auth(auth); err != nil {
+		return err
+	}
+	if err := client.Mail(from); err != nil {
+		return err
+	}
+	if err := client.Rcpt(to); err != nil {
+		return err
+	}
+	writer, err := client.Data()
+	if err != nil {
+		return err
+	}
+	if _, err := writer.Write(raw); err != nil {
+		_ = writer.Close()
+		return err
+	}
+	if err := writer.Close(); err != nil {
+		return err
+	}
+	return client.Quit()
 }
 
 func buildOutgoingEmail(from, to, subject, body string, now time.Time, attachment *OutgoingAttachment) []byte {

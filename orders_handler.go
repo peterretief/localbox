@@ -13,6 +13,7 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 	selectedID := r.URL.Query().Get("id")
 	filter := ordersFilterFromRequest(r)
 	data := ordersViewFiltered(selectedID, filter)
+	data.RegistrarLive = currentRegistrarLiveEnabled()
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
 			data.Error = "Invalid form"
@@ -28,15 +29,22 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 				err = markOrderPaid(selectedID, r.FormValue("payment_reference"))
 				data.Success = "Order marked paid."
 			case "provision_domain":
-				provisioner, provisionErr := newRealDomainProvisioner()
-				if provisionErr != nil {
-					err = provisionErr
+				if isPaidOrderLocalBoxTestSubdomain(selectedID) {
+					err = provisionLocalBoxTestSubdomainOrder(r.Context(), selectedID)
+					data.Success = "LocalBox test subdomain created and routed."
+				} else if paystackTestModeEnabled() && !registrarTestRegistrationAllowed() {
+					err = errRegistrarDisabledInPaymentTestMode()
 				} else {
-					err = provisionPaidDomainOrderWith(r.Context(), selectedID, provisioner)
+					provisioner, provisionErr := newConfiguredDomainProvisioner()
+					if provisionErr != nil {
+						err = provisionErr
+					} else {
+						err = runRegistrationWorkflow(r.Context(), selectedID, provisioner)
+					}
+					data.Success = "Domain registered and Cloudflare routing created."
 				}
-				data.Success = "Domain registered and Cloudflare routing created."
 			case "prepare_cloudflare":
-				provisioner, provisionErr := newRealDomainProvisioner()
+				provisioner, provisionErr := newConfiguredDomainProvisioner()
 				if provisionErr != nil {
 					err = provisionErr
 				} else {
@@ -47,11 +55,19 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 				err = markOrderReadyForRegistration(selectedID, r.FormValue("registrar_reference"))
 				data.Success = "Order marked ready for registration."
 			case "complete_registration":
-				err = completeOrderRegistration(r.Context(), selectedID, r.FormValue("registrar_reference"))
+				provisioner, provisionErr := newConfiguredDomainProvisioner()
+				if provisionErr != nil {
+					err = provisionErr
+				} else {
+					err = runRegistrationWorkflowWithRegistrarReference(r.Context(), selectedID, r.FormValue("registrar_reference"), provisioner)
+				}
 				data.Success = "Domain registration completed and certificate email sent."
 			case "create_first_mailbox":
 				err = createFirstOrderMailbox(r.Context(), selectedID)
 				data.Success = "First mailbox created and login email sent."
+			case "resend_welcome":
+				err = resendOrderWelcomeEmail(selectedID)
+				data.Success = "Welcome email and registration certificate resent."
 			case "domain_propagated":
 				err = markOrderDomainPropagated(r.Context(), selectedID)
 				data.Success = "Domain propagation confirmed and website link sent."
@@ -69,6 +85,7 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 				data.Success = ""
 			}
 			fresh := ordersViewFiltered(selectedID, filter)
+			fresh.RegistrarLive = currentRegistrarLiveEnabled()
 			data.Orders = fresh.Orders
 			data.DNSPending = fresh.DNSPending
 			data.Current = fresh.Current
@@ -88,6 +105,10 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 		"formatRand": formatRand,
 	}).ParseFiles("templates/orders.html"))
 	tmpl.Execute(w, data)
+}
+
+func currentRegistrarLiveEnabled() bool {
+	return registrarMode() != "off"
 }
 
 func ordersFilterFromRequest(r *http.Request) OrdersFilter {
