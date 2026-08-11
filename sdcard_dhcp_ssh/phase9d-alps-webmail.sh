@@ -175,7 +175,7 @@ session_minutes = 480
 max_session_minutes = 1440
 read_timeout_sec = 10
 write_timeout_sec = 60
-idle_timeout_sec = 120
+idle_timeout_sec = 900
 imap_timeout_sec = 30
 smtp_timeout_sec = 30
 
