@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"html"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,12 +13,13 @@ import (
 )
 
 type SystemView struct {
-	Domains      []AdminDomain
-	DomainAdmins []RoleIdentity
-	BoxAdmins    []RoleIdentity
-	Access       AccessView
-	Error        string
-	Success      string
+	Domains            []AdminDomain
+	DomainAdmins       []RoleIdentity
+	BoxAdmins          []RoleIdentity
+	AdminInventoryPath string
+	Access             AccessView
+	Error              string
+	Success            string
 }
 
 func systemView() SystemView {
@@ -31,8 +34,11 @@ func systemView() SystemView {
 	var domains []AdminDomain
 	for _, domain := range domainNames {
 		_ = ensureRegistrationCertificateForUsers(domain, users, time.Now())
+		parent := configuredParentDomainFromList(domain, domainNames)
 		domains = append(domains, AdminDomain{
 			Name:                 domain,
+			ParentDomain:         parent,
+			IsSubdomain:          parent != "",
 			UserCount:            userCounts[domain],
 			SitePath:             domainSiteBase(domain),
 			MailPath:             domainMailBase(domain),
@@ -45,9 +51,10 @@ func systemView() SystemView {
 	boxAdmins, _ := loadBoxAdminsForDisplay()
 
 	return SystemView{
-		Domains:      domains,
-		DomainAdmins: roleList(domainAdmins),
-		BoxAdmins:    roleList(boxAdmins),
+		Domains:            domains,
+		DomainAdmins:       roleList(domainAdmins),
+		BoxAdmins:          roleList(boxAdmins),
+		AdminInventoryPath: effectiveAdminInventoryFile(),
 	}
 }
 
@@ -107,7 +114,10 @@ func createDomainAdmin(username, domain, password string) error {
 	if err := addDomainAdmin(username, domain); err != nil {
 		return err
 	}
-	return saveRegistrationCertificate(domain, username, time.Now())
+	if err := saveRegistrationCertificate(domain, username, time.Now()); err != nil {
+		return err
+	}
+	return syncDomainWebRoute(domain)
 }
 
 func removeDomainAdmin(username, domain string) error {
@@ -135,6 +145,105 @@ func removeBoxAdmin(username, domain string) error {
 	}
 	delete(roles, key)
 	return saveRoleFile(boxAdminsFile, roles)
+}
+
+var syncDomainWebRoute = syncDomainWebRouteImpl
+
+func syncDomainWebRouteImpl(domain string) error {
+	client, domain, err := domainWebRouteClient(domain)
+	if err != nil || client == nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	zone, err := findCloudflareZoneForDomain(ctx, client, domain)
+	if err != nil {
+		return err
+	}
+	if err := client.UpsertTunnelRecords(ctx, zone.ID, domain); err != nil {
+		return err
+	}
+	for _, suffix := range localboxTestSubdomainSuffixes() {
+		if suffix == domain {
+			return client.UpsertTunnelWildcardWebRoute(ctx, zone.ID, domain)
+		}
+	}
+	return nil
+}
+
+var syncDomainWildcardWebRoute = syncDomainWildcardWebRouteImpl
+
+func syncDomainWildcardWebRouteImpl(parentDomain string) error {
+	client, parentDomain, err := domainWebRouteClient(parentDomain)
+	if err != nil || client == nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	zone, err := findCloudflareZoneForDomain(ctx, client, parentDomain)
+	if err != nil {
+		return err
+	}
+	return client.UpsertTunnelWildcardWebRoute(ctx, zone.ID, parentDomain)
+}
+
+func deleteDomainWebRoute(domain string) error {
+	client, domain, err := domainWebRouteClient(domain)
+	if err != nil || client == nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	zone, err := findCloudflareZoneForDomain(ctx, client, domain)
+	if err != nil {
+		return err
+	}
+	return client.DeleteTunnelRecords(ctx, zone.ID, domain)
+}
+
+func findCloudflareZoneForDomain(ctx context.Context, client *cloudflareClient, domain string) (CloudflareZoneResult, error) {
+	domain = normalizeDomain(domain)
+	if !safeDomain(domain) {
+		return CloudflareZoneResult{}, fmt.Errorf("invalid domain")
+	}
+	labels := strings.Split(domain, ".")
+	var lastErr error
+	for i := 0; i <= len(labels)-2; i++ {
+		candidate := strings.Join(labels[i:], ".")
+		zone, err := client.FindZoneByName(ctx, candidate)
+		if err == nil {
+			return zone, nil
+		}
+		lastErr = err
+		if !strings.Contains(err.Error(), "zone not found") {
+			return CloudflareZoneResult{}, err
+		}
+	}
+	if lastErr != nil {
+		return CloudflareZoneResult{}, lastErr
+	}
+	return CloudflareZoneResult{}, fmt.Errorf("Cloudflare zone not found for %s", domain)
+}
+
+func domainWebRouteClient(domain string) (*cloudflareClient, string, error) {
+	domain = normalizeDomain(domain)
+	if !safeDomain(domain) {
+		return nil, domain, fmt.Errorf("invalid domain")
+	}
+	cfg, err := loadCloudflareConfig(cloudflareConfigFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, domain, nil
+		}
+		return nil, domain, err
+	}
+	if !cfg.Enabled {
+		return nil, domain, nil
+	}
+	if err := cfg.validate(); err != nil {
+		return nil, domain, err
+	}
+	return newCloudflareClient(cfg), domain, nil
 }
 
 func userHasRoles(username, domain string) bool {
@@ -188,6 +297,10 @@ func registrationCertificatePath(domain string) string {
 	return filepath.Join(domainBase(domain), "certificates", "registration-certificate.txt")
 }
 
+func registrationCertificateSVGPath(domain string) string {
+	return filepath.Join(domainBase(domain), "certificates", "registration-certificate.svg")
+}
+
 func registrationCertificateExists(domain string) bool {
 	_, err := os.Stat(registrationCertificatePath(domain))
 	return err == nil
@@ -221,7 +334,10 @@ func saveRegistrationCertificate(domain, username string, now time.Time) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0770); err != nil {
 		return err
 	}
-	return os.WriteFile(path, registrationCertificate(domain, username, now), 0640)
+	if err := os.WriteFile(path, registrationCertificate(domain, username, now), 0640); err != nil {
+		return err
+	}
+	return os.WriteFile(registrationCertificateSVGPath(domain), registrationCertificateSVG(domain, "", "", username, "", now), 0640)
 }
 
 func registrationCertificate(domain, username string, now time.Time) []byte {
@@ -261,5 +377,52 @@ func registrationCertificate(domain, username string, now time.Time) []byte {
 		}
 	}
 
+	return b.Bytes()
+}
+
+func registrationCertificateSVG(domain, registrant, websiteURL, username, voucher string, now time.Time) []byte {
+	domain = normalizeDomain(domain)
+	registrant = strings.TrimSpace(registrant)
+	websiteURL = strings.TrimSpace(websiteURL)
+	email := ""
+	if safeMailboxUser(username) {
+		email = normalizeMailboxUser(username) + "@" + domain
+	}
+	row := func(label, value string, y int) string {
+		if strings.TrimSpace(value) == "" {
+			return ""
+		}
+		return fmt.Sprintf(`<text x="150" y="%d" class="label">%s</text><text x="390" y="%d" class="value">%s</text>`, y, html.EscapeString(label), y, html.EscapeString(value))
+	}
+
+	var b bytes.Buffer
+	fmt.Fprint(&b, `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="792" viewBox="0 0 1120 792" role="document" aria-labelledby="title description">
+  <title id="title">LocalBox Domain Registration Certificate</title>
+  <desc id="description">Official registration record issued by LocalBox.</desc>
+  <rect width="1120" height="792" fill="#f5f1e8"/>
+  <rect x="34" y="34" width="1052" height="724" fill="#fffdf8" stroke="#183b35" stroke-width="4"/>
+  <rect x="54" y="54" width="1012" height="684" fill="none" stroke="#c6924b" stroke-width="2"/>
+  <circle cx="560" cy="128" r="42" fill="#183b35"/>
+  <path d="M540 128l14 14 28-32" fill="none" stroke="#fffdf8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="560" y="220" text-anchor="middle" class="title">DOMAIN REGISTRATION CERTIFICATE</text>
+  <text x="560" y="254" text-anchor="middle" class="subtitle">Issued by LocalBox</text>
+  <line x1="150" y1="286" x2="970" y2="286" stroke="#c6924b" stroke-width="2"/>
+  <style>
+    .title { font: 700 30px Georgia, serif; letter-spacing: 1px; fill: #183b35; }
+    .subtitle { font: 18px Arial, sans-serif; fill: #5d6b66; }
+    .label { font: 700 16px Arial, sans-serif; fill: #5d6b66; }
+    .value { font: 18px Arial, sans-serif; fill: #183b35; }
+    .note { font: 15px Arial, sans-serif; fill: #5d6b66; }
+  </style>`)
+	fmt.Fprint(&b, row("Domain", domain, 340))
+	fmt.Fprint(&b, row("Registrant", registrant, 388))
+	fmt.Fprint(&b, row("First email address", email, 436))
+	fmt.Fprint(&b, row("Website", websiteURL, 484))
+	fmt.Fprint(&b, row("Reference", voucher, 532))
+	fmt.Fprint(&b, row("Issued", now.UTC().Format(time.RFC3339), 580))
+	fmt.Fprint(&b, `<text x="560" y="660" text-anchor="middle" class="note">This document records the LocalBox registration and setup details.</text>
+  <text x="560" y="684" text-anchor="middle" class="note">Temporary mailbox passwords are never printed on this certificate.</text>
+</svg>`)
 	return b.Bytes()
 }

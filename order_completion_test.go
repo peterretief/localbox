@@ -9,13 +9,14 @@ import (
 	"time"
 )
 
-func TestCompleteOrderRegistrationPublishesSiteAndSendsCertificateOnly(t *testing.T) {
+func TestCompleteOrderRegistrationIsIdempotent(t *testing.T) {
 	oldDB := orderDBFile
 	oldBase := localBoxBase
 	oldSender := sendOrderNotificationEmail
 	oldUsersFile := usersFile
 	oldAdminsFile := adminsFile
 	oldDomainsFile := domainsFile
+	oldBrevoSetup := ensureBrevoDomainSetupForOrder
 	orderDBFile = filepath.Join(t.TempDir(), "localbox.db")
 	localBoxBase = t.TempDir()
 	configDir := t.TempDir()
@@ -29,12 +30,16 @@ func TestCompleteOrderRegistrationPublishesSiteAndSendsCertificateOnly(t *testin
 		usersFile = oldUsersFile
 		adminsFile = oldAdminsFile
 		domainsFile = oldDomainsFile
+		ensureBrevoDomainSetupForOrder = oldBrevoSetup
 	})
 
 	var sent []orderEmailMessage
 	sendOrderNotificationEmail = func(message orderEmailMessage) error {
 		sent = append(sent, message)
 		return nil
+	}
+	ensureBrevoDomainSetupForOrder = func(ctx context.Context, id string) error {
+		return appendOrderEvent(id, "brevo_setup_verified", "Brevo sender domain DNS setup completed for example.co.za.")
 	}
 
 	db, err := openOrdersDB()
@@ -63,31 +68,91 @@ func TestCompleteOrderRegistrationPublishesSiteAndSendsCertificateOnly(t *testin
 		t.Fatal(err)
 	}
 
-	if len(sent) != 1 {
-		t.Fatalf("expected 1 email, got %d", len(sent))
+	if len(sent) != 3 {
+		t.Fatalf("expected 3 emails (certificate + mailbox login + internal checklist), got %d", len(sent))
 	}
-	if sent[0].Attachment == nil || !strings.Contains(string(sent[0].Attachment.Data), "LOCALBOX DOMAIN REGISTRATION CERTIFICATE") {
+	if sent[0].Attachment == nil || sent[0].Attachment.ContentType != "image/svg+xml" || !strings.Contains(string(sent[0].Attachment.Data), "<svg") || !strings.Contains(string(sent[0].Attachment.Data), "DOMAIN REGISTRATION CERTIFICATE") {
 		t.Fatalf("expected certificate attachment in first email: %#v", sent[0].Attachment)
 	}
 	if !strings.Contains(sent[0].Body, "Email voucher/reference:") ||
-		!strings.Contains(sent[0].Body, "first mailbox requested for this order is: info@example.co.za") ||
-		!strings.Contains(sent[0].Body, "Mailbox login: https://example.co.za/login") ||
-		!strings.Contains(sent[0].Body, "Domain admin page: https://example.co.za/admin") {
+		!strings.Contains(sent[0].Body, "Username: info@example.co.za") ||
+		!strings.Contains(sent[0].Body, "Login URL: https://example.co.za/login") ||
+		!strings.Contains(sent[0].Body, "Admin page: https://example.co.za/admin") {
 		t.Fatalf("certificate email missing certificate details:\n%s", sent[0].Body)
 	}
-	if userExists("info", "example.co.za") || isDomainAdmin("info", "example.co.za") {
-		t.Fatalf("certificate step should not create mailbox/admin login")
+	if !strings.Contains(sent[1].Body, "Email address: info@example.co.za") ||
+		!strings.Contains(sent[1].Body, "Temporary password: LB-") {
+		t.Fatalf("first mailbox email missing login details:\n%s", sent[1].Body)
+	}
+	if sent[2].To != setupChecklistRecipient ||
+		!strings.Contains(sent[2].Subject, "LocalBox setup checklist: example.co.za") ||
+		!strings.Contains(sent[2].Body, "Cloudflare inbound email routing: synced for info@example.co.za") ||
+		!strings.Contains(sent[2].Body, "Brevo sender domain:") ||
+		!strings.Contains(sent[2].Body, "Brevo sender address: not completed: info@example.co.za") {
+		t.Fatalf("setup checklist email missing expected details: %#v\n%s", sent[2], sent[2].Body)
+	}
+	if !userExists("info", "example.co.za") || !isDomainAdmin("info", "example.co.za") {
+		t.Fatalf("registration step should auto-create mailbox/admin login")
+	}
+	firstPassword := firstLineWithPrefix(sent[1].Body, "Temporary password: ")
+	if firstPassword == "" || !authenticate("info", "example.co.za", strings.TrimPrefix(firstPassword, "Temporary password: ")) {
+		t.Fatalf("initial emailed password should authenticate")
+	}
+
+	if err := completeOrderRegistration(context.Background(), "ord_test", "reg_123"); err != nil {
+		t.Fatal(err)
+	}
+	if len(sent) != 4 {
+		t.Fatalf("second completion should send only the internal checklist, got %d emails", len(sent))
+	}
+	if !authenticate("info", "example.co.za", strings.TrimPrefix(firstPassword, "Temporary password: ")) {
+		t.Fatalf("repeated order completion must not replace the emailed mailbox password")
+	}
+	mailboxLoginEmails := 0
+	for _, message := range sent {
+		if strings.Contains(message.Body, "Temporary password: ") {
+			mailboxLoginEmails++
+		}
+	}
+	if mailboxLoginEmails != 1 {
+		t.Fatalf("expected exactly one mailbox login email, got %d", mailboxLoginEmails)
 	}
 
 	detail, err := loadOrderDetail("ord_test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if detail.Status != "registered" || detail.RegistrarReference != "reg_123" || detail.EmailVoucherCode == "" || detail.WebsiteURL != "https://example.co.za/" {
+	if detail.Status != "site_live" || detail.RegistrarReference != "reg_123" || detail.EmailVoucherCode == "" || detail.WebsiteURL != "https://example.co.za/" {
 		t.Fatalf("unexpected order detail: %#v", detail)
 	}
-	if detail.CertificateSentAt == "" || detail.SiteLiveSentAt != "" || detail.CertificatePath == "" {
+	for _, want := range []string{
+		"localbox_domain_added",
+		"starter_website_created",
+		"certificate_created",
+		"certificate_sent",
+		"mailbox_setup_started",
+		"mailbox_created",
+		"domain_admin_confirmed",
+		"email_routing_synced",
+		"mailbox_setup_verified",
+		"brevo_setup_verified",
+		"mailbox_login_sent",
+		"setup_checklist_sent",
+		"site_live",
+	} {
+		if !orderEventsContain(detail.Events, want) {
+			t.Fatalf("expected order event %q in %#v", want, detail.Events)
+		}
+	}
+	if detail.CertificateSentAt == "" || detail.SiteLiveSentAt == "" || detail.CertificatePath == "" {
 		t.Fatalf("expected notification timestamps and certificate path: %#v", detail)
+	}
+	domains, err := loadDomains()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsString(domains, "example.co.za") {
+		t.Fatalf("expected domain to be added to LocalBox domains config, got %v", domains)
 	}
 
 	certificate, err := os.ReadFile(registrationCertificatePath("example.co.za"))
@@ -241,8 +306,7 @@ func TestCreateFirstOrderMailboxCreatesAdminMailboxAndSendsLogin(t *testing.T) {
 	if !strings.Contains(sent[0].Body, "Email address: info@example.co.za") ||
 		!strings.Contains(sent[0].Body, "Username: info") ||
 		!strings.Contains(sent[0].Body, "Temporary password: LB-") ||
-		!strings.Contains(sent[0].Body, "Email login: https://example.co.za/login?domain=example.co.za&username=info") ||
-		!strings.Contains(sent[0].Body, "Domain admin page: https://example.co.za/admin") ||
+		!strings.Contains(sent[0].Body, "Open your domain admin page: https://example.co.za/login?next=%2Fadmin&username=info%40example.co.za") ||
 		!strings.Contains(sent[0].Body, "Outbound sending is not enabled automatically") {
 		t.Fatalf("first mailbox email missing login details:\n%s", sent[0].Body)
 	}
@@ -253,6 +317,24 @@ func TestCreateFirstOrderMailboxCreatesAdminMailboxAndSendsLogin(t *testing.T) {
 	if !isDomainAdmin("info", "example.co.za") {
 		t.Fatalf("expected first mailbox to be domain admin")
 	}
+	detail, err := loadOrderDetail("ord_test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"mailbox_setup_started", "mailbox_created", "domain_admin_confirmed", "email_routing_synced", "mailbox_login_sent"} {
+		if !orderEventsContain(detail.Events, want) {
+			t.Fatalf("expected order event %q in %#v", want, detail.Events)
+		}
+	}
+}
+
+func orderEventsContain(events []OrderEvent, eventType string) bool {
+	for _, event := range events {
+		if event.EventType == eventType {
+			return true
+		}
+	}
+	return false
 }
 
 func TestMarkOrderDomainPropagatedSendsWebsiteLink(t *testing.T) {

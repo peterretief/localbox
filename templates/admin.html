@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>LocalBox Admin</title>
     <style>
         * { box-sizing: border-box; }
@@ -67,8 +68,17 @@
                 <h2>Website</h2>
                 <p class="muted">{{.Domain.SitePath}}</p>
                 <p><a href="/page">Edit homepage and images</a></p>
+                <form method="POST" action="/admin" style="margin-top:14px;">
+                    <input type="hidden" name="action" value="create_subdomain">
+                    <div class="row">
+                        <input name="subdomain" placeholder="shop" required>
+                        <span>.{{.Domain.Name}}</span>
+                    </div>
+                    <button type="submit">Create subdomain</button>
+                    <p class="hint">Creates a starter website and public route for this subdomain.</p>
+                </form>
                 {{if .Domain.CertificateAvailable}}
-                <p><a href="/certificate">Open domain certificate</a></p>
+                <p><a href="/certificate">Open text certificate</a> <a href="/certificate?format=svg" download>Download official SVG</a></p>
                 {{else}}
                 <p class="muted">Certificate not issued yet.</p>
                 {{end}}
@@ -83,7 +93,7 @@
                         <span>@{{.Domain.Name}}</span>
                     </div>
                     <div class="row">
-                        <input name="password" type="password" placeholder="temporary password" required minlength="8">
+                        <input name="password" type="password" placeholder="temporary password" required minlength="6">
                         <button type="submit">Add mailbox</button>
                     </div>
                     <div class="row">
@@ -115,7 +125,7 @@
                         <form method="POST" action="/admin" class="row">
                             <input type="hidden" name="action" value="reset_password">
                             <input type="hidden" name="username" value="{{.Username}}">
-                            <input name="password" type="password" placeholder="new password" required minlength="8">
+                            <input name="password" type="password" placeholder="new password" required minlength="6">
                             <button type="submit">Reset</button>
                         </form>
                     </td>

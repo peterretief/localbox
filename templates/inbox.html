@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>LocalBox Mail</title>
     <style>
         * { box-sizing: border-box; }
@@ -56,9 +57,9 @@
                 <div class="nav-title">Mail</div>
                 <a class="nav-link {{if and (not .ShowingNew) (not .ShowingSent) (not .ShowingFolder)}}active{{end}}" href="{{.AllURL}}">Current</a>
                 <a class="nav-link {{if .ShowingNew}}active{{end}}" href="{{.NewURL}}">New</a>
-                <a class="nav-link" href="/compose">Compose</a>
+                {{if .CanCompose}}<a class="nav-link" href="/compose">Compose</a>{{else}}<span class="nav-link disabled" title="Outbound email is disabled for LocalBox trial domains">Compose · unavailable</span>{{end}}
                 <a class="nav-link {{if .ShowingSent}}active{{end}}" href="{{.SentURL}}">Sent</a>
-                {{if not .Webmail}}<a class="nav-link" href="/certificate">Certificate</a>{{end}}
+                {{if not .Webmail}}<a class="nav-link" href="/certificate">Certificate</a><a class="nav-link" href="/certificate?format=svg" download>Official SVG</a>{{end}}
             </div>
             <div class="nav-box">
                 <div class="nav-title">Folders</div>

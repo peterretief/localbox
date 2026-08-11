@@ -82,11 +82,16 @@ func completeOrderRegistration(ctx context.Context, id, registrarReference strin
 	}
 
 	certificate := orderRegistrationCertificate(*order, voucher, websiteURL, now)
+	certificateSVG := registrationCertificateSVG(domain, order.FullName, websiteURL, order.WantedEmail, voucher, now)
 	certificatePath := registrationCertificatePath(domain)
+	certificateSVGPath := registrationCertificateSVGPath(domain)
 	if err := os.MkdirAll(filepath.Dir(certificatePath), 0770); err != nil {
 		return err
 	}
 	if err := os.WriteFile(certificatePath, certificate, 0640); err != nil {
+		return err
+	}
+	if err := os.WriteFile(certificateSVGPath, certificateSVG, 0640); err != nil {
 		return err
 	}
 	if err := appendOrderEvent(order.ID, "certificate_created", "Domain registration certificate created."); err != nil {
@@ -99,9 +104,9 @@ func completeOrderRegistration(ctx context.Context, id, registrarReference strin
 			Subject: "Domain registration certificate for " + domain,
 			Body:    certificateEmailBody(domain, wantedEmailAddress, voucher),
 			Attachment: &OutgoingAttachment{
-				Filename:    domain + "-localbox-certificate.txt",
-				ContentType: "text/plain; charset=utf-8",
-				Data:        certificate,
+				Filename:    domain + "-localbox-certificate.svg",
+				ContentType: "image/svg+xml",
+				Data:        certificateSVG,
 			},
 		}); err != nil {
 			return err
@@ -335,18 +340,18 @@ func resendOrderWelcomeEmail(id string) error {
 		websiteURL = "https://" + domain + "/"
 	}
 	voucher := strings.TrimSpace(order.EmailVoucherCode)
-	certificatePath := registrationCertificatePath(domain)
-	certificate, readErr := os.ReadFile(certificatePath)
+	certificateSVGPath := registrationCertificateSVGPath(domain)
+	certificate, readErr := os.ReadFile(certificateSVGPath)
 	if readErr != nil {
-		certificate = orderRegistrationCertificate(*order, voucher, websiteURL, time.Now().UTC())
+		certificate = registrationCertificateSVG(domain, order.FullName, websiteURL, order.WantedEmail, voucher, time.Now().UTC())
 	}
 	if err := sendOrderNotificationEmail(orderEmailMessage{
 		To:      customerEmail.Address,
 		Subject: "Welcome to LocalBox: " + domain,
 		Body:    certificateEmailBody(domain, order.WantedEmail, voucher),
 		Attachment: &OutgoingAttachment{
-			Filename:    domain + "-localbox-certificate.txt",
-			ContentType: "text/plain; charset=utf-8",
+			Filename:    domain + "-localbox-certificate.svg",
+			ContentType: "image/svg+xml",
 			Data:        certificate,
 		},
 	}); err != nil {

@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>LocalBox System</title>
     <style>
         * { box-sizing: border-box; }
@@ -36,6 +37,7 @@
             <div>
                 <h1>System Admin</h1>
                 <div class="muted">Domains and admin roles</div>
+                <div class="muted">Admin inventory: {{.AdminInventoryPath}}</div>
             </div>
             <div><a href="/dashboard">Dashboard</a> · <a href="/apps/mail">Mail</a>{{if .Access.CanOrders}} · <a href="/orders">Orders</a>{{end}}{{if .Access.CanDomainAdmin}} · <a href="/admin">Domain admin</a>{{end}} · <a href="/logout">Sign out</a></div>
         </div>
@@ -65,7 +67,7 @@
                         <input name="domain" placeholder="opamp.co.za" required>
                     </div>
                     <div class="row">
-                        <input name="password" type="password" placeholder="temporary password" required minlength="8">
+                        <input name="password" type="password" placeholder="temporary password" required minlength="6">
                         <button type="submit">Create first email</button>
                     </div>
                     <p class="muted">Use after registrar confirmation. Creates the first mailbox, grants domain admin access, and writes a downloadable setup certificate.</p>
@@ -88,22 +90,31 @@
                 <tbody>
                 {{range .Domains}}
                 <tr>
-                    <td>{{.Name}}</td>
+                    <td>{{.Name}}{{if .IsSubdomain}}<div class="muted">Subdomain of {{.ParentDomain}}</div>{{end}}</td>
                     <td>{{.UserCount}}</td>
                     <td class="muted">{{.SitePath}}</td>
                     <td>
                         {{if .CertificateAvailable}}
-                        <a href="/system/certificate?domain={{.Name}}">Download</a>
+                        <a href="/system/certificate?domain={{.Name}}">Text</a>
+                        <a href="/system/certificate?domain={{.Name}}&format=svg" download>Official SVG</a>
                         {{else}}
                         <span class="muted">Not issued</span>
                         {{end}}
                     </td>
                     <td>
+                        {{if .IsSubdomain}}
+                        <form method="POST" action="/system" onsubmit="return confirm('Delete this subdomain from LocalBox? Mailboxes, roles, web routes, and local folders for this subdomain will be archived or removed.');">
+                            <input type="hidden" name="action" value="delete_subdomain">
+                            <input type="hidden" name="domain" value="{{.Name}}">
+                            <button class="danger" type="submit">Delete subdomain</button>
+                        </form>
+                        {{else}}
                         <form method="POST" action="/system">
                             <input type="hidden" name="action" value="archive_domain">
                             <input type="hidden" name="domain" value="{{.Name}}">
                             <button class="danger" type="submit">Archive</button>
                         </form>
+                        {{end}}
                     </td>
                 </tr>
                 {{end}}

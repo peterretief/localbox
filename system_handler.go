@@ -3,7 +3,10 @@ package main
 import (
 	"html/template"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 func systemHandler(w http.ResponseWriter, r *http.Request) {
@@ -24,6 +27,9 @@ func systemHandler(w http.ResponseWriter, r *http.Request) {
 		case "archive_domain":
 			err = archiveDomain(r.FormValue("domain"))
 			data.Success = "Domain archived."
+		case "delete_subdomain":
+			err = deleteSubdomain(r.FormValue("domain"))
+			data.Success = "Subdomain deleted."
 		case "add_domain_admin":
 			err = addDomainAdmin(r.FormValue("username"), r.FormValue("domain"))
 			data.Success = "Domain admin added."
@@ -50,6 +56,7 @@ func systemHandler(w http.ResponseWriter, r *http.Request) {
 		data.Domains = fresh.Domains
 		data.DomainAdmins = fresh.DomainAdmins
 		data.BoxAdmins = fresh.BoxAdmins
+		data.AdminInventoryPath = fresh.AdminInventoryPath
 		data.Access = accessView(s)
 	} else if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -61,7 +68,8 @@ func systemHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func systemCertificateHandler(w http.ResponseWriter, r *http.Request) {
-	if s := requireBoxAdmin(w, r); s == nil {
+	s := requireBoxAdmin(w, r)
+	if s == nil {
 		return
 	}
 	if r.Method != http.MethodGet {
@@ -77,6 +85,19 @@ func systemCertificateHandler(w http.ResponseWriter, r *http.Request) {
 	path := registrationCertificatePath(domain)
 	if !registrationCertificateExists(domain) {
 		http.NotFound(w, r)
+		return
+	}
+	if strings.EqualFold(r.URL.Query().Get("format"), "svg") {
+		path = registrationCertificateSVGPath(domain)
+		if _, err := os.Stat(path); err != nil {
+			if err := saveRegistrationCertificate(domain, s.User, time.Now().UTC()); err != nil {
+				http.Error(w, "Certificate unavailable", http.StatusInternalServerError)
+				return
+			}
+		}
+		w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="`+domain+`-localbox-certificate.svg"`)
+		http.ServeFile(w, r, filepath.Clean(path))
 		return
 	}
 
