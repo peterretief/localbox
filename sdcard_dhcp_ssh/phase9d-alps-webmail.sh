@@ -17,6 +17,8 @@ ALPS_ADDR=${ALPS_ADDR:-127.0.0.1:1323}
 ALPS_CONFIG=${ALPS_CONFIG:-/etc/alps/config.toml}
 ALPS_MASTER_USERNAME=${ALPS_MASTER_USERNAME:-localbox-alps}
 ALPS_MASTER_SEPARATOR=${ALPS_MASTER_SEPARATOR:-*}
+RADICALE_SETUP_SOURCE=${RADICALE_SETUP_SOURCE:-$PROJECT_DIR/scripts/configure-radicale-dovecot-auth.sh}
+DAV_ENABLE_SOURCE=${DAV_ENABLE_SOURCE:-$PROJECT_DIR/scripts/enable-alps-dav-plugins.sh}
 SSH_OPTS=${SSH_OPTS:-"-o StrictHostKeyChecking=no -o UserKnownHostsFile=/tmp/localbox_phase9d_known_hosts -o ConnectTimeout=10"}
 
 echo "Phase 9d target: $PI_USER@$PI_HOST"
@@ -50,6 +52,14 @@ if [ ! -f "$ALPS_BINARY" ]; then
     echo "  cd $ALPS_PROJECT_DIR && CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o build/alps-linux-armv7 ./cmd/alps" >&2
     exit 1
 fi
+[ -f "$RADICALE_SETUP_SOURCE" ] || {
+    echo "ERROR: Radicale setup script not found: $RADICALE_SETUP_SOURCE" >&2
+    exit 1
+}
+[ -f "$DAV_ENABLE_SOURCE" ] || {
+    echo "ERROR: ALPS DAV plugin script not found: $DAV_ENABLE_SOURCE" >&2
+    exit 1
+}
 if [ -x "$INVENTORY" ]; then
     "$INVENTORY" validate-device "$DEVICE_NAME" >/dev/null
 fi
@@ -57,6 +67,8 @@ fi
 echo ">> Installing ALPS binary..."
 ssh $SSH_OPTS "$PI_USER@$PI_HOST" "LOCALBOX_BIN_DIR='$LOCALBOX_BIN_DIR' sh -s" <<'REMOTE'
 set -eu
+
+apk add -q radicale radicale-openrc apache2-utils
 mountpoint -q /mnt/data || {
     echo "ERROR: /mnt/data is not mounted. Finish Phase 4 first." >&2
     exit 1
@@ -159,7 +171,7 @@ addr = "$ALPS_ADDR"
 debug = false
 trusted_proxies = ["127.0.0.1/32", "::1/128"]
 temp_dir = "/mnt/data/localbox/alps/tmp"
-session_minutes = 60
+session_minutes = 480
 max_session_minutes = 1440
 read_timeout_sec = 10
 write_timeout_sec = 60
@@ -208,10 +220,12 @@ redirect_url = "/"
 enabled = true
 
 [plugin.caldav]
-enabled = false
+enabled = true
+server = "http://127.0.0.1:5232"
 
 [plugin.carddav]
-enabled = false
+enabled = true
+server = "http://127.0.0.1:5232"
 
 [plugin.managesieve]
 enabled = false
@@ -280,6 +294,13 @@ mount -o remount,ro /media/mmcblk0p1 2>/dev/null || true
 rc-service alps status </dev/null
 curl --max-time 5 -I -sS "http://$ALPS_ADDR/" | sed -n '1,8p'
 REMOTE
+
+echo ">> Configuring Radicale and Dovecot authentication..."
+cat "$RADICALE_SETUP_SOURCE" | ssh $SSH_OPTS "$PI_USER@$PI_HOST" 'sh -s'
+
+echo ">> Enabling ALPS CalDAV/CardDAV plugins..."
+cat "$DAV_ENABLE_SOURCE" | ssh $SSH_OPTS "$PI_USER@$PI_HOST" \
+    "ALPS_CONFIG='$ALPS_CONFIG' RADICALE_URL='http://127.0.0.1:5232' sh -s"
 
 if [ -x "$INVENTORY" ]; then
     "$INVENTORY" phase "$DEVICE_NAME" phase9d-alps-webmail complete detail="alps $ALPS_ADDR mail.$LOCALBOX_DOMAIN"
