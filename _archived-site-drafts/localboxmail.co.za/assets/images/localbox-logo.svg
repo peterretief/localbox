@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">LocalBox logo</title>
+  <desc id="desc">A navy rounded square with a gold open box and green network node.</desc>
+  <rect x="24" y="24" width="464" height="464" rx="92" fill="#07111f" stroke="#213355" stroke-width="12"/>
+  <circle cx="256" cy="96" r="50" fill="none" stroke="#2f7f78" stroke-width="8"/>
+  <circle cx="256" cy="96" r="27" fill="#65d6c6"/>
+  <path d="M256 124v62" stroke="#65d6c6" stroke-width="12" stroke-linecap="square"/>
+  <path d="M256 174 135 244l121 70 121-70z" fill="#f2ead7" stroke="#f5aa2f" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M135 244v126l121 70V314z" fill="#1c2d4d" stroke="#f5aa2f" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M377 244v126l-121 70V314z" fill="#22375d" stroke="#f5aa2f" stroke-width="14" stroke-linejoin="round"/>
+</svg>

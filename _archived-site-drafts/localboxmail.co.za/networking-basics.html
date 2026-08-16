@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Networking Basics: Addressing, CIDR & IPv6 | LocalBox Course Sample</title>
+    <style>
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            color: #0b1e3a;
+            background: #f8fafc;
+            line-height: 1.6;
+        }
+        a { color: #2563eb; }
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: rgba(255,255,255,0.96);
+            border-bottom: 1px solid #dfe6ee;
+        }
+        .nav, .footer-inner {
+            max-width: 1160px;
+            margin: 0 auto;
+            padding: 0 22px;
+        }
+        .nav {
+            min-height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            color: #0b1e3a;
+            text-decoration: none;
+        }
+        .brand-logo {
+            display: block;
+            width: 176px;
+            height: 42px;
+            object-fit: contain;
+            flex: 0 0 auto;
+        }
+        .links {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-size: 14px;
+        }
+        .links a {
+            color: #43504a;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .links a:hover { color: #2563eb; }
+        main {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 56px 22px 80px;
+        }
+        .page-hero {
+            margin-bottom: 28px;
+            padding: 34px;
+            border-radius: 8px;
+            background:
+                linear-gradient(90deg, rgba(5,20,39,0.97) 0%, rgba(5,20,39,0.88) 54%, rgba(5,20,39,0.42) 100%),
+                url("/assets/images/localbox-hero.svg") center / cover no-repeat;
+            color: #ffffff;
+        }
+        .eyebrow {
+            margin: 0 0 10px;
+            color: #10b981;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        h1 {
+            margin: 0 0 12px;
+            color: #ffffff;
+            font-size: clamp(2.2rem, 7vw, 3.8rem);
+            line-height: 1.05;
+        }
+        .subtitle {
+            max-width: 780px;
+            margin: 0;
+            color: #e2e8f0;
+            font-size: 18px;
+        }
+        .course-shell {
+            display: grid;
+            grid-template-columns: 260px minmax(0, 1fr);
+            gap: 22px;
+            align-items: start;
+        }
+        .contents {
+            position: sticky;
+            top: 86px;
+            padding: 18px;
+            border: 1px solid #dfe6ee;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+        .contents h2 {
+            margin: 0 0 12px;
+            padding: 0;
+            border: 0;
+            color: #0b1e3a;
+            font-size: 16px;
+        }
+        .contents ol {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 14px;
+        }
+        .contents li { margin-bottom: 7px; }
+        .contents a {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .contents a:hover { text-decoration: underline; }
+        .lesson {
+            min-width: 0;
+            padding: 28px;
+            border: 1px solid #dfe6ee;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+        .lesson h2 {
+            margin: 52px 0 14px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #edf4ff;
+            color: #0b1e3a;
+            font-size: 24px;
+            scroll-margin-top: 92px;
+        }
+        .lesson h2:first-child { margin-top: 0; }
+        .lesson h3 {
+            margin: 28px 0 10px;
+            color: #0b1e3a;
+            font-size: 18px;
+        }
+        .lesson h4 {
+            margin: 20px 0 8px;
+            color: #0b1e3a;
+            font-size: 15px;
+        }
+        p, li { color: #475569; }
+        pre, code {
+            border-radius: 5px;
+            background: #edf4ff;
+            color: #0b1e3a;
+            font-family: "SF Mono", Consolas, monospace;
+            font-size: 13px;
+        }
+        code { padding: 2px 5px; }
+        pre {
+            padding: 12px 16px;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            margin: 16px 0;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 8px 12px;
+            border: 1px solid #dfe6ee;
+            text-align: left;
+            vertical-align: top;
+        }
+        th {
+            background: #f1f7ff;
+            color: #0b1e3a;
+        }
+        .detail-box {
+            margin: 16px 0;
+            padding: 14px 18px;
+            border-left: 4px solid #2563eb;
+            border-radius: 0 8px 8px 0;
+            background: #f7f9fc;
+            scroll-margin-top: 92px;
+        }
+        .detail-box h4:first-child { margin-top: 0; }
+        svg a { cursor: pointer; }
+        svg a:hover rect { stroke-width: 2; }
+        svg a text { pointer-events: none; }
+        .diagram-wrap {
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+        .diagram-wrap svg { min-width: 640px; }
+        .diagram-caption {
+            margin-top: 6px;
+            text-align: center;
+            color: #64748b;
+            font-size: 13px;
+        }
+        .back-link {
+            margin-bottom: 0;
+            font-size: 13px;
+        }
+        hr {
+            margin: 40px 0;
+            border: 0;
+            border-top: 1px solid #e2e8f0;
+        }
+        footer {
+            border-top: 1px solid #dfe6ee;
+            background: #ffffff;
+        }
+        .footer-inner {
+            padding: 22px;
+            color: #64748b;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 900px) {
+            .course-shell { grid-template-columns: 1fr; }
+            .contents { position: static; }
+        }
+        @media (max-width: 720px) {
+            .links { display: none; }
+            .brand-logo { width: 150px; }
+            main { padding-top: 38px; }
+            .page-hero, .lesson { padding: 22px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="nav" aria-label="Main navigation">
+            <a class="brand" href="/"><img class="brand-logo" src="/assets/images/localbox-wordmark.svg" alt="LocalBox Mail"></a>
+            <div class="links">
+                <a href="/">Home</a>
+                <a href="/#learning">Learning</a>
+                <a href="/networking-basics.html">Course sample</a>
+                <a href="/software.html">Software</a>
+                <a href="/news.html">News</a>
+                <a href="/faq.html">FAQ</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <section class="page-hero">
+            <p class="eyebrow">Course sample</p>
+            <h1>Networking Basics: Addressing, CIDR & IPv6</h1>
+            <p class="subtitle">A course module covering IP addressing, subnetting, hardware addressing, cellular networks, and IPv6. Click any box in a diagram to jump to a detailed explanation of that piece.</p>
+        </section>
+
+        <div class="course-shell">
+            <aside class="contents" aria-label="Course contents">
+                <h2>Contents</h2>
+                <ol>
+                    <li><a href="#why-addressing">Why addressing matters</a></li>
+                    <li><a href="#ipv4-recap">IPv4 recap</a></li>
+                    <li><a href="#cidr">CIDR notation</a></li>
+                    <li><a href="#simple-network">A simple IPv4 network</a></li>
+                    <li><a href="#ipv6-basics">IPv6 basics</a></li>
+                    <li><a href="#comparison">IPv4 vs IPv6</a></li>
+                    <li><a href="#mac-vs-ip">MAC vs IP addressing</a></li>
+                    <li><a href="#cellular">Cellular networks</a></li>
+                    <li><a href="#exercises">Student exercises</a></li>
+                </ol>
+            </aside>
+
+            <article class="lesson">
+                <h2 id="why-addressing">1. Why We Need to Understand Addressing</h2>
+                <p>Every device on a network needs a unique address so traffic knows where to go. Two addressing schemes matter today:</p>
+                <ul>
+                    <li><strong>IPv4</strong> - the original scheme, 32-bit addresses, running out of room.</li>
+                    <li><strong>IPv6</strong> - the replacement, 128-bit addresses, built for a much bigger internet.</li>
+                </ul>
+                <p>Understanding both, and the CIDR notation used to describe network sizes, is foundational for anyone working with servers, routers, or cloud infrastructure.</p>
+
+                <hr>
+
+                <h2 id="ipv4-recap">2. IPv4 Recap</h2>
+                <p>An IPv4 address is 32 bits, written as four decimal numbers from 0 to 255 separated by dots:</p>
+                <pre>192.168.1.10</pre>
+                <p>Each address is split into two conceptual parts: the <strong>network portion</strong>, which identifies which network the device is on, and the <strong>host portion</strong>, which identifies the specific device on that network.</p>
+                <p>The question is: <em>how many bits belong to each part?</em> That is what CIDR notation answers.</p>
+
+                <h3>What is an octet?</h3>
+                <p>An octet is a group of <strong>8 bits</strong>. Each IPv4 address is 32 bits total, split into <strong>four octets</strong> separated by dots. Each octet ranges from 0 to 255 because 2<sup>8</sup> gives 256 possible values.</p>
+                <div class="detail-box" id="octet-detail">
+                    <h4>Detail: Converting an octet</h4>
+                    <pre>Binary:  11000000
+Decimal: 128+64 = 192</pre>
+                    <p>So <code>11000000.10101000.00000001.00001010</code> in binary becomes <code>192.168.1.10</code> in dotted-decimal. IPv6 does not use octets in the same written form; it groups bits into 16-bit <strong>hextets</strong>, with 4 hex digits each.</p>
+                    <p class="back-link"><a href="#ipv4-recap">Back to IPv4 recap</a></p>
+                </div>
+
+                <hr>
+
+                <h2 id="cidr">3. CIDR Notation - What the /xx Means</h2>
+                <p><strong>CIDR</strong> means Classless Inter-Domain Routing. The number after the slash tells you how many bits, counting from the left, are the network portion.</p>
+                <pre>192.168.1.0/24
+             ^
+    first 24 bits = network
+    remaining 8 bits = host</pre>
+
+                <div class="diagram-wrap">
+                    <svg width="100%" viewBox="0 0 680 220" role="img" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif">
+                        <title>CIDR bit split for 192.168.1.10/24</title>
+                        <text x="340" y="34" text-anchor="middle" font-size="16" font-weight="bold" fill="#222">192.168.1.10/24 - 32 bits total</text>
+                        <a href="#network-portion-detail">
+                            <rect x="60" y="60" width="420" height="50" rx="4" fill="#E6F1FB" stroke="#185FA5" stroke-width="1"/>
+                            <text x="270" y="82" text-anchor="middle" font-size="14" font-weight="bold" fill="#0C447C">Network portion</text>
+                            <text x="270" y="100" text-anchor="middle" font-size="12" fill="#0C447C">24 bits</text>
+                        </a>
+                        <a href="#host-portion-detail">
+                            <rect x="480" y="60" width="140" height="50" rx="4" fill="#ECFDF5" stroke="#10B981" stroke-width="1"/>
+                            <text x="550" y="82" text-anchor="middle" font-size="14" font-weight="bold" fill="#047857">Host</text>
+                            <text x="550" y="100" text-anchor="middle" font-size="12" fill="#047857">8 bits</text>
+                        </a>
+                        <line x1="60" y1="130" x2="480" y2="130" stroke="#666" stroke-width="1"/>
+                        <line x1="60" y1="124" x2="60" y2="136" stroke="#666" stroke-width="1"/>
+                        <line x1="480" y1="124" x2="480" y2="136" stroke="#666" stroke-width="1"/>
+                        <text x="270" y="150" text-anchor="middle" font-size="12" fill="#444">192.168.1 identifies the network</text>
+                        <line x1="480" y1="130" x2="620" y2="130" stroke="#666" stroke-width="1"/>
+                        <line x1="620" y1="124" x2="620" y2="136" stroke="#666" stroke-width="1"/>
+                        <text x="550" y="150" text-anchor="middle" font-size="12" fill="#444">.10 is the device</text>
+                        <text x="340" y="188" text-anchor="middle" font-size="12" fill="#555">Raise the CIDR number: network grows, host shrinks, fewer usable addresses per subnet</text>
+                    </svg>
+                    <p class="diagram-caption">Click a box above for a detailed breakdown</p>
+                </div>
+
+                <div class="detail-box" id="network-portion-detail">
+                    <h4>Detail: The network portion</h4>
+                    <p>The first N bits are shared by every device on the same subnet. This is the part a router uses to decide which direction to forward a packet without needing to know the exact device.</p>
+                    <ol>
+                        <li>Total bits in IPv4 = 32.</li>
+                        <li>Network bits = the CIDR number, such as 24.</li>
+                        <li>Host bits = 32 minus network bits, such as 32 - 24 = 8.</li>
+                    </ol>
+                    <p class="back-link"><a href="#cidr">Back to CIDR notation</a></p>
+                </div>
+
+                <div class="detail-box" id="host-portion-detail">
+                    <h4>Detail: The host portion</h4>
+                    <p>The remaining bits identify the individual device within that network. The number of host bits determines how many addresses exist in the block.</p>
+                    <ul>
+                        <li>Number of addresses = 2<sup>host bits</sup>.</li>
+                        <li>Usable hosts = addresses minus 2, because the network address and broadcast address are reserved.</li>
+                    </ul>
+                    <h4>Worked example: 192.168.1.0/26</h4>
+                    <table>
+                        <tr><th>Step</th><th>Value</th></tr>
+                        <tr><td>Network bits</td><td>26</td></tr>
+                        <tr><td>Host bits</td><td>32 - 26 = 6</td></tr>
+                        <tr><td>Total addresses</td><td>2^6 = 64</td></tr>
+                        <tr><td>Usable hosts</td><td>64 - 2 = 62</td></tr>
+                        <tr><td>Network address</td><td>192.168.1.0</td></tr>
+                        <tr><td>Broadcast address</td><td>192.168.1.63</td></tr>
+                        <tr><td>Usable range</td><td>192.168.1.1 to 192.168.1.62</td></tr>
+                    </table>
+                    <h4>CIDR quick reference table</h4>
+                    <table>
+                        <tr><th>CIDR</th><th>Subnet mask</th><th>Total addresses</th><th>Usable hosts</th></tr>
+                        <tr><td>/22</td><td>255.255.252.0</td><td>1024</td><td>1022</td></tr>
+                        <tr><td>/23</td><td>255.255.254.0</td><td>512</td><td>510</td></tr>
+                        <tr><td>/24</td><td>255.255.255.0</td><td>256</td><td>254</td></tr>
+                        <tr><td>/25</td><td>255.255.255.128</td><td>128</td><td>126</td></tr>
+                        <tr><td>/26</td><td>255.255.255.192</td><td>64</td><td>62</td></tr>
+                        <tr><td>/27</td><td>255.255.255.224</td><td>32</td><td>30</td></tr>
+                        <tr><td>/28</td><td>255.255.255.240</td><td>16</td><td>14</td></tr>
+                        <tr><td>/29</td><td>255.255.255.248</td><td>8</td><td>6</td></tr>
+                        <tr><td>/30</td><td>255.255.255.252</td><td>4</td><td>2</td></tr>
+                    </table>
+                    <p><strong>Teaching tip:</strong> each bit added to the CIDR number halves the block size. Going from /24 to /25 cuts 256 addresses down to 128, and so on.</p>
+                    <p class="back-link"><a href="#cidr">Back to CIDR notation</a></p>
+                </div>
+
+                <h3>Practice problems with answers</h3>
+                <ol>
+                    <li><strong>10.0.0.0/28</strong> - how many usable hosts?<br>Host bits = 32 - 28 = 4, so 2^4 = 16 addresses and <strong>14 usable hosts</strong>.</li>
+                    <li><strong>172.16.5.0/23</strong> - what is the broadcast address?<br>A /23 spans two /24 blocks, from 172.16.4.0 to 172.16.5.255, so the <strong>broadcast address is 172.16.5.255</strong>.</li>
+                    <li>You need a subnet for 100 devices. What is the smallest CIDR block that fits?<br>/25 gives 126 usable hosts, which fits 100. <strong>/25 is the answer</strong>; /26 only gives 62, which is too small.</li>
+                </ol>
+
+                <hr>
+
+                <h2 id="simple-network">3a. A Simple IPv4 Network in Practice</h2>
+                <p>Here is how CIDR and addressing come together in a typical home or office network: a router sits between the public internet and a private LAN.</p>
+                <div class="diagram-wrap">
+                    <svg width="100%" viewBox="0 0 680 320" role="img" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif">
+                        <title>Simple IPv4 network</title>
+                        <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#555" stroke-width="1.5"/></marker></defs>
+                        <a href="#public-ip-detail">
+                            <rect x="270" y="30" width="140" height="50" rx="8" fill="#F1F5F9" stroke="#334155" stroke-width="1"/>
+                            <text x="340" y="50" text-anchor="middle" font-size="14" font-weight="bold" fill="#0f172a">Internet</text>
+                            <text x="340" y="68" text-anchor="middle" font-size="12" fill="#334155">public IPs</text>
+                        </a>
+                        <line x1="340" y1="80" x2="340" y2="116" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+                        <a href="#nat-detail">
+                            <rect x="260" y="120" width="160" height="56" rx="8" fill="#EEF6FF" stroke="#2563EB" stroke-width="1"/>
+                            <text x="340" y="142" text-anchor="middle" font-size="14" font-weight="bold" fill="#1d4ed8">Router</text>
+                            <text x="340" y="160" text-anchor="middle" font-size="12" fill="#1e40af">public: 41.13.x.x - LAN: 192.168.1.1</text>
+                        </a>
+                        <line x1="340" y1="176" x2="340" y2="200" stroke="#555" stroke-width="1"/>
+                        <line x1="140" y1="200" x2="540" y2="200" stroke="#555" stroke-width="1"/>
+                        <text x="340" y="216" text-anchor="middle" font-size="12" fill="#555">LAN subnet 192.168.1.0/24</text>
+                        <line x1="140" y1="200" x2="140" y2="236" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+                        <line x1="340" y1="200" x2="340" y2="236" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+                        <line x1="540" y1="200" x2="540" y2="236" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+                        <a href="#dhcp-detail">
+                            <rect x="80" y="240" width="120" height="56" rx="8" fill="#ECFDF5" stroke="#10B981" stroke-width="1"/>
+                            <text x="140" y="262" text-anchor="middle" font-size="14" font-weight="bold" fill="#047857">Laptop</text>
+                            <text x="140" y="280" text-anchor="middle" font-size="12" fill="#047857">192.168.1.10</text>
+                        </a>
+                        <a href="#dhcp-detail">
+                            <rect x="280" y="240" width="120" height="56" rx="8" fill="#ECFDF5" stroke="#10B981" stroke-width="1"/>
+                            <text x="340" y="262" text-anchor="middle" font-size="14" font-weight="bold" fill="#047857">Phone</text>
+                            <text x="340" y="280" text-anchor="middle" font-size="12" fill="#047857">192.168.1.11</text>
+                        </a>
+                        <a href="#dhcp-detail">
+                            <rect x="480" y="240" width="120" height="56" rx="8" fill="#ECFDF5" stroke="#10B981" stroke-width="1"/>
+                            <text x="540" y="262" text-anchor="middle" font-size="14" font-weight="bold" fill="#047857">Printer</text>
+                            <text x="540" y="280" text-anchor="middle" font-size="12" fill="#047857">192.168.1.12</text>
+                        </a>
+                    </svg>
+                    <p class="diagram-caption">Click a box above for a detailed explanation</p>
+                </div>
+
+                <div class="detail-box" id="public-ip-detail">
+                    <h4>Detail: The public internet side</h4>
+                    <p>Only the router's public IP is ever visible to the outside world. From the internet's perspective, every device behind the router - laptop, phone, printer - is completely invisible; the only address anyone out there ever sees is that one public IP.</p>
+                    <p class="back-link"><a href="#simple-network">Back to the network diagram</a></p>
+                </div>
+                <div class="detail-box" id="nat-detail">
+                    <h4>Detail: What the router does with NAT</h4>
+                    <p>The router has two addresses: a <strong>public IP</strong> such as <code>41.13.x.x</code> facing the internet, and a <strong>private IP</strong> such as <code>192.168.1.1</code> on the LAN side. NAT, or Network Address Translation, is what lets many private devices share that one public IP:</p>
+                    <ol>
+                        <li>A device sends a packet with source <code>192.168.1.10</code> and destination <code>some-website.com</code>.</li>
+                        <li>The router rewrites the source address to its own public IP, such as <code>41.13.x.x</code>, and picks a unique port to track the connection.</li>
+                        <li>It records the mapping from that port back to <code>192.168.1.10</code> in a <strong>NAT table</strong>.</li>
+                        <li>The website replies to <code>41.13.x.x</code> on that port.</li>
+                        <li>The router looks up the NAT table and rewrites the destination back to <code>192.168.1.10</code> before forwarding it onto the LAN.</li>
+                    </ol>
+                    <p>This is also why <strong>IPv6 mostly eliminates the need for NAT</strong>: with enough address space for every device to have its own globally routable address, there is no need to share and translate a single public IP.</p>
+                    <p class="back-link"><a href="#simple-network">Back to the network diagram</a></p>
+                </div>
+                <div class="detail-box" id="dhcp-detail">
+                    <h4>Detail: How devices get their address</h4>
+                    <p>Devices on the LAN, such as <code>192.168.1.0/24</code>, get private addresses automatically via <strong>DHCP</strong>, or Dynamic Host Configuration Protocol. The router hands out an available address from its pool, along with the subnet mask, default gateway, and DNS server to use.</p>
+                    <p class="back-link"><a href="#simple-network">Back to the network diagram</a></p>
+                </div>
+
+                <hr>
+
+                <h2 id="ipv6-basics">4. IPv6 Basics</h2>
+                <p>IPv6 exists because IPv4's roughly 4.3 billion addresses are not enough for a world of billions of connected devices. IPv6 uses <strong>128-bit</strong> addresses, an address space so large, 2<sup>128</sup>, that exhaustion is not a realistic concern.</p>
+                <h3>Address format</h3>
+                <pre>2001:0db8:85a3:0000:0000:8a2e:0370:7334</pre>
+                <p>IPv6 addresses are written as 8 groups of 4 hexadecimal digits separated by colons. Each group represents 16 bits, giving 8 x 16 = 128 bits total.</p>
+                <div class="diagram-wrap">
+                    <svg width="100%" viewBox="0 0 680 200" role="img" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif">
+                        <title>IPv6 address shortening</title>
+                        <defs><marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#555" stroke-width="1.5"/></marker></defs>
+                        <text x="60" y="40" font-size="12" fill="#555">Full form</text>
+                        <a href="#shortening-detail">
+                            <rect x="60" y="52" width="560" height="40" rx="4" fill="#F1F5F9" stroke="#334155" stroke-width="1"/>
+                            <text x="340" y="77" text-anchor="middle" font-size="14" fill="#0f172a" font-family="monospace">2001:0db8:85a3:0000:0000:8a2e:0370:7334</text>
+                        </a>
+                        <line x1="340" y1="100" x2="340" y2="118" stroke="#555" stroke-width="1.5" marker-end="url(#arrow2)"/>
+                        <text x="60" y="138" font-size="12" fill="#555">Shortened form</text>
+                        <a href="#shortening-detail">
+                            <rect x="60" y="150" width="440" height="40" rx="4" fill="#ECFDF5" stroke="#10B981" stroke-width="1"/>
+                            <text x="280" y="175" text-anchor="middle" font-size="14" fill="#047857" font-family="monospace">2001:db8:85a3::8a2e:370:7334</text>
+                        </a>
+                    </svg>
+                    <p class="diagram-caption">Click either address for the shortening rules</p>
+                </div>
+                <div class="detail-box" id="shortening-detail">
+                    <h4>Detail: Shortening rules</h4>
+                    <ol>
+                        <li>Drop leading zeros in each group: <code>0db8</code> becomes <code>db8</code>.</li>
+                        <li>Collapse one run of consecutive all-zero groups to <code>::</code>. This can only happen once per address.</li>
+                    </ol>
+                    <h4>CIDR still applies</h4>
+                    <p>IPv6 uses the same CIDR slash notation, just with 128 bits instead of 32. For example, <code>2001:db8::/32</code> means the first 32 bits are the network portion, leaving 96 bits for subnetting and hosts.</p>
+                    <p><strong>Convention worth teaching:</strong> ISPs typically hand out a <strong>/64</strong> to a single subnet, such as a LAN, and often a <strong>/48</strong> or <strong>/56</strong> to a customer site covering multiple subnets.</p>
+                    <p class="back-link"><a href="#ipv6-basics">Back to IPv6 basics</a></p>
+                </div>
+                <h3>IPv6 address types</h3>
+                <table>
+                    <tr><th>Type</th><th>Prefix</th><th>Purpose</th></tr>
+                    <tr><td>Global Unicast</td><td><code>2000::/3</code></td><td>Publicly routable, like a public IPv4 address.</td></tr>
+                    <tr><td>Link-Local</td><td><code>fe80::/10</code></td><td>Auto-assigned, only valid on the local link, used for neighbor discovery.</td></tr>
+                    <tr><td>Unique Local (ULA)</td><td><code>fc00::/7</code></td><td>Private addressing, like IPv4's RFC1918 space such as 10.x and 192.168.x.</td></tr>
+                    <tr><td>Multicast</td><td><code>ff00::/8</code></td><td>One-to-many delivery. IPv6 has no broadcast.</td></tr>
+                    <tr><td>Loopback</td><td><code>::1/128</code></td><td>Equivalent to IPv4's 127.0.0.1.</td></tr>
+                </table>
+
+                <hr>
+
+                <h2 id="comparison">5. IPv4 vs IPv6 Side-by-Side</h2>
+                <table>
+                    <tr><th>Feature</th><th>IPv4</th><th>IPv6</th></tr>
+                    <tr><td>Address length</td><td>32 bits</td><td>128 bits</td></tr>
+                    <tr><td>Address format</td><td>Decimal, dotted, such as 192.168.1.1</td><td>Hex, colon-separated, such as 2001:db8::1</td></tr>
+                    <tr><td>Total address space</td><td>About 4.3 billion</td><td>About 340 undecillion</td></tr>
+                    <tr><td>Broadcast</td><td>Yes</td><td>No, replaced by multicast</td></tr>
+                    <tr><td>NAT requirement</td><td>Common, due to address scarcity</td><td>Not needed in the same way; enough addresses exist for every device</td></tr>
+                    <tr><td>Autoconfiguration</td><td>Manual or DHCP</td><td>Built-in SLAAC alongside DHCPv6</td></tr>
+                    <tr><td>Header complexity</td><td>More fields, variable options</td><td>Simplified, fixed-size header for faster routing</td></tr>
+                    <tr><td>Typical LAN subnet</td><td>Varies, /24 common</td><td>/64 standard</td></tr>
+                </table>
+
+                <hr>
+
+                <h2 id="mac-vs-ip">6. IP Addressing vs Hardware (MAC) Addressing</h2>
+                <p>IP and MAC addresses operate at different layers and serve different purposes.</p>
+                <table>
+                    <tr><th></th><th>IP Address</th><th>MAC Address</th></tr>
+                    <tr><td>Layer</td><td>Network layer, Layer 3</td><td>Data Link layer, Layer 2</td></tr>
+                    <tr><td>Assigned by</td><td>Software or network admin, either static or DHCP</td><td>Burned into the NIC by the manufacturer</td></tr>
+                    <tr><td>Scope</td><td>Logical and can change</td><td>Physical and usually fixed, though spoofable</td></tr>
+                    <tr><td>Format</td><td>192.168.1.10 or 2001:db8::1</td><td>00:1A:2B:3C:4D:5E, 48-bit hex</td></tr>
+                    <tr><td>Purpose</td><td>Routing traffic between networks</td><td>Delivering frames within a local segment</td></tr>
+                </table>
+                <h3>How they relate: ARP / NDP</h3>
+                <p>When a device sends data to another device on the same local network, it needs that device's MAC address, not just its IP address. This is resolved by <strong>ARP</strong> in IPv4, which broadcasts "who has this IP?", and <strong>NDP</strong> in IPv6, which uses multicast.</p>
+
+                <h3>Encapsulation</h3>
+                <p>Every packet sent locally is wrapped in a frame with source and destination MAC addresses, while carrying source and destination IP addresses inside it.</p>
+                <div class="diagram-wrap">
+                    <svg width="100%" viewBox="0 0 680 260" role="img" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif">
+                        <title>Frame and packet encapsulation</title>
+                        <a href="#mac-header-detail">
+                            <rect x="60" y="50" width="560" height="170" rx="16" fill="#EEF6FF" stroke="#2563EB" stroke-width="1"/>
+                            <text x="80" y="76" font-size="14" font-weight="bold" fill="#1d4ed8">Ethernet frame (layer 2)</text>
+                            <text x="80" y="94" font-size="12" fill="#1e40af">Src MAC / Dst MAC - local delivery</text>
+                        </a>
+                        <a href="#ip-header-detail">
+                            <rect x="100" y="110" width="480" height="90" rx="10" fill="#ECFDF5" stroke="#10B981" stroke-width="1"/>
+                            <text x="120" y="132" font-size="14" font-weight="bold" fill="#047857">IP packet (layer 3)</text>
+                            <text x="120" y="150" font-size="12" fill="#047857">Src IP / Dst IP - end-to-end routing</text>
+                            <text x="120" y="168" font-size="12" fill="#047857">Payload (your actual data)</text>
+                        </a>
+                        <text x="340" y="240" text-anchor="middle" font-size="12" fill="#555">Frame gets you across the local link. Packet gets you to the final destination.</text>
+                    </svg>
+                    <p class="diagram-caption">Click the frame or the packet for details</p>
+                </div>
+                <div class="detail-box" id="mac-header-detail">
+                    <h4>Detail: The MAC header</h4>
+                    <p>The MAC header is rewritten at <strong>every router hop</strong>. A router strips the incoming frame's MAC header and builds a new one addressed to the next segment's device, because a destination MAC only has meaning within that next local segment.</p>
+                    <p><strong>Nuance:</strong> MAC addressing scope extends across an entire <strong>broadcast domain</strong>, which can span many switches or even tunneled links via VXLAN, MPLS, or bridged VPNs. The actual boundary where MAC scope ends is a <strong>router</strong>, a Layer 3 boundary, not physical distance.</p>
+                    <p class="back-link"><a href="#mac-vs-ip">Back to IP vs MAC</a></p>
+                </div>
+                <div class="detail-box" id="ip-header-detail">
+                    <h4>Detail: The IP header</h4>
+                    <p>The IP header stays constant for the whole journey, hop to hop, until it reaches the final destination. This is what makes end-to-end routing possible: every router along the way reads the destination IP to decide the next hop without needing to rewrite it.</p>
+                    <h4>Why not just use the hardware address for everything?</h4>
+                    <ol>
+                        <li><strong>Not hierarchical:</strong> an IP address has structure. The network portion narrows location, like a postal code. A MAC address is a flat, manufacturer-assigned serial number with no way to infer location.</li>
+                        <li><strong>Does not reflect movement:</strong> a MAC stays the same wherever a device goes, but IP addressing lets a device get a new, location-appropriate address via DHCP when it moves networks.</li>
+                        <li><strong>Would require every router on earth to know every device individually:</strong> with no way to summarize or aggregate, unlike hierarchical IP routing.</li>
+                    </ol>
+                    <p class="back-link"><a href="#mac-vs-ip">Back to IP vs MAC</a></p>
+                </div>
+
+                <hr>
+
+                <h2 id="cellular">7. How Cellular Networks Work</h2>
+                <p>Cellular networks are different from wired networking, but they connect back to IP addressing once traffic reaches the carrier's core.</p>
+                <div class="diagram-wrap">
+                    <svg width="100%" viewBox="0 0 680 260" role="img" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif">
+                        <title>Cellular network path from phone to internet</title>
+                        <defs><marker id="arrow3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#555" stroke-width="1.5"/></marker></defs>
+                        <a href="#ran-detail"><rect x="30" y="90" width="120" height="56" rx="8" fill="#EEF6FF" stroke="#2563EB" stroke-width="1"/><text x="90" y="112" text-anchor="middle" font-size="14" font-weight="bold" fill="#1d4ed8">Phone</text><text x="90" y="130" text-anchor="middle" font-size="12" fill="#1e40af">radio link</text></a>
+                        <line x1="150" y1="118" x2="196" y2="118" stroke="#555" stroke-width="1.5" marker-end="url(#arrow3)"/>
+                        <a href="#ran-detail"><rect x="200" y="90" width="120" height="56" rx="8" fill="#ECFDF5" stroke="#10B981" stroke-width="1"/><text x="260" y="112" text-anchor="middle" font-size="14" font-weight="bold" fill="#047857">Cell tower</text><text x="260" y="130" text-anchor="middle" font-size="12" fill="#047857">RAN</text></a>
+                        <line x1="320" y1="118" x2="366" y2="118" stroke="#555" stroke-width="1.5" marker-end="url(#arrow3)"/>
+                        <a href="#core-network-detail"><rect x="370" y="90" width="140" height="56" rx="8" fill="#F1F5F9" stroke="#334155" stroke-width="1"/><text x="440" y="112" text-anchor="middle" font-size="14" font-weight="bold" fill="#0f172a">Core network</text><text x="440" y="130" text-anchor="middle" font-size="12" fill="#334155">auth, mobility, NAT</text></a>
+                        <line x1="510" y1="118" x2="556" y2="118" stroke="#555" stroke-width="1.5" marker-end="url(#arrow3)"/>
+                        <a href="#cellular-ip-detail"><rect x="560" y="90" width="90" height="56" rx="8" fill="#EEF6FF" stroke="#38BDF8" stroke-width="1"/><text x="605" y="112" text-anchor="middle" font-size="14" font-weight="bold" fill="#0369a1">Internet</text><text x="605" y="130" text-anchor="middle" font-size="12" fill="#0369a1">IP traffic</text></a>
+                        <text x="340" y="180" text-anchor="middle" font-size="12" fill="#555">Radio waves get you to the tower. Everything past that is ordinary IP routing.</text>
+                        <text x="340" y="200" text-anchor="middle" font-size="12" fill="#555">2G/3G: voice and data were separate. 4G/5G: everything is IP.</text>
+                    </svg>
+                    <p class="diagram-caption">Click a stage above for a detailed explanation</p>
+                </div>
+                <div class="detail-box" id="ran-detail">
+                    <h4>Detail: Radio Access Network</h4>
+                    <p>Coverage area is divided into <strong>cells</strong>, each served by one base station, or cell tower. Neighboring cells use different radio frequencies to avoid interference, but cells far enough apart reuse the same frequencies. This is how the system scales to millions of users without needing infinite spectrum.</p>
+                    <p>As a phone moves between cells, it performs a <strong>handover</strong>, re-associating with the new tower without dropping the connection. The phone talks to the nearest base station, eNodeB in 4G/LTE or gNodeB in 5G, over radio, handling signal modulation, error correction, and sharing frequency bands across many phones at once.</p>
+                    <p class="back-link"><a href="#cellular">Back to cellular networks</a></p>
+                </div>
+                <div class="detail-box" id="core-network-detail">
+                    <h4>Detail: Core network</h4>
+                    <p>The carrier core is the carrier's brain behind the towers, handling:</p>
+                    <ul>
+                        <li><strong>Authentication:</strong> verifying the SIM is legitimate.</li>
+                        <li><strong>Mobility management:</strong> tracking which cell a device is in so traffic can be routed to it.</li>
+                        <li><strong>Routing to the internet or phone system:</strong> traffic gets NAT'd and routed out to the public internet. Voice is either routed through the traditional phone system on older networks or carried as IP traffic with VoLTE.</li>
+                    </ul>
+                    <p class="back-link"><a href="#cellular">Back to cellular networks</a></p>
+                </div>
+                <div class="detail-box" id="cellular-ip-detail">
+                    <h4>Detail: Where IP addressing fits in</h4>
+                    <p>Once data leaves the RAN and enters the core network, it becomes ordinary <strong>IP traffic</strong>. The phone gets assigned an IP address, often via carrier-side DHCP, typically behind <strong>carrier-grade NAT</strong> because carriers do not have enough public IPv4 addresses for every subscriber. This NAT pressure is one of the biggest real-world drivers of IPv6 adoption; mobile carriers were among the first to deploy it at scale.</p>
+                    <h4>Generational summary</h4>
+                    <table>
+                        <tr><th>Gen</th><th>Introduced</th><th>Primary purpose</th><th>Data approach</th></tr>
+                        <tr><td>1G</td><td>1980s</td><td>Analog voice</td><td>No data</td></tr>
+                        <tr><td>2G</td><td>1990s</td><td>Digital voice, basic data</td><td>Circuit-switched</td></tr>
+                        <tr><td>3G</td><td>2000s</td><td>Mobile internet</td><td>Packet-switched IP</td></tr>
+                        <tr><td>4G/LTE</td><td>2010s</td><td>Broadband mobile data</td><td>All-IP network</td></tr>
+                        <tr><td>5G</td><td>2019+</td><td>High bandwidth, low latency, IoT scale</td><td>All-IP, network slicing</td></tr>
+                    </table>
+                    <p><strong>Key architectural shift:</strong> 2G and 3G had separate systems for voice and data. From 4G onward, everything, including voice, is just IP packets.</p>
+                    <p class="back-link"><a href="#cellular">Back to cellular networks</a></p>
+                </div>
+
+                <hr>
+
+                <h2 id="exercises">8. Suggested Exercises for Students</h2>
+                <ol>
+                    <li>Convert a full IPv6 address to its shortened form and back again.</li>
+                    <li>Given an IPv4 network and a required host count, calculate the correct CIDR block.</li>
+                    <li>Identify the address type from a list of sample IPv6 addresses.</li>
+                    <li>Subnet a /24 IPv4 network into four equal /26 subnets and list each subnet's network address, broadcast address, and usable range.</li>
+                    <li>Explain why mobile carriers were early adopters of IPv6, connecting it back to carrier-grade NAT and address exhaustion.</li>
+                    <li>Trace what happens to the MAC and IP headers of a packet as it crosses two routers on its way to a destination. What changes at each hop, and what stays the same?</li>
+                </ol>
+            </article>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-inner">
+            <span>LocalBox course sample</span>
+            <span><a href="/">Home</a> · <a href="/#learning">Learning</a> · <a href="/news.html">News</a> · <a href="/#updates">Join the news group</a></span>
+        </div>
+    </footer>
+</body>
+</html>

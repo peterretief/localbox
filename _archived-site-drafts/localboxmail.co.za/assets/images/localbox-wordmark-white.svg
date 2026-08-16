@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 96" role="img" aria-labelledby="title desc">
+  <title id="title">LocalBox white wordmark</title>
+  <desc id="desc">LocalBox cube logo with white LocalBox wordmark and Build Run Learn Share tagline.</desc>
+  <rect width="420" height="96" rx="14" fill="none"/>
+  <g transform="translate(10 10)">
+    <path d="M38 4 8 21v34l30 17 30-17V21z" fill="#081E3A"/>
+    <path d="M38 4 8 21l30 17 30-17z" fill="#0B1E3A" stroke="#E2E8F0" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M8 21v34l30 17V38z" fill="#10294B" stroke="#38BDF8" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M68 21v34L38 72V38z" fill="#10294B" stroke="#2563EB" stroke-width="3" stroke-linejoin="round"/>
+    <path d="m30 15 11 5-10 5" fill="none" stroke="#10B981" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M46 29h11M49 42h9M49 53h9" stroke="#10B981" stroke-width="4" stroke-linecap="round"/>
+    <path d="M20 36c8 0 8 17 18 17 7 0 8-9 16-9" fill="none" stroke="#38BDF8" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="20" cy="36" r="3" fill="#38BDF8"/>
+    <circle cx="38" cy="53" r="3" fill="#10B981"/>
+    <circle cx="54" cy="44" r="3" fill="#38BDF8"/>
+  </g>
+  <text x="96" y="45" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" fill="#FFFFFF">LOCAL</text>
+  <text x="210" y="45" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" fill="#38BDF8">BOX</text>
+  <text x="99" y="68" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="800" letter-spacing="1.6" fill="#10B981">BUILD - RUN - LEARN - SHARE</text>
+</svg>
