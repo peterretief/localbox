@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalBox Mail</title>
+    <style>
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #20242a;
+            background: #f7f8f5;
+            line-height: 1.55;
+        }
+        a { color: inherit; }
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: rgba(255,255,255,0.96);
+            border-bottom: 1px solid #dfe3dc;
+        }
+        .nav {
+            max-width: 1160px;
+            margin: 0 auto;
+            min-height: 64px;
+            padding: 0 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+        .brand-logo {
+            display: block;
+            width: 176px;
+            height: 42px;
+            object-fit: contain;
+            flex: 0 0 auto;
+        }
+        .links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            color: #43504a;
+            font-size: 14px;
+        }
+        .links a { text-decoration: none; }
+        .links a:hover { color: #1e6f5c; }
+        .nav-group { position: relative; }
+        .nav-group summary {
+            list-style: none;
+            cursor: pointer;
+            color: #43504a;
+            font-size: 14px;
+        }
+        .nav-group summary::-webkit-details-marker { display: none; }
+        .nav-group summary::after { content: " +"; color: #68716b; }
+        .nav-group[open] summary::after { content: " -"; }
+        .nav-group-menu {
+            position: absolute;
+            top: calc(100% + 12px);
+            right: 0;
+            z-index: 30;
+            display: grid;
+            min-width: 190px;
+            padding: 8px;
+            gap: 2px;
+            border: 1px solid #dfe3dc;
+            border-radius: 7px;
+            background: #ffffff;
+            box-shadow: 0 12px 28px rgba(19, 38, 29, 0.12);
+        }
+        .nav-group-menu a { padding: 8px 10px; white-space: nowrap; }
+        .menu-toggle {
+            display: none;
+            min-width: 44px;
+            min-height: 44px;
+            padding: 8px 10px;
+            border: 1px solid #cfd8d1;
+            border-radius: 7px;
+            background: #ffffff;
+            color: #24352f;
+            font-size: 22px;
+            line-height: 1;
+        }
+        .menu-toggle:hover { background: #f1f6f2; }
+        .hero {
+            position: relative;
+            min-height: 78vh;
+            display: grid;
+            align-items: center;
+            overflow: hidden;
+            background:
+                linear-gradient(90deg, rgba(5,20,39,0.97) 0%, rgba(5,20,39,0.88) 48%, rgba(5,20,39,0.35) 100%),
+                url("/assets/images/localbox-hero.svg") center / cover no-repeat;
+            color: #ffffff;
+        }
+        .hero-inner {
+            width: 100%;
+            max-width: 1160px;
+            margin: 0 auto;
+            padding: 88px 22px 70px;
+            position: relative;
+            z-index: 1;
+        }
+        .hero h1 {
+            max-width: 760px;
+            margin: 0;
+            font-size: clamp(42px, 6vw, 72px);
+            line-height: 1.02;
+            letter-spacing: 0;
+        }
+        .hero p {
+            max-width: 650px;
+            margin: 22px 0 0;
+            font-size: 19px;
+            color: #e3e9e2;
+        }
+        .hero-note {
+            display: block;
+            margin-top: 18px !important;
+            color: #e3e9e2 !important;
+            font-size: 14px !important;
+        }
+        .hero-note a {
+            color: #ffffff;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            font-weight: 700;
+        }
+        .development-note {
+            display: block;
+            width: fit-content;
+            max-width: 650px;
+            margin-top: 14px;
+            padding: 9px 12px;
+            border-left: 4px solid #42d66d;
+            background: rgba(255,255,255,0.12);
+            color: #f2eadb;
+            font-size: 15px;
+            border-radius: 0 7px 7px 0;
+        }
+        .hero-device {
+            position: absolute;
+            right: max(-36px, calc((100vw - 1160px) / 2 - 12px));
+            bottom: 28px;
+            width: clamp(420px, 48vw, 680px);
+            height: auto;
+            max-height: 76vh;
+            object-fit: contain;
+            opacity: 0.32;
+            filter: saturate(0.75) contrast(0.92);
+            mix-blend-mode: multiply;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .actions {
+            margin-top: 32px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 0 18px;
+            border-radius: 7px;
+            border: 1px solid transparent;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .button.primary { background: #2563eb; color: #ffffff; }
+        .button.primary:hover { background: #1d4ed8; }
+        .button.secondary { border-color: #f1f4ed; color: #ffffff; }
+        .button.secondary:hover { border-color: #38bdf8; color: #ffffff; background: rgba(56,189,248,0.1); }
+        section {
+            padding: 72px 22px;
+        }
+        .wrap {
+            max-width: 1160px;
+            margin: 0 auto;
+        }
+        .section-head {
+            max-width: 760px;
+            margin-bottom: 28px;
+        }
+        h2 {
+            margin: 0 0 12px;
+            font-size: 34px;
+            line-height: 1.15;
+            letter-spacing: 0;
+            color: #22312c;
+        }
+        .section-head p {
+            margin: 0;
+            color: #5f6863;
+        }
+        .eyebrow {
+            margin: 0 0 16px !important;
+            color: #42d66d !important;
+            font-size: 14px !important;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+        }
+        .section-label {
+            margin: 0 0 8px;
+            color: #2563eb;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 18px;
+        }
+        .offer {
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+            gap: 18px;
+            align-items: stretch;
+            margin-top: 18px;
+        }
+        .panel {
+            background: #ffffff;
+            border: 1px solid #dfe3dc;
+            border-radius: 8px;
+            padding: 22px;
+        }
+        .panel h3 {
+            margin: 0 0 8px;
+            color: #22312c;
+            font-size: 20px;
+        }
+        .panel p, .panel li {
+            color: #5d6660;
+            font-size: 15px;
+        }
+        .power-list {
+            margin: 0 0 14px;
+            border-top: 1px solid #e5e8e2;
+        }
+        .power-list p {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin: 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e8e2;
+        }
+        .power-list strong { color: #22312c; }
+        .power-list span { color: #5d6660; text-align: right; }
+        .power-note { margin-bottom: 0; }
+        .price-box {
+            background: #24352f;
+            color: #ffffff;
+            border-color: #24352f;
+        }
+        .price-box h3, .price-box p, .price-box li { color: #ffffff; }
+        .price {
+            margin: 12px 0;
+            font-size: 28px;
+            font-weight: 800;
+            color: #f1b06f;
+        }
+        .price-note {
+            color: #d7e2db !important;
+            font-size: 13px !important;
+        }
+        .product-line {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+        }
+        .why-options {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 32px;
+        }
+        .learning-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .learning-more {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 10px;
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid #dfe6ee;
+        }
+        .learning-more a {
+            display: flex;
+            min-height: 44px;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border: 1px solid #dfe6ee;
+            border-radius: 7px;
+            background: #ffffff;
+            color: #1e6f5c;
+            font-size: 14px;
+            font-weight: 800;
+            text-decoration: none;
+        }
+        .learning-more a:hover {
+            border-color: #1e6f5c;
+            color: #2563eb;
+        }
+        .ecosystem-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 16px;
+        }
+        .learning-card {
+            padding: 24px;
+            border: 1px solid #dfe6ee;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+        .ecosystem-card {
+            padding: 22px;
+            border: 1px solid #dfe6ee;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+        .ecosystem-card a {
+            display: inline-flex;
+            margin-top: 14px;
+            color: #1e6f5c;
+            font-size: 14px;
+            font-weight: 800;
+            text-decoration: none;
+        }
+        .ecosystem-card a:hover {
+            color: #2563eb;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+        .learning-card h3 {
+            margin: 14px 0 8px;
+            color: #071a33;
+        }
+        .ecosystem-card h3 {
+            margin: 12px 0 8px;
+            color: #071a33;
+        }
+        .learning-card p {
+            margin: 0;
+            color: #5d6875;
+            font-size: 14px;
+        }
+        .ecosystem-card p {
+            margin: 0;
+            color: #5d6875;
+            font-size: 14px;
+        }
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+        }
+        .project-card {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            min-height: 190px;
+            padding: 22px;
+            border: 1px solid #dfe6ee;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+        .project-card h3 { margin: 14px 0 8px; color: #071a33; }
+        .project-card p { margin: 0; color: #5d6875; font-size: 14px; }
+        .project-card .button { margin-top: auto; }
+        .learning-icon {
+            display: inline-grid;
+            width: 48px;
+            height: 48px;
+            place-items: center;
+            border-radius: 8px;
+            background: #081e3a;
+            color: #2563eb;
+            border: 1px solid #213455;
+            box-shadow: inset 0 0 0 1px rgba(56,189,248,0.12);
+        }
+        .learning-icon svg {
+            width: 30px;
+            height: 30px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .learning-icon.green { color: #10b981; }
+        .learning-icon.sky { color: #38bdf8; }
+        .learning-icon.blue { color: #2563eb; }
+        .ecosystem-badge {
+            display: inline-flex;
+            align-items: center;
+            min-height: 28px;
+            padding: 4px 8px;
+            border-radius: 7px;
+            background: #edf4ff;
+            color: #2563eb;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .ecosystem-card:nth-child(3n+2) .ecosystem-badge {
+            background: #ecfdf5;
+            color: #10b981;
+        }
+        .ecosystem-card:nth-child(3n) .ecosystem-badge {
+            background: #ecfeff;
+            color: #0891b2;
+        }
+        .why-option-label {
+            font-size: 17px;
+            font-weight: 800;
+            color: #22312c;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #c5cdc8;
+        }
+        .muted-section .why-option-label {
+            color: #3d4843;
+        }
+        ul {
+            margin: 12px 0 0;
+            padding-left: 18px;
+        }
+        .band {
+            background: #eef1ea;
+        }
+        .flow {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .step {
+            padding: 20px;
+            background: #ffffff;
+            border: 1px solid #dfe3dc;
+            border-radius: 8px;
+        }
+        .step strong {
+            display: block;
+            color: #1e6f5c;
+            margin-bottom: 8px;
+        }
+        .step p {
+            margin: 0;
+            color: #5d6660;
+            font-size: 15px;
+        }
+        .step ul {
+            margin-top: 14px;
+            color: #5d6660;
+            font-size: 14px;
+        }
+        .forms {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            align-items: start;
+        }
+        form {
+            display: grid;
+            gap: 12px;
+        }
+        .wide { grid-column: 1 / -1; }
+        label {
+            display: grid;
+            gap: 5px;
+            color: #35413c;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        input, select, textarea {
+            width: 100%;
+            min-height: 42px;
+            padding: 10px 12px;
+            border: 1px solid #cbd1ca;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #20242a;
+            font: inherit;
+            font-size: 15px;
+        }
+        textarea {
+            min-height: 116px;
+            resize: vertical;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: 2px solid #96cbbb;
+            border-color: #1e6f5c;
+        }
+        button {
+            min-height: 44px;
+            border: 0;
+            border-radius: 7px;
+            background: #24352f;
+            color: #ffffff;
+            font-weight: 800;
+            cursor: pointer;
+            font-size: 15px;
+        }
+        button:hover { background: #1e6f5c; }
+        .fine {
+            color: #68716b;
+            font-size: 13px;
+            margin: 0;
+        }
+        .domain-check {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 150px auto;
+            gap: 10px;
+            align-items: end;
+        }
+        .result {
+            margin-top: 14px;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #dfe3dc;
+            background: #f7f8f5;
+            color: #35413c;
+            display: none;
+        }
+        .result.available { border-color: #87bca7; background: #eef8f2; }
+        .result.unavailable { border-color: #d9a49b; background: #fff3f1; }
+        .price-line { font-weight: 800; color: #22312c; margin-top: 6px; }
+        .muted-section {
+            color: #68716b;
+        }
+        .muted-section .panel {
+            background: #fbfcfa;
+            border-color: #e5e8e2;
+        }
+        .muted-section h2,
+        .muted-section h3 {
+            color: #3d4843;
+        }
+        .result-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 14px;
+        }
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 12px;
+            border: 1px solid #dfe3dc;
+            border-radius: 7px;
+            background: #ffffff;
+        }
+        .result-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .result-actions button {
+            min-height: 38px;
+            padding: 8px 11px;
+            font-size: 13px;
+        }
+        .result-row strong { color: #22312c; }
+        .result-row span { color: #5d6660; }
+        .result-row button, .result-action {
+            flex: 0 0 auto;
+            min-height: 38px;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+        .result-row.available { border-color: #87bca7; background: #eef8f2; }
+        .result-row.unavailable { border-color: #d9a49b; background: #fff3f1; }
+        .result-meta {
+            display: grid;
+            gap: 3px;
+            min-width: 0;
+        }
+        .result-meta small {
+            color: #68716b;
+        }
+        .domain-errors {
+            margin-top: 10px;
+            color: #8a4a22;
+            font-size: 13px;
+        }
+        .registration-notice {
+            margin: 0 0 16px;
+            padding: 12px 14px;
+            border: 1px solid #ead8a4;
+            border-radius: 7px;
+            background: #fff8df;
+            color: #514322;
+            line-height: 1.45;
+        }
+        .lookup-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .lookup-heading h3 { margin: 0; }
+        .paystack-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex: 0 0 auto;
+            color: #68716b;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .paystack-badge img {
+            display: block;
+            width: 92px;
+            height: auto;
+        }
+        .result-action {
+            margin-top: 12px;
+        }
+        .restore-note {
+            display: none;
+            margin-top: 10px;
+            color: #68716b;
+            font-size: 13px;
+        }
+        .quote-panel {
+            display: none;
+            margin-top: 14px;
+            padding: 16px;
+            border: 1px solid #dfe3dc;
+            border-radius: 8px;
+            background: #f8fbf9;
+        }
+        .quote-panel.open {
+            display: block;
+        }
+        .quote-panel h4 {
+            margin: 0 0 10px;
+            font-size: 16px;
+            color: #22312c;
+        }
+        .quote-form {
+            display: grid;
+            gap: 10px;
+        }
+        .quote-form .forms {
+            margin: 0;
+        }
+        .quote-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .waitlist-form {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: end;
+            margin-top: 18px;
+        }
+        .waitlist-form input {
+            min-height: 44px;
+        }
+        .waitlist-form button {
+            padding: 0 18px;
+        }
+        .waitlist-note {
+            margin-top: 10px;
+            color: #68716b;
+            font-size: 13px;
+        }
+        .submit-status {
+            display: none;
+            margin-top: 8px;
+            color: #68716b;
+            font-size: 13px;
+        }
+        footer {
+            padding: 28px 22px;
+            border-top: 1px solid #dfe3dc;
+            color: #68716b;
+            background: #ffffff;
+        }
+        .footer-inner {
+            max-width: 1160px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 1020px) {
+            .hero { min-height: 70vh; }
+            .hero-device {
+                right: -70px;
+                bottom: 20px;
+                width: min(96vw, 430px);
+                max-height: 48vh;
+                opacity: 0.24;
+            }
+            .learning-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .grid, .flow, .forms, .domain-check, .offer, .product-line, .option-grid, .why-options, .waitlist-form { grid-template-columns: 1fr; }
+            .nav { position: relative; flex-wrap: wrap; }
+            .menu-toggle { display: inline-grid; place-items: center; }
+            .links { display: none; width: 100%; padding: 12px 0 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+            .nav.menu-open .links { display: grid; }
+            .links a, .nav-group summary { padding: 12px 8px; border-top: 1px solid #e5e9e5; }
+            .nav-group-menu { position: static; min-width: 0; padding: 0 0 8px 12px; border: 0; box-shadow: none; }
+            .nav-group-menu a { padding: 10px 8px; }
+            .brand-logo { width: 150px; }
+            section { padding: 52px 18px; }
+            .hero-inner { padding: 78px 18px 54px; }
+        }
+        @media (max-width: 560px) {
+            .learning-grid { grid-template-columns: 1fr; }
+            .links { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="nav" aria-label="Main navigation">
+            <a class="brand" href="#top" aria-label="LocalBox Mail home">
+                <img class="brand-logo" src="/assets/images/localbox-wordmark.svg" alt="LocalBox Mail">
+            </a>
+            <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-links" aria-label="Open navigation menu">&#9776;</button>
+            <div class="links" id="main-links">
+                <a href="#top">Home</a>
+                <details class="nav-group">
+                    <summary>Get started</summary>
+                    <div class="nav-group-menu">
+                        <a href="#check">Register your domain</a>
+                        <a href="#how">The journey</a>
+                        <a href="/login?public=1&next=%2F">Sign in</a>
+                        <a href="/account/domains">My domains</a>
+                    </div>
+                </details>
+                <details class="nav-group">
+                    <summary>Learn</summary>
+                    <div class="nav-group-menu">
+                        <a href="#learning">Learning</a>
+                        <a href="/course-samples.html">Course samples</a>
+                        <a href="#open-source">Open source</a>
+                    </div>
+                </details>
+                <details class="nav-group">
+                    <summary>Resources</summary>
+                    <div class="nav-group-menu">
+                        <a href="#ecosystem">LocalBox ecosystem</a>
+                        <a href="/about.html">About</a>
+                        <a href="/software.html">Software</a>
+                        <a href="/news.html">News</a>
+                        <a href="/faq.html">FAQ</a>
+                        <a href="/terms.html">Terms</a>
+                    </div>
+                </details>
+                <a href="#contact">Contact</a>
+            </div>
+        </nav>
+    </header>
+
+    <main id="top">
+        <section class="hero">
+            <img class="hero-device" src="/assets/images/rpi3b.png" alt="" aria-hidden="true">
+            <div class="hero-inner">
+                <p class="eyebrow">BUILD - RUN - LEARN - SHARE</p>
+                <h1>Learn by building real internet services.</h1>
+                <p>LocalBox is a hands-on platform for learning systems, networking, development, administration and digital business operations.</p>
+                <p>Start with the LocalBox apps you need. If you are curious, you can also follow the learning path behind them at your own pace.</p>
+                <p class="development-note">Register a domain, publish a website, configure email and learn how the services work by running them yourself.</p>
+                <div class="actions">
+                    <a class="button primary" href="#check">Register a domain</a>
+                    <a class="button secondary" href="#how">Explore the journey</a>
+                    <a class="button secondary" href="/video.html?v=20260820">Watch the demo</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="learning" class="learning-areas">
+            <div class="wrap">
+                <div class="section-head">
+                    <p class="section-label">WHAT YOU WILL LEARN</p>
+                    <h2>Practical skills for real systems</h2>
+                    <p>LocalBox turns the pieces of running online services into a practical learning path.</p>
+                </div>
+
+                <div class="learning-grid">
+                    <article class="learning-card">
+                        <span class="learning-icon green" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="m7 10 6 6-6 6"/><path d="M16 22h9"/></svg></span>
+                        <h3>Development</h3>
+                        <p>Build, test and deploy services using real code.</p>
+                    </article>
+                    <article class="learning-card">
+                        <span class="learning-icon green" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="16" cy="7" r="3"/><circle cx="7" cy="22" r="3"/><circle cx="25" cy="22" r="3"/><path d="M14.5 9.6 8.5 19.4M17.5 9.6l6 9.8M10 22h12"/></svg></span>
+                        <h3>Networking</h3>
+                        <p>Configure DNS, routing, VPNs and secure connections.</p>
+                    </article>
+                    <article class="learning-card">
+                        <span class="learning-icon sky" aria-hidden="true"><svg viewBox="0 0 32 32"><rect x="6" y="7" width="20" height="5" rx="1"/><rect x="6" y="15" width="20" height="5" rx="1"/><rect x="6" y="23" width="20" height="5" rx="1"/><path d="M10 9.5h.1M10 17.5h.1M10 25.5h.1"/></svg></span>
+                        <h3>Systems</h3>
+                        <p>Install and manage Linux servers and infrastructure.</p>
+                    </article>
+                    <article class="learning-card">
+                        <span class="learning-icon green" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="4"/><path d="M16 4v4M16 24v4M4 16h4M24 16h4M7.5 7.5l2.8 2.8M21.7 21.7l2.8 2.8M24.5 7.5l-2.8 2.8M10.3 21.7l-2.8 2.8"/></svg></span>
+                        <h3>Administration</h3>
+                        <p>Maintain users, backups, updates and system security.</p>
+                    </article>
+                    <article class="learning-card">
+                        <span class="learning-icon sky" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M6 25h20"/><path d="M9 21v-6M16 21V9M23 21V5"/><path d="m19 8 4-4 4 4"/></svg></span>
+                        <h3>Digital business</h3>
+                        <p>Run domains, websites, email and online services.</p>
+                    </article>
+                </div>
+                <div class="learning-more" aria-label="Read more by topic">
+                    <a href="/web-development-and-apis.html" aria-label="Read more about Development">Read more</a>
+                    <a href="/networking-basics.html" aria-label="Read more about Networking">Read more</a>
+                    <a href="/linux-system-commands.html" aria-label="Read more about Systems">Read more</a>
+                    <a href="/security-and-server-hardening.html" aria-label="Read more about Administration">Read more</a>
+                    <a href="/domain-creation-and-provisioning.html" aria-label="Read more about Digital business">Read more</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="ecosystem" class="band">
+            <div class="wrap">
+                <div class="section-head">
+                    <p class="section-label">LOCALBOX ECOSYSTEM</p>
+                    <h2>One platform, limitless practical systems</h2>
+                    <p>LocalBox can grow in many directions, limited only by the problems people want to solve and the ideas they want to build. Learning material is available for people who want to go deeper, but it is not required to get started.</p>
+                </div>
+                <div class="ecosystem-grid">
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">Learn</span>
+                        <h3>LocalBox Learn</h3>
+                        <p>Courses and guided builds for systems, networking, development and operations.</p>
+                        <a href="https://learn.localboxmail.co.za/">learn.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">Mail</span>
+                        <h3>LocalBox Mail</h3>
+                        <p>Domain email, mailboxes, webmail, contacts and the practical lessons behind them.</p>
+                        <a href="https://mail.localboxmail.co.za/">mail.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">DNS</span>
+                        <h3>LocalBox DNS</h3>
+                        <p>Domain registration, records, routing and the naming layer that makes services reachable.</p>
+                        <a href="https://dns.localboxmail.co.za/">dns.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">VPN</span>
+                        <h3>LocalBox VPN</h3>
+                        <p>Secure private access for administration, support, file sharing and trusted devices.</p>
+                        <a href="https://vpn.localboxmail.co.za/">vpn.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">AI</span>
+                        <h3>LocalBox AI</h3>
+                        <p>Practical AI workflows for websites, support, automation and learning assistance.</p>
+                        <a href="https://ai.localboxmail.co.za/">ai.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">Cloud</span>
+                        <h3>LocalBox Cloud</h3>
+                        <p>Backups, hosted services, remote access and cloud-connected local infrastructure.</p>
+                        <a href="https://cloud.localboxmail.co.za/">cloud.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">Monitor</span>
+                        <h3>LocalBox Monitor</h3>
+                        <p>Health checks, logs, alerts and the habits needed to keep systems running.</p>
+                        <a href="https://monitor.localboxmail.co.za/">monitor.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">Build</span>
+                        <h3>LocalBox Build</h3>
+                        <p>Hardware design, enclosures, tools, physical systems and guided builds from idea to working object.</p>
+                        <a href="https://build.localboxmail.co.za/">build.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">Electronics</span>
+                        <h3>LocalBox Electronics</h3>
+                        <p>Circuits, components, PCB design, embedded systems, repairs and the practical lessons behind connected devices.</p>
+                        <a href="https://electronics.localboxmail.co.za/">electronics.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">Invent</span>
+                        <h3>LocalBox Invent</h3>
+                        <p>Problem solving, prototypes, product ideas, experiments and turning practical needs into working solutions.</p>
+                        <a href="https://invent.localboxmail.co.za/">invent.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">Code</span>
+                        <h3>LocalBox Code</h3>
+                        <p>Development, scripting, automation, APIs and the software skills behind LocalBox services.</p>
+                        <a href="https://code.localboxmail.co.za/">code.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">Secure</span>
+                        <h3>LocalBox Secure</h3>
+                        <p>Passwords, access control, encryption, firewalls, backups and the habits behind operational security.</p>
+                        <a href="https://secure.localboxmail.co.za/">secure.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">Art</span>
+                        <h3>LocalBox Art</h3>
+                        <p>Creative technology, digital art, portfolios, media projects and practical tools for artists and makers.</p>
+                        <a href="https://art.localboxmail.co.za/">art.localboxmail.co.za</a>
+                    </article>
+                    <article class="ecosystem-card">
+                        <span class="ecosystem-badge">Farm</span>
+                        <h3>LocalBox Farm</h3>
+                        <p>Urban farming systems, grow boxes, irrigation, sensors and practical local food projects.</p>
+                        <a href="https://farm.localboxmail.co.za/">farm.localboxmail.co.za</a>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="open-source">
+            <div class="wrap">
+                <div class="section-head">
+                    <p class="section-label">OPEN SOURCE</p>
+                    <h2>Open source code available</h2>
+                    <p>Explore practical projects, read the code, and build on the ideas behind LocalBox.</p>
+                </div>
+                <div class="projects-grid">
+                    <article class="project-card">
+                        <span class="ecosystem-badge">Video tools</span>
+                        <h3>Video Annotator</h3>
+                        <p>A basic open-source video editor for annotating and working with recordings.</p>
+                        <a class="button primary" href="https://github.com/peterretief/video-annotator" target="_blank" rel="noopener">View source code</a>
+                    </article>
+                    <article class="project-card">
+                        <span class="ecosystem-badge">More projects</span>
+                        <h3>Add another project</h3>
+                        <p>Open-source tools, experiments, and useful learning projects can be added here.</p>
+                        <a class="button secondary" style="background:#24352f;" href="#contact">Suggest a project</a>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="services" class="muted-section">
+            <div class="wrap">
+                <div class="section-head">
+                    <h2>After registration</h2>
+                    <p>After your domain is registered, your journey begins. Park your domain for free, or start hosting your first website and register your first email address when you are ready.</p>
+                </div>
+                <div class="product-line">
+                    <article class="panel">
+                        <h3>Park it with LocalBox</h3>
+                        <p>Secure your domain name now and decide on hosting later.</p>
+                        <ul>
+                            <li>Free basic domain parking</li>
+                            <li>No website or mailbox setup required immediately</li>
+                            <li>Use LocalBox hosting when you are ready</li>
+                        </ul>
+                    </article>
+                    <article class="panel">
+                        <h3>Host it with LocalBox</h3>
+                        <p>Try LocalBox hosting first. When you are ready, LocalBox can help you grow from a starter website into a more complete workspace.</p>
+                        <ul>
+                            <li>DNS and routing setup</li>
+                            <li>Starter website and mail options</li>
+                            <li>A practical path from registration to website, email, and future services</li>
+                        </ul>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="check" class="band">
+            <div class="wrap">
+                <div class="section-head">
+                    <h2>Search for and register your domain</h2>
+                    <p>Enter your domain name. LocalBox can check .za domains, other supported domains, or create a free LocalBox subdomain so you can try the web builder. <a href="/about.html">Read this first</a> if you want to understand the LocalBox approach.</p>
+                </div>
+
+                <article class="panel" style="margin-bottom:18px;">
+                    <div class="lookup-heading">
+                        <h3>Domain registration</h3>
+                        <div class="paystack-badge" aria-label="Payments powered by Paystack">
+                            <span>Secure payments by</span>
+                            <img src="/assets/images/paystack-logo.svg" alt="Paystack">
+                        </div>
+                    </div>
+                    <p class="registration-notice">Automatic domain registration is disabled at the moment. You can still search for a domain name and send us a request.</p>
+                    <form class="domain-check" data-domain-lookup>
+                        <label>Your domain name
+                            <input name="name" placeholder="example-name" autocomplete="off" required>
+                        </label>
+                        <label>Extensions
+                            <select name="tlds">
+                                <option value="co.za,org.za,web.za">South Africa .za</option>
+                                <option value="" disabled>Loading more extensions...</option>
+                                <option value="co.za">South Africa .co.za</option>
+                                <option value="org.za">South Africa .org.za</option>
+                                <option value="web.za">South Africa .web.za</option>
+                                <option value="localboxmail.co.za" data-localbox-subdomain-option>Free subdomain on localboxmail.co.za</option>
+                            </select>
+                        </label>
+                        <button type="submit">Check</button>
+                    </form>
+                    <p class="fine" style="margin-top:14px;">Register your domain first. After registration, check My domains for the next part of your journey: keep it parked for free or ask LocalBox to host it.</p>
+                    <p class="restore-note" data-restore-note>Your previous domain choice has been restored.</p>
+                    <div class="quote-actions">
+                        <button type="button" data-quote-toggle>Ask a question</button>
+                    </div>
+                    <div class="quote-panel" data-quote-panel>
+                        <h4>Ask about a domain</h4>
+                        <p class="fine">Use this if you need help choosing a domain, parking, or LocalBox hosting.</p>
+                        <form class="quote-form" method="POST" action="/contact" data-quote-form>
+                            <input type="text" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+                            <input type="hidden" name="subject" value="LocalBox domain question" data-quote-subject>
+                            <div class="forms">
+                                <label>Name
+                                    <input type="text" name="name" autocomplete="name" required>
+                                </label>
+                                <label>Your email address
+                                    <input type="email" name="email" autocomplete="email" required>
+                                </label>
+                            </div>
+                            <label>Your domain or project
+                                <input type="text" name="quote_domain" data-quote-domain placeholder="example.co.za">
+                            </label>
+                            <label>Message
+                                <textarea name="message" data-quote-message required></textarea>
+                            </label>
+                            <button type="submit">Send question</button>
+                            <p class="submit-status" data-submit-status aria-live="polite"></p>
+                        </form>
+                    </div>
+                    <div class="result" data-domain-result aria-live="polite"></div>
+                </article>
+            </div>
+        </section>
+
+        <section id="how">
+            <div class="wrap">
+                <div class="section-head">
+                    <h2>The journey</h2>
+                    <p>Start by securing your domain name. LocalBox parks it first, then you can leave it parked, send another provider's nameservers, or ask LocalBox to prepare hosting.</p>
+                </div>
+                <div class="flow">
+                    <div class="step">
+                        <strong>1. Find your address</strong>
+                        <p>Start with the name people will remember. Search for a domain, compare the available extensions, and see the registration price before you commit.</p>
+                        <ul>
+                            <li>Search .co.za and other supported extensions</li>
+                            <li>Use a free LocalBox subdomain while you explore</li>
+                            <li>Ask us about a name that needs a closer look</li>
+                        </ul>
+                    </div>
+                    <div class="step">
+                        <strong>2. Secure it, then take your time</strong>
+                        <p>Once registered in your name, your domain does not need to become a full project overnight. Keep it parked while you prepare your brand, gather content, or decide where you want to host.</p>
+                        <ul>
+                            <li>Keep a simple holding page online</li>
+                            <li>Use another DNS provider if you prefer</li>
+                            <li>Move to LocalBox hosting when you are ready</li>
+                        </ul>
+                    </div>
+                    <div class="step">
+                        <strong>3. Choose what it should do</strong>
+                        <p>Create your LocalBox account and choose the level of help you need. We can leave the domain parked, or provision the useful starting point: a basic website, a contact form, and your first email address.</p>
+                        <ul>
+                            <li>Complete payment securely</li>
+                            <li>Confirm your domain and primary email address</li>
+                            <li>Choose LocalBox hosting or provide your own DNS direction</li>
+                        </ul>
+                    </div>
+                    <div class="step">
+                        <strong>4. Grow into your workspace</strong>
+                        <p>Open with something simple, then build as your needs become clearer. Your domain becomes the front door to the services you actually use, rather than a bundle of features you have to configure on day one.</p>
+                        <ul>
+                            <li>Design and publish your website</li>
+                            <li>Add mailboxes, aliases, and contact-form delivery</li>
+                            <li>Share files and add services as your work grows</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="later" class="muted-section">
+            <div class="wrap">
+                <div class="section-head">
+                    <h2>Grow when you need to</h2>
+                    <p>Start with the essentials: a domain, a starter website, and a first email address. Add more pages, mailboxes, files, forms, backups, and technical hosting options later.</p>
+                </div>
+                <div class="grid">
+                    <article class="panel">
+                        <h3>Email and content</h3>
+                        <ul>
+                            <li>Unlimited email addresses</li>
+                            <li>More website pages for notices, classes, events, and documents</li>
+                            <li>Outlook or Thunderbird access over VPN</li>
+                            <li>Existing mailbox migration available as a paid service</li>
+                        </ul>
+                    </article>
+                    <article class="panel">
+                        <h3>Backups and technical options</h3>
+                        <ul>
+                            <li>Mail and website data mounted on removable storage</li>
+                            <li>Periodic backup recommended for hardware failure recovery</li>
+                            <li>Syncthing file sharing can be added for approved devices</li>
+                            <li><a href="/software.html">Technical deployment details</a> for people who need them</li>
+                        </ul>
+                    </article>
+                    <article class="panel">
+                        <h3>Setup and support</h3>
+                        <ul>
+                            <li>Help moving from a hosted setup</li>
+                            <li>Email migration.</li>
+                            <li>Remote admin over the secure VPN mesh</li>
+                            <li>Backup, update, and recovery options</li>
+                        </ul>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="updates" class="band alt">
+            <div class="wrap">
+                <div class="section-head">
+                    <h2>Be the first to know</h2>
+                    <p>Join the LocalBox news group for early access, product releases, setup notes, and useful guides.</p>
+                    <p>If you are interested in the Raspberry Pi, development, and sysadmin course, email <a href="mailto:admin@localboxmail.co.za?subject=LocalBox%20course%20interest">admin@localboxmail.co.za</a> or join the news group below and we will add you to the course queue.</p>
+                </div>
+                <article class="panel">
+                    <form method="POST" action="/news-group">
+                        <input type="text" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+                        <input type="hidden" name="source" value="localboxmail.co.za homepage">
+                        <label>Your email address
+                            <div class="waitlist-form">
+                                <input type="email" name="email" autocomplete="email" placeholder="you@example.co.za" required>
+                                <button type="submit">Subscribe</button>
+                            </div>
+                        </label>
+                        <p class="waitlist-note">We will only send LocalBox news, early access notes, and useful setup information.</p>
+                    </form>
+                </article>
+            </div>
+        </section>
+
+        <section id="contact" class="band">
+            <div class="wrap">
+                <div class="section-head">
+                    <h2>Contact LocalBox</h2>
+                    <p>Use this for questions from an artist, NGO, school, company, practice, local project, or support contact. We will try to answer any questions you may have; LocalBox is about people first.</p>
+                </div>
+                <article class="panel">
+                    <form method="POST" action="/contact" data-contact-form>
+                        <input type="text" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+                        <div class="forms">
+                            <label>Name
+                                <input type="text" name="name" autocomplete="name" required data-contact-name>
+                            </label>
+                            <label>Email
+                                <input type="email" name="email" autocomplete="email" required data-contact-email>
+                            </label>
+                        </div>
+                        <label>Subject
+                            <input type="text" name="subject" placeholder="How can we help?" data-contact-subject>
+                        </label>
+                        <label>Message
+                            <textarea name="message" required data-contact-message></textarea>
+                        </label>
+                        <button type="submit">Send message</button>
+                        <p class="submit-status" data-submit-status aria-live="polite"></p>
+                    </form>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-inner">
+            <span>LocalBox Mail</span>
+            <span>.za domain registration, starter websites, email setup, and LocalBox hosting options. <a href="#check">Register your domain</a> · <a href="/about.html">About LocalBox</a> · <a href="/course-samples.html">Course samples</a> · <a href="/software.html">Software details</a> · <a href="/news.html">News</a> · <a href="/faq.html">FAQ</a> · <a href="/terms.html">Terms, business information and refund policy</a></span>
+        </div>
+    </footer>
+    <script>
+        (function(){
+            const form = document.querySelector("[data-domain-lookup]");
+            const result = document.querySelector("[data-domain-result]");
+            const quoteToggle = document.querySelector("[data-quote-toggle]");
+            const quotePanel = document.querySelector("[data-quote-panel]");
+            const quoteForm = document.querySelector("[data-quote-form]");
+            const quoteDomain = document.querySelector("[data-quote-domain]");
+            const quoteMessage = document.querySelector("[data-quote-message]");
+            const quoteSubject = document.querySelector("[data-quote-subject]");
+            const contactForm = document.querySelector("[data-contact-form]");
+            const storageKey = "localboxmail.domainChoice";
+            const tldSelect = form ? form.querySelector("select[name='tlds']") : null;
+            if(!form || !result){
+                return;
+            }
+            function saveChoice(){
+                try {
+                    const input = form.querySelector("input[name='name']");
+                    window.localStorage.setItem(storageKey, JSON.stringify({
+                        name: cleanName(input ? input.value : "")
+                    }));
+                } catch (error) {}
+            }
+            function restoreChoice(){
+                let saved = null;
+                try {
+                    saved = JSON.parse(window.localStorage.getItem(storageKey) || "null");
+                } catch (error) {}
+                if(!saved || typeof saved !== "object"){
+                    return;
+                }
+                const input = form.querySelector("input[name='name']");
+                if(input && saved.name && !input.value){
+                    input.value = saved.name;
+                }
+                const note = document.querySelector("[data-restore-note]");
+                if(note && saved.name){
+                    note.style.display = "block";
+                }
+            }
+            function paymentStartURL(domain){
+                return "/payment/start?domain=" + encodeURIComponent(domain);
+            }
+            function subdomainCreateURL(domain){
+                return "/account/subdomain/create?domain=" + encodeURIComponent(domain);
+            }
+            function localBoxSubdomainSuffix(){
+                const host = (window.location.hostname || "").toLowerCase();
+                if(host === "localboxzen.co.za"){
+                    return "localboxzen.co.za";
+                }
+                return "localboxmail.co.za";
+            }
+            function updateLocalBoxSubdomainOption(){
+                const option = document.querySelector("[data-localbox-subdomain-option]");
+                if(!option){
+                    return;
+                }
+                const suffix = localBoxSubdomainSuffix();
+                option.value = suffix;
+                option.textContent = "Free subdomain on " + suffix;
+            }
+            function addLocalBoxSubdomainOptions(parents){
+                if(!tldSelect || !Array.isArray(parents)){
+                    return;
+                }
+                const existing = new Set(Array.from(tldSelect.options).map(option => option.value));
+                const wanted = parents
+                    .map(parent => String(parent || "").trim().toLowerCase())
+                    .filter(parent => parent.indexOf(".") > 0 && !existing.has(parent));
+                if(wanted.length === 0){
+                    return;
+                }
+                const separator = document.createElement("option");
+                separator.value = "";
+                separator.disabled = true;
+                separator.textContent = "Free LocalBox subdomains";
+                tldSelect.appendChild(separator);
+                wanted.forEach(parent => {
+                    const option = document.createElement("option");
+                    option.value = parent;
+                    option.textContent = "Free subdomain on " + parent;
+                    option.setAttribute("data-localbox-subdomain-option", "");
+                    tldSelect.appendChild(option);
+                    existing.add(parent);
+                });
+            }
+            function requestedDomain(){
+                const input = form.querySelector("input[name='name']");
+                const raw = input ? cleanName(input.value) : "";
+                if(!raw){
+                    return "";
+                }
+                if(raw.indexOf(".") >= 0){
+                    return raw;
+                }
+                return raw + ".co.za";
+            }
+            function quoteText(item){
+                const domain = quoteDomain && quoteDomain.value.trim() ? quoteDomain.value.trim() : requestedDomain();
+                const estimate = item ? money(item) : "";
+                const provider = item && item.provider ? providerLabel(item.provider) : "";
+                return [
+                    "I would like a manual quote for domain registration.",
+                    domain ? "Domain: " + domain : "Domain: ",
+                    estimate ? "Estimated price shown: " + estimate : "Estimated price shown: price on request",
+                    provider ? "Preferred registrar/provider: " + provider : "Preferred registrar/provider: ",
+                    "",
+                    "",
+                    "I understand my domain belongs to me without provisos once registered.",
+                    "",
+                    "Notes:"
+                ].join("\n");
+            }
+            function updateQuoteFields(force){
+                if(quoteSubject){
+                    quoteSubject.value = "LocalBox domain question";
+                }
+                if(quoteDomain && !quoteDomain.value.trim()){
+                    quoteDomain.value = requestedDomain();
+                }
+                if(quoteMessage && (force || !quoteMessage.value.trim() || quoteMessage.dataset.autoQuote === "1")){
+                    quoteMessage.value = quoteText();
+                    quoteMessage.dataset.autoQuote = "1";
+                }
+            }
+            function updatePackageUI(){
+                document.querySelectorAll("[data-payment-domain]").forEach(link => {
+                    link.href = paymentStartURL(link.getAttribute("data-payment-domain") || "");
+                    link.textContent = "Register your domain";
+                });
+                updateQuoteFields(false);
+                saveChoice();
+            }
+            function localBoxDeployQuoteMessage(domain){
+                return [
+                    "I would like a quote for a LocalBox deployment.",
+                    "",
+                    domain ? "Domain: " + domain : "Domain: ",
+                    "Preferred setup: please recommend the best hosting option",
+                    "Approximate number of users/mailboxes: ",
+                    "I understand I can add as many mailboxes as I need at reasonable usage for no extra cost.",
+                    "",
+                    "Please quote based on the platform that fits best.",
+                    "I am interested in reliability, backups, and simple day-to-day management."
+                ].join("\n");
+            }
+            function lockSubmitButton(form, busyText){
+                if(!form){
+                    return;
+                }
+                form.addEventListener("submit", function(){
+                    const button = form.querySelector("button[type='submit'], input[type='submit']");
+                    if(!button){
+                        return;
+                    }
+                    if(button.dataset.submitting === "1"){
+                        return;
+                    }
+                    button.dataset.submitting = "1";
+                    button.disabled = true;
+                    button.setAttribute("aria-disabled", "true");
+                    if(button.tagName === "BUTTON" && busyText){
+                        button.dataset.originalText = button.textContent;
+                        button.textContent = busyText;
+                    } else if(button.tagName === "INPUT" && busyText){
+                        button.dataset.originalText = button.value;
+                        button.value = busyText;
+                    }
+                    const status = form.querySelector("[data-submit-status]");
+                    if(status && busyText){
+                        status.textContent = busyText;
+                        status.style.display = "block";
+                    }
+                });
+            }
+            function prefillContactFormFromURL(){
+                if(!contactForm){
+                    return;
+                }
+                const params = new URLSearchParams(window.location.search);
+                if(params.get("quote") !== "deploy" && params.get("quote") !== "rpi"){
+                    return;
+                }
+                const domain = cleanName(params.get("domain") || requestedDomain());
+                const email = params.get("email") || "";
+                const subject = contactForm.querySelector("[data-contact-subject]");
+                const message = contactForm.querySelector("[data-contact-message]");
+                const emailInput = contactForm.querySelector("[data-contact-email]");
+                if(subject && !subject.value.trim()){
+                    subject.value = domain ? "LocalBox deployment quote for " + domain : "LocalBox deployment quote";
+                }
+                if(message && !message.value.trim()){
+                    message.value = localBoxDeployQuoteMessage(domain);
+                }
+                if(emailInput && email && !emailInput.value.trim()){
+                    emailInput.value = email;
+                }
+                setTimeout(function(){
+                    const name = contactForm.querySelector("[data-contact-name]");
+                    if(name && !name.value.trim()){
+                        name.focus();
+                    } else if(message){
+                        message.focus();
+                    }
+                }, 50);
+            }
+            function cleanName(value){
+                value = String(value || "").trim().toLowerCase();
+                value = value.replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[\/?#]/)[0].replace(/\.+$/, "");
+                return value;
+            }
+            function money(item){
+                const cents = parseInt(item.payment_price || item.register_price || "0", 10);
+                if(!Number.isFinite(cents) || cents <= 0){
+                    return "";
+                }
+                const currency = item.payment_currency || item.currency || "";
+                const amount = (cents / 100).toFixed(2);
+                const symbol = currency === "ZAR" ? "R" : currency === "USD" ? "$" : currency ? currency + " " : "";
+                return symbol + amount;
+            }
+            function providerLabel(provider){
+                return provider === "domains.co.za" ? "Domains.co.za" : provider === "cloudflare" ? "Cloudflare" : provider || "Provider";
+            }
+            function loadDomainExtensions(){
+                if(!tldSelect){
+                    return;
+                }
+                fetch("/api/domain/tlds", {headers: {"Accept": "application/json"}})
+                    .then(response => response.json().then(data => ({ok: response.ok, data})))
+                    .then(({ok, data}) => {
+                        const loading = Array.from(tldSelect.options).find(option => option.disabled && option.textContent.indexOf("Loading") >= 0);
+                        if(loading){
+                            loading.remove();
+                        }
+                        if(!ok || !Array.isArray(data.tlds)){
+                            return;
+                        }
+                        addLocalBoxSubdomainOptions(data.subdomain_parents);
+                        const prices = data.prices && typeof data.prices === "object" ? data.prices : {};
+                        const existing = new Set(Array.from(tldSelect.options).map(option => option.value));
+                        const cloudflareTLDs = Array.isArray(data.cloudflare_tlds) ? data.cloudflare_tlds : [];
+                        if(cloudflareTLDs.length){
+                            const group = document.createElement("optgroup");
+                            group.label = "Cloudflare extensions";
+                            cloudflareTLDs.forEach(tld => {
+                                if(!tld || existing.has(tld)){
+                                    return;
+                                }
+                                const option = document.createElement("option");
+                                option.value = tld;
+                                const quote = prices[tld] || {};
+                                const price = quote.register_price ? money({register_price: quote.register_price, currency: quote.currency || "ZAR"}) : "";
+                                option.textContent = "." + tld + (price ? " - est " + price : " - price on request");
+                                group.appendChild(option);
+                                existing.add(tld);
+                            });
+                            if(group.children.length){
+                                tldSelect.appendChild(group);
+                            }
+                        }
+                        const separator = document.createElement("option");
+                        separator.value = "";
+                        separator.disabled = true;
+                        separator.textContent = "More manual extensions";
+                        tldSelect.appendChild(separator);
+                        data.tlds.forEach(tld => {
+                            if(!tld || existing.has(tld)){
+                                return;
+                            }
+                            const option = document.createElement("option");
+                            option.value = tld;
+                            const quote = prices[tld] || {};
+                            const price = quote.register_price ? money({register_price: quote.register_price, currency: quote.currency || "ZAR"}) : "";
+                            option.textContent = "." + tld + (price ? " - est " + price + ", quoted manually" : " - price on request");
+                            tldSelect.appendChild(option);
+                            existing.add(tld);
+                        });
+                    })
+                    .catch(() => {
+                        const loading = Array.from(tldSelect.options).find(option => option.disabled && option.textContent.indexOf("Loading") >= 0);
+                        if(loading){
+                            loading.textContent = "More extensions unavailable";
+                        }
+                    });
+            }
+            function automaticCheckoutAvailable(item){
+                return item.available && parseInt(item.payment_price || "0", 10) > 0;
+            }
+            function unavailableCheckoutText(item){
+                if(!item.available){
+                    return "";
+                }
+                if(item.reason === "manual_registration"){
+                    return " - manual quote required";
+                }
+                if(item.reason === "manual_registration_unchecked"){
+                    const price = money(item);
+                    return price ? " - est " + price + ", quoted and added manually" : " - manual availability and price check required";
+                }
+                if(item.reason === "localbox_test_subdomain"){
+                    return " - free LocalBox trial after a non-refundable USD 1 verification fee";
+                }
+                return " - automatic registration disabled";
+            }
+            function openDomainRequest(domain, item){
+                if(quotePanel){
+                    quotePanel.classList.add("open");
+                }
+                if(quoteDomain){
+                    quoteDomain.value = domain || "";
+                }
+                if(quoteMessage){
+                    quoteMessage.value = quoteText(item);
+                    quoteMessage.dataset.autoQuote = "1";
+                }
+                if(quoteDomain){
+                    quoteDomain.focus();
+                }
+            }
+            function render(data){
+                result.className = "result";
+                result.style.display = "block";
+                const rows = Array.isArray(data.results) ? data.results : [];
+                if(rows.length === 0){
+                    result.textContent = "No domain results returned.";
+                    return;
+                }
+                result.innerHTML = "";
+                const list = document.createElement("div");
+                list.className = "result-list";
+                rows.forEach(item => {
+                    const row = document.createElement("div");
+                    row.className = "result-row " + (item.available ? "available" : "unavailable");
+                    const meta = document.createElement("div");
+                    meta.className = "result-meta";
+                    const name = document.createElement("strong");
+                    name.textContent = item.domain;
+                    const detail = document.createElement("small");
+                    const price = money(item);
+                    const checkoutText = automaticCheckoutAvailable(item) ? " - checkout " + price : unavailableCheckoutText(item);
+                    detail.textContent = providerLabel(item.provider) + " - " + (item.available ? "available" : "not available") + checkoutText;
+                    meta.appendChild(name);
+                    meta.appendChild(detail);
+                    row.appendChild(meta);
+                    if(item.available){
+                        const actions = document.createElement("div");
+                        actions.className = "result-actions";
+                        if(automaticCheckoutAvailable(item)){
+                            const link = document.createElement("a");
+                            link.className = "result-action";
+                            link.setAttribute("data-payment-domain", item.domain);
+                            link.href = paymentStartURL(item.domain);
+                            link.textContent = "Register your domain";
+                            actions.appendChild(link);
+                        } else {
+                            if(item.reason === "localbox_test_subdomain"){
+                                const link = document.createElement("a");
+                                link.className = "result-action";
+                                link.href = subdomainCreateURL(item.domain) + "&trial=1";
+                                link.textContent = "Start verified free trial";
+                                actions.appendChild(link);
+                            } else {
+                                const request = document.createElement("button");
+                                request.type = "button";
+                                request.textContent = "Send request";
+                                request.addEventListener("click", function(){
+                                    openDomainRequest(item.domain, item);
+                                });
+                                actions.appendChild(request);
+                            }
+                        }
+                        row.appendChild(actions);
+                    }
+                    list.appendChild(row);
+                });
+                result.appendChild(list);
+                if(Array.isArray(data.errors) && data.errors.length){
+                    const errors = document.createElement("div");
+                    errors.className = "domain-errors";
+                    errors.textContent = data.errors.map(error => (error.provider ? error.provider + ": " : "") + error.error).join(" | ");
+                    result.appendChild(errors);
+                }
+            }
+            const domainInput = form.querySelector("input[name='name']");
+            if(domainInput){
+                domainInput.addEventListener("input", saveChoice);
+            }
+            if(quoteToggle && quotePanel){
+                quoteToggle.addEventListener("click", function(){
+                    quotePanel.classList.toggle("open");
+                    updateQuoteFields(true);
+                    if(quotePanel.classList.contains("open")){
+                        const email = quotePanel.querySelector("input[name='email']");
+                        if(email){
+                            email.focus();
+                        }
+                    }
+                });
+            }
+            if(quoteMessage){
+                quoteMessage.addEventListener("input", function(){
+                    quoteMessage.dataset.autoQuote = "0";
+                });
+            }
+            if(quoteDomain){
+                quoteDomain.addEventListener("input", function(){
+                    if(quoteMessage && quoteMessage.dataset.autoQuote === "1"){
+                        quoteMessage.value = quoteText();
+                    }
+                });
+            }
+            if(quoteForm){
+                quoteForm.addEventListener("submit", function(){
+                    updateQuoteFields(false);
+                });
+            }
+            lockSubmitButton(quoteForm, "Sending...");
+            lockSubmitButton(contactForm, "Sending...");
+            restoreChoice();
+            updateLocalBoxSubdomainOption();
+            loadDomainExtensions();
+            updatePackageUI();
+            prefillContactFormFromURL();
+            form.addEventListener("submit", function(event){
+                event.preventDefault();
+                const params = new URLSearchParams(new FormData(form));
+                params.set("name", cleanName(params.get("name")));
+                saveChoice();
+                result.className = "result";
+                result.style.display = "block";
+                result.textContent = "Checking domains...";
+                fetch("/api/domain/search?" + params.toString(), {headers: {"Accept": "application/json"}})
+                    .then(response => response.json().then(data => ({ok: response.ok, data})))
+                    .then(({ok, data}) => {
+                        if(!ok){
+                            throw new Error(data && data.error ? data.error : "Domain lookup failed");
+                        }
+                        render(data);
+                    })
+                    .catch(error => {
+                        result.className = "result unavailable";
+                        result.style.display = "block";
+                        result.textContent = error.message || "Domain lookup failed";
+                    });
+            });
+        })();
+    </script>
+    <script>
+        (function () {
+            const nav = document.querySelector(".nav");
+            const toggle = document.querySelector(".menu-toggle");
+            const links = document.querySelectorAll(".links a");
+            if (!nav || !toggle) return;
+            toggle.addEventListener("click", function () {
+                const open = nav.classList.toggle("menu-open");
+                toggle.setAttribute("aria-expanded", String(open));
+                toggle.setAttribute("aria-label", open ? "Close navigation menu" : "Open navigation menu");
+                toggle.innerHTML = open ? "&times;" : "&#9776;";
+            });
+            links.forEach(function (link) {
+                link.addEventListener("click", function () {
+                    nav.classList.remove("menu-open");
+                    toggle.setAttribute("aria-expanded", "false");
+                    toggle.setAttribute("aria-label", "Open navigation menu");
+                    toggle.innerHTML = "&#9776;";
+                });
+            });
+        })();
+    </script>
+</body>
+</html>
