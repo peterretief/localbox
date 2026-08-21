@@ -294,43 +294,37 @@
             grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 16px;
         }
-        .learning-more {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-            gap: 10px;
-            margin-top: 18px;
-            padding-top: 18px;
-            border-top: 1px solid #dfe6ee;
-        }
-        .learning-more a {
-            display: flex;
-            min-height: 44px;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            padding: 10px 12px;
-            border: 1px solid #dfe6ee;
-            border-radius: 7px;
-            background: #ffffff;
-            color: #1e6f5c;
-            font-size: 14px;
-            font-weight: 800;
-            text-decoration: none;
-        }
-        .learning-more a:hover {
-            border-color: #1e6f5c;
-            color: #2563eb;
-        }
         .ecosystem-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
             gap: 16px;
         }
         .learning-card {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
             padding: 24px;
             border: 1px solid #dfe6ee;
             border-radius: 8px;
             background: #ffffff;
+        }
+        .learning-card a {
+            display: inline-flex;
+            min-height: 38px;
+            align-items: center;
+            justify-content: center;
+            margin-top: auto;
+            padding: 9px 12px;
+            border: 1px solid #dfe6ee;
+            border-radius: 7px;
+            color: #1e6f5c;
+            font-size: 14px;
+            font-weight: 800;
+            text-decoration: none;
+        }
+        .learning-card a:hover {
+            border-color: #1e6f5c;
+            color: #2563eb;
         }
         .ecosystem-card {
             padding: 22px;
@@ -814,34 +808,32 @@
                         <span class="learning-icon green" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="m7 10 6 6-6 6"/><path d="M16 22h9"/></svg></span>
                         <h3>Development</h3>
                         <p>Build, test and deploy services using real code.</p>
+                        <a href="/web-development-and-apis.html" aria-label="Read more about Development">Read more</a>
                     </article>
                     <article class="learning-card">
                         <span class="learning-icon green" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="16" cy="7" r="3"/><circle cx="7" cy="22" r="3"/><circle cx="25" cy="22" r="3"/><path d="M14.5 9.6 8.5 19.4M17.5 9.6l6 9.8M10 22h12"/></svg></span>
                         <h3>Networking</h3>
                         <p>Configure DNS, routing, VPNs and secure connections.</p>
+                        <a href="/networking-basics.html" aria-label="Read more about Networking">Read more</a>
                     </article>
                     <article class="learning-card">
                         <span class="learning-icon sky" aria-hidden="true"><svg viewBox="0 0 32 32"><rect x="6" y="7" width="20" height="5" rx="1"/><rect x="6" y="15" width="20" height="5" rx="1"/><rect x="6" y="23" width="20" height="5" rx="1"/><path d="M10 9.5h.1M10 17.5h.1M10 25.5h.1"/></svg></span>
                         <h3>Systems</h3>
                         <p>Install and manage Linux servers and infrastructure.</p>
+                        <a href="/linux-system-commands.html" aria-label="Read more about Systems">Read more</a>
                     </article>
                     <article class="learning-card">
                         <span class="learning-icon green" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="4"/><path d="M16 4v4M16 24v4M4 16h4M24 16h4M7.5 7.5l2.8 2.8M21.7 21.7l2.8 2.8M24.5 7.5l-2.8 2.8M10.3 21.7l-2.8 2.8"/></svg></span>
                         <h3>Administration</h3>
                         <p>Maintain users, backups, updates and system security.</p>
+                        <a href="/security-and-server-hardening.html" aria-label="Read more about Administration">Read more</a>
                     </article>
                     <article class="learning-card">
                         <span class="learning-icon sky" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M6 25h20"/><path d="M9 21v-6M16 21V9M23 21V5"/><path d="m19 8 4-4 4 4"/></svg></span>
                         <h3>Digital business</h3>
                         <p>Run domains, websites, email and online services.</p>
+                        <a href="/domain-creation-and-provisioning.html" aria-label="Read more about Digital business">Read more</a>
                     </article>
-                </div>
-                <div class="learning-more" aria-label="Read more by topic">
-                    <a href="/web-development-and-apis.html" aria-label="Read more about Development">Read more</a>
-                    <a href="/networking-basics.html" aria-label="Read more about Networking">Read more</a>
-                    <a href="/linux-system-commands.html" aria-label="Read more about Systems">Read more</a>
-                    <a href="/security-and-server-hardening.html" aria-label="Read more about Administration">Read more</a>
-                    <a href="/domain-creation-and-provisioning.html" aria-label="Read more about Digital business">Read more</a>
                 </div>
             </div>
         </section>
