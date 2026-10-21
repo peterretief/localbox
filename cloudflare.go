@@ -378,9 +378,6 @@ func (c *cloudflareClient) UpsertEmailRoute(ctx context.Context, address string)
 	if err != nil {
 		return err
 	}
-	if err := c.EnableEmailRoutingDNSForDomain(ctx, zone.ID, zone.Name, domain); err != nil {
-		return err
-	}
 	rules, err := c.ListEmailRoutingRules(ctx, zone.ID)
 	if err != nil {
 		return err
@@ -396,12 +393,46 @@ func (c *cloudflareClient) UpsertEmailRoute(ctx context.Context, address string)
 		}},
 		Actions: []cloudflareEmailRoutingAction{c.emailRoutingAction()},
 	}
+	// The setup audit calls this for every mailbox every two minutes, so a rule
+	// that is already right is left alone: no DNS enable, no rewrite.
+	for _, existing := range rules {
+		if emailRoutingRuleMatchesAddress(existing, address) && emailRoutingRulesEqual(existing, rule) {
+			return nil
+		}
+	}
+	if err := c.EnableEmailRoutingDNSForDomain(ctx, zone.ID, zone.Name, domain); err != nil {
+		return err
+	}
 	for _, existing := range rules {
 		if emailRoutingRuleMatchesAddress(existing, address) {
 			return c.writeEmailRoutingRule(ctx, http.MethodPut, zone.ID, existing.ID, rule)
 		}
 	}
 	return c.writeEmailRoutingRule(ctx, http.MethodPost, zone.ID, "", rule)
+}
+
+func emailRoutingRulesEqual(a, b cloudflareEmailRoutingRule) bool {
+	if a.Name != b.Name || a.Enabled != b.Enabled || len(a.Matchers) != len(b.Matchers) || len(a.Actions) != len(b.Actions) {
+		return false
+	}
+	for i := range a.Matchers {
+		if !strings.EqualFold(a.Matchers[i].Type, b.Matchers[i].Type) ||
+			!strings.EqualFold(a.Matchers[i].Field, b.Matchers[i].Field) ||
+			normalizeEmailAddress(a.Matchers[i].Value) != normalizeEmailAddress(b.Matchers[i].Value) {
+			return false
+		}
+	}
+	for i := range a.Actions {
+		if !strings.EqualFold(a.Actions[i].Type, b.Actions[i].Type) || len(a.Actions[i].Value) != len(b.Actions[i].Value) {
+			return false
+		}
+		for j := range a.Actions[i].Value {
+			if !strings.EqualFold(a.Actions[i].Value[j], b.Actions[i].Value[j]) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (c *cloudflareClient) FindZoneForEmailDomain(ctx context.Context, domain string) (CloudflareZoneResult, error) {
